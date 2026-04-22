@@ -1,5 +1,6 @@
 from datetime import datetime
 from html import escape
+import logging
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from sqlalchemy import delete, insert, select
@@ -10,6 +11,7 @@ from services.storage import delete_stored_file, save_html_file, save_upload_ima
 
 
 router = APIRouter(tags=["brochures"])
+logger = logging.getLogger(__name__)
 
 
 def _now():
@@ -81,15 +83,22 @@ async def create_brochure(
 ):
     base_url = str(request.base_url).rstrip("/")
 
-    main_image_file = save_upload_image(main_image, base_url)
-    if not main_image_file:
-        return {"success": False, "message": "대표 이미지는 jpg, png, webp 형식만 가능합니다."}
+    try:
+        main_image_file = save_upload_image(main_image, base_url)
+        if not main_image_file:
+            return {"success": False, "message": "대표 이미지는 jpg, png, webp 형식만 가능합니다."}
 
-    extra_image_files = []
-    for img in (extra_images or [])[:10]:
-        saved = save_upload_image(img, base_url)
-        if saved:
-            extra_image_files.append(saved)
+        extra_image_files = []
+        for img in (extra_images or [])[:10]:
+            saved = save_upload_image(img, base_url)
+            if saved:
+                extra_image_files.append(saved)
+    except Exception:
+        logger.exception("Failed to save uploaded brochure images")
+        return {
+            "success": False,
+            "message": "파일 저장에 실패했습니다. R2 설정 또는 저장소 상태를 확인해주세요.",
+        }
 
     price_parts = []
     if deposit:
@@ -253,7 +262,14 @@ async def create_brochure(
 </body>
 </html>
 """
-    brochure_file = save_html_file(html, base_url)
+    try:
+        brochure_file = save_html_file(html, base_url)
+    except Exception:
+        logger.exception("Failed to save brochure HTML")
+        return {
+            "success": False,
+            "message": "소개서 파일 저장에 실패했습니다. R2 설정 또는 저장소 상태를 확인해주세요.",
+        }
 
     with engine.begin() as conn:
         result = conn.execute(

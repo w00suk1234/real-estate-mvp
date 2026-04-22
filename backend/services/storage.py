@@ -9,6 +9,13 @@ from db import OUTPUT_DIR, UPLOAD_DIR
 
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".jfif"}
+R2_REQUIRED_KEYS = [
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET",
+    "R2_PUBLIC_BASE_URL",
+]
 
 
 @dataclass
@@ -24,14 +31,42 @@ def _public_base_url():
 
 
 def r2_enabled():
-    required = [
-        "R2_ACCOUNT_ID",
-        "R2_ACCESS_KEY_ID",
-        "R2_SECRET_ACCESS_KEY",
-        "R2_BUCKET",
-        "R2_PUBLIC_BASE_URL",
-    ]
-    return all(os.getenv(key) for key in required)
+    return all(os.getenv(key) for key in R2_REQUIRED_KEYS)
+
+
+def r2_missing_keys():
+    return [key for key in R2_REQUIRED_KEYS if not os.getenv(key)]
+
+
+def storage_backend_preference():
+    return os.getenv("STORAGE_BACKEND", "auto").strip().lower()
+
+
+def r2_required():
+    return storage_backend_preference() in {"r2", "cloudflare-r2"}
+
+
+def storage_status():
+    missing = r2_missing_keys()
+    return {
+        "active_backend": "r2" if r2_enabled() else "local",
+        "storage_backend": storage_backend_preference(),
+        "r2_enabled": r2_enabled(),
+        "r2_required": r2_required(),
+        "missing_r2_variables": missing,
+    }
+
+
+def ensure_storage_configured():
+    preference = storage_backend_preference()
+    if preference not in {"auto", "local", "r2", "cloudflare-r2"}:
+        raise RuntimeError(
+            "STORAGE_BACKEND must be one of: auto, local, r2, cloudflare-r2"
+        )
+
+    if r2_required() and not r2_enabled():
+        missing = ", ".join(r2_missing_keys())
+        raise RuntimeError(f"R2 storage is required, but these variables are missing: {missing}")
 
 
 def _r2_client():
@@ -61,6 +96,8 @@ def _content_type(filename: str, fallback: str = "application/octet-stream"):
 
 
 def save_upload_image(upload_file: UploadFile, base_url: str) -> StoredFile | None:
+    ensure_storage_configured()
+
     ext = Path(upload_file.filename or "").suffix.lower()
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
         return None
@@ -97,6 +134,8 @@ def save_upload_image(upload_file: UploadFile, base_url: str) -> StoredFile | No
 
 
 def save_html_file(html: str, base_url: str) -> StoredFile:
+    ensure_storage_configured()
+
     filename = f"{uuid4().hex}.html"
     storage_key = f"outputs/{filename}"
 

@@ -13,6 +13,7 @@ from db import (
 )
 from routers import auth, brochures, customers, properties, schedules
 from services.seed import seed_users_from_env
+from services.storage import ensure_storage_configured, storage_status
 
 
 app = FastAPI(title="Real Estate Local MVP")
@@ -46,7 +47,13 @@ app.include_router(schedules.router)
 @app.on_event("startup")
 def startup():
     init_db()
+    ensure_storage_configured()
     seed_users_from_env()
+
+
+@app.get("/health/storage")
+def health_storage():
+    return storage_status()
 
 
 @app.get("/")

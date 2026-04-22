@@ -15,6 +15,7 @@
    - `ADMIN_PASSWORD`
    - `VIEWER_USERNAME`
    - `VIEWER_PASSWORD`
+   - `STORAGE_BACKEND` = `r2`
    - `R2_ACCOUNT_ID`
    - `R2_ACCESS_KEY_ID`
    - `R2_SECRET_ACCESS_KEY`
@@ -28,6 +29,15 @@
 2. Create an R2 API token with object read/write access to that bucket.
 3. Make a public bucket URL or custom public domain.
 4. Put the public base URL into `R2_PUBLIC_BASE_URL`.
+5. After Railway redeploys, open `/health/storage` on the deployed app.
+   - `active_backend` should be `r2`.
+   - `r2_enabled` should be `true`.
+   - `missing_r2_variables` should be empty.
+
+Set `STORAGE_BACKEND=r2` in production. This prevents the app from silently
+falling back to Railway's temporary disk when R2 is not configured correctly.
+Railway temporary disk is fine for local smoke tests, but not for real saved
+photos or generated brochure files.
 
 ## First account seed
 
