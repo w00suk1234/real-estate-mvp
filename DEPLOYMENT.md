@@ -11,6 +11,10 @@
 5. Add these variables to the app service:
    - `AUTH_SECRET`
    - `DATABASE_URL` from Railway Postgres
+   - `ADMIN_USERNAME`
+   - `ADMIN_PASSWORD`
+   - `VIEWER_USERNAME`
+   - `VIEWER_PASSWORD`
    - `R2_ACCOUNT_ID`
    - `R2_ACCESS_KEY_ID`
    - `R2_SECRET_ACCESS_KEY`
@@ -27,10 +31,8 @@
 
 ## First account seed
 
-After the first deploy, run the backend seed command once from Railway shell:
+When `ADMIN_USERNAME` and `ADMIN_PASSWORD` are present, the app creates that
+admin account automatically if it does not already exist. `VIEWER_USERNAME` and
+`VIEWER_PASSWORD` work the same way for a read-only viewer account.
 
-```bash
-python init_db.py
-```
-
-Then immediately change the default passwords by editing `backend/init_db.py` locally before production use, or add a small admin password-change screen.
+Do not use the local defaults (`admin1234`, `viewer1234`) in production.

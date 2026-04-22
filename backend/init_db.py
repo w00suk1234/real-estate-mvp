@@ -1,9 +1,5 @@
-from datetime import datetime
-
-from sqlalchemy import insert, select
-
-from db import engine, init_db, users
-from services.security import hash_password
+from db import init_db
+from services.seed import create_user_if_missing
 
 
 SEED_USERS = [
@@ -14,23 +10,8 @@ SEED_USERS = [
 
 def seed_users():
     init_db()
-    with engine.begin() as conn:
-        for username, password, role in SEED_USERS:
-            existing = conn.execute(
-                select(users.c.id).where(users.c.username == username)
-            ).first()
-            if existing:
-                continue
-
-            conn.execute(
-                insert(users).values(
-                    username=username,
-                    password_hash=hash_password(password),
-                    role=role,
-                    is_active=True,
-                    created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                )
-            )
+    for username, password, role in SEED_USERS:
+        create_user_if_missing(username, password, role)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from db import (
     init_db,
 )
 from routers import auth, brochures, customers, properties, schedules
+from services.seed import seed_users_from_env
 
 
 app = FastAPI(title="Real Estate Local MVP")
@@ -45,6 +46,7 @@ app.include_router(schedules.router)
 @app.on_event("startup")
 def startup():
     init_db()
+    seed_users_from_env()
 
 
 @app.get("/")
