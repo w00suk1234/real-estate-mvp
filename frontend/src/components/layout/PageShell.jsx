@@ -7,7 +7,7 @@ function PageShell({ children, page, setPage }) {
       <Sidebar page={page} setPage={setPage} />
 
       <main className="main-area">
-        <Topbar />
+        <Topbar setPage={setPage} />
         <div className="content-area">{children}</div>
       </main>
     </div>

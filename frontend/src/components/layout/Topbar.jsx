@@ -1,8 +1,14 @@
 import { useAuth } from "../../auth/AuthContext";
 
-function Topbar() {
-  const { user, logout } = useAuth();
+function Topbar({ setPage }) {
+  const { user, isAuthenticated, logout } = useAuth();
   const avatarText = user?.username?.slice(0, 2).toUpperCase() || "ME";
+  const roleText = user?.role === "admin" ? "admin" : "user";
+
+  const handleLogout = () => {
+    logout();
+    setPage?.("calculators");
+  };
 
   return (
     <header className="topbar">
@@ -10,11 +16,19 @@ function Topbar() {
 
       <div className="topbar-right">
         <input className="topbar-search" placeholder="검색..." />
-        <span className="role-pill">{user?.role || "viewer"}</span>
-        <div className="avatar">{avatarText}</div>
-        <button className="logout-btn" type="button" onClick={logout}>
-          로그아웃
-        </button>
+        {isAuthenticated ? (
+          <>
+            <span className="role-pill">{roleText}</span>
+            <div className="avatar">{avatarText}</div>
+            <button className="logout-btn" type="button" onClick={handleLogout}>
+              로그아웃
+            </button>
+          </>
+        ) : (
+          <button className="logout-btn" type="button" onClick={() => setPage?.("auth")}>
+            로그인 / 회원가입
+          </button>
+        )}
       </div>
     </header>
   );

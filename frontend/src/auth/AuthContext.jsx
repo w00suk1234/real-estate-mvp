@@ -59,6 +59,19 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  const signup = async ({ username, password }) => {
+    const data = await apiFetch("/auth/signup", {
+      auth: false,
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+
+    setAuthSession(data.access_token, data.user);
+    setToken(data.access_token);
+    setUser(data.user);
+    return data.user;
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -67,6 +80,7 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token && user),
       isAdmin: user?.role === "admin",
       login,
+      signup,
       logout,
     }),
     [user, token, loading],

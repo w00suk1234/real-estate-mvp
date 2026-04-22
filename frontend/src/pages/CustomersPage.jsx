@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api";
+import { useAuth } from "../auth/AuthContext";
 import PageShell from "../components/layout/PageShell";
 
 const emptyForm = {
@@ -13,6 +14,7 @@ const emptyForm = {
 };
 
 function CustomersPage({ setPage }) {
+  const { isAuthenticated } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -23,6 +25,11 @@ function CustomersPage({ setPage }) {
   const [meetingFilter, setMeetingFilter] = useState("전체");
 
   const fetchCustomers = async () => {
+    if (!isAuthenticated) {
+      setCustomers([]);
+      return;
+    }
+
     try {
       const data = await apiFetch("/customers");
       setCustomers(data.items || []);
@@ -33,7 +40,7 @@ function CustomersPage({ setPage }) {
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [isAuthenticated]);
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((item) => {
@@ -68,6 +75,12 @@ function CustomersPage({ setPage }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isAuthenticated) {
+      alert("고객 정보를 저장하려면 로그인 또는 회원가입이 필요합니다.");
+      setPage?.("auth");
+      return;
+    }
 
     const url = editingId
       ? `/customers/${editingId}`
@@ -108,6 +121,12 @@ function CustomersPage({ setPage }) {
   };
 
   const handleDelete = async (id) => {
+    if (!isAuthenticated) {
+      alert("삭제하려면 로그인 또는 회원가입이 필요합니다.");
+      setPage?.("auth");
+      return;
+    }
+
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
 
     try {

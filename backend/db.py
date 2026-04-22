@@ -56,7 +56,7 @@ users = Table(
     Column("role", String(20), nullable=False),
     Column("is_active", Boolean, nullable=False, server_default=text("true")),
     Column("created_at", String(30), nullable=False),
-    CheckConstraint("role IN ('admin', 'viewer')", name="ck_users_role"),
+    CheckConstraint("role IN ('admin', 'user', 'viewer')", name="ck_users_role"),
 )
 
 properties = Table(
@@ -73,6 +73,7 @@ properties = Table(
     Column("area", String(120)),
     Column("floor", String(80)),
     Column("memo", Text),
+    Column("owner_id", Integer),
     Column("created_at", String(30), nullable=False),
     Column("updated_at", String(30), nullable=False),
 )
@@ -98,6 +99,7 @@ brochures = Table(
     Column("brochure_url", Text),
     Column("image_storage_key", Text),
     Column("brochure_storage_key", Text),
+    Column("owner_id", Integer),
     Column("created_at", String(30), nullable=False),
 )
 
@@ -112,6 +114,7 @@ customers = Table(
     Column("priority", String(80)),
     Column("meeting_status", String(80)),
     Column("memo", Text),
+    Column("owner_id", Integer),
     Column("created_at", String(30), nullable=False),
 )
 
@@ -124,6 +127,7 @@ schedules = Table(
     Column("schedule_date", String(30)),
     Column("customer_name", Text),
     Column("note", Text),
+    Column("owner_id", Integer),
     Column("created_at", String(30), nullable=False),
 )
 
@@ -143,21 +147,28 @@ def rows_to_dicts(rows):
 
 def _add_missing_columns():
     inspector = inspect(engine)
-    if "brochures" not in inspector.get_table_names():
-        return
-
-    existing = {column["name"] for column in inspector.get_columns("brochures")}
-    needed = {
-        "image_url": "TEXT",
-        "brochure_url": "TEXT",
-        "image_storage_key": "TEXT",
-        "brochure_storage_key": "TEXT",
+    existing_tables = set(inspector.get_table_names())
+    needed_by_table = {
+        "brochures": {
+            "image_url": "TEXT",
+            "brochure_url": "TEXT",
+            "image_storage_key": "TEXT",
+            "brochure_storage_key": "TEXT",
+            "owner_id": "INTEGER",
+        },
+        "properties": {"owner_id": "INTEGER"},
+        "customers": {"owner_id": "INTEGER"},
+        "schedules": {"owner_id": "INTEGER"},
     }
 
     with engine.begin() as conn:
-        for name, column_type in needed.items():
-            if name not in existing:
-                conn.execute(text(f"ALTER TABLE brochures ADD COLUMN {name} {column_type}"))
+        for table_name, needed in needed_by_table.items():
+            if table_name not in existing_tables:
+                continue
+            existing = {column["name"] for column in inspector.get_columns(table_name)}
+            for name, column_type in needed.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {column_type}"))
 
 
 def init_db():

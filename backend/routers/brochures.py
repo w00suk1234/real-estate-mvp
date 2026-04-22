@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from sqlalchemy import delete, insert, select
 
 from db import brochures, engine, row_to_dict, rows_to_dicts
-from dependencies import get_current_user, require_admin
+from dependencies import get_current_user, is_admin
 from services.storage import delete_stored_file, save_html_file, save_upload_image
 
 
@@ -18,20 +18,30 @@ def _now():
 
 @router.get("/brochures")
 def list_brochures(current_user: dict = Depends(get_current_user)):
+    query = select(brochures).order_by(brochures.c.id.desc()).limit(50)
+    if not is_admin(current_user):
+        query = query.where(brochures.c.owner_id == current_user["id"])
+
     with engine.connect() as conn:
-        rows = conn.execute(select(brochures).order_by(brochures.c.id.desc()).limit(50)).fetchall()
+        rows = conn.execute(query).fetchall()
     return {"items": rows_to_dicts(rows)}
 
 
 @router.delete("/brochures/{brochure_id}")
-def delete_brochure(brochure_id: int, current_user: dict = Depends(require_admin)):
+def delete_brochure(brochure_id: int, current_user: dict = Depends(get_current_user)):
+    query = select(brochures).where(brochures.c.id == brochure_id)
+    delete_query = delete(brochures).where(brochures.c.id == brochure_id)
+    if not is_admin(current_user):
+        query = query.where(brochures.c.owner_id == current_user["id"])
+        delete_query = delete_query.where(brochures.c.owner_id == current_user["id"])
+
     with engine.begin() as conn:
-        row = conn.execute(select(brochures).where(brochures.c.id == brochure_id)).first()
+        row = conn.execute(query).first()
         item = row_to_dict(row)
         if not item:
             return {"success": False, "message": "소개서를 찾을 수 없습니다."}
 
-        conn.execute(delete(brochures).where(brochures.c.id == brochure_id))
+        conn.execute(delete_query)
 
     delete_stored_file(item.get("image_filename"), item.get("image_storage_key"))
     delete_stored_file(item.get("brochure_filename"), item.get("brochure_storage_key"))
@@ -67,7 +77,7 @@ async def create_brochure(
     contact_phone: str = Form(""),
     main_image: UploadFile = File(...),
     extra_images: list[UploadFile] | None = File(None),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(get_current_user),
 ):
     base_url = str(request.base_url).rstrip("/")
 
@@ -266,6 +276,7 @@ async def create_brochure(
                 brochure_url=brochure_file.url,
                 image_storage_key=main_image_file.storage_key,
                 brochure_storage_key=brochure_file.storage_key,
+                owner_id=current_user["id"],
                 created_at=_now(),
             )
             .returning(brochures.c.id)

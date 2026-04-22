@@ -48,3 +48,7 @@ def require_admin(current_user: dict = Depends(get_current_user)):
             detail="관리자 권한이 필요합니다.",
         )
     return current_user
+
+
+def is_admin(user: dict):
+    return user.get("role") == "admin"

@@ -5,10 +5,15 @@ import { useAuth } from "../auth/AuthContext";
 function RecentBrochureList({ refreshKey = 0 }) {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
-  const { isAdmin } = useAuth();
+  const { isAuthenticated } = useAuth();
   const pageSize = 5;
 
   const fetchBrochures = async () => {
+    if (!isAuthenticated) {
+      setItems([]);
+      return;
+    }
+
     try {
       const data = await apiFetch("/brochures");
       setItems(data.items || []);
@@ -19,7 +24,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("해당 소개서를 삭제하시겠습니까?")) return;
+    if (!window.confirm("이 소개서를 삭제하시겠습니까?")) return;
 
     try {
       const data = await apiFetch(`/brochures/${id}`, {
@@ -40,7 +45,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
 
   useEffect(() => {
     fetchBrochures();
-  }, [refreshKey]);
+  }, [refreshKey, isAuthenticated]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
 
@@ -56,12 +61,16 @@ function RecentBrochureList({ refreshKey = 0 }) {
     <section className="panel fill-panel">
       <div className="panel-head">
         <h3>최근 생성 소개서</h3>
-        <p>최근에 만든 소개서를 다시 확인하고 삭제할 수 있습니다.</p>
+        <p>로그인한 계정으로 저장한 소개서를 다시 열고 관리합니다.</p>
       </div>
 
       <div className="recent-list recent-list-fixed">
         {pagedItems.length === 0 ? (
-          <div className="empty-box">아직 생성된 소개서가 없습니다.</div>
+          <div className="empty-box">
+            {isAuthenticated
+              ? "아직 생성한 소개서가 없습니다."
+              : "로그인하면 저장한 소개서 목록을 볼 수 있습니다."}
+          </div>
         ) : (
           pagedItems.map((item) => (
             <div className="recent-item" key={item.id}>
@@ -69,7 +78,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
                 <strong>{item.title}</strong>
                 <span>{item.address}</span>
                 <small>
-                  {item.deal_type} · {item.price} · {item.created_at}
+                  {item.deal_type} - {item.price} - {item.created_at}
                 </small>
               </div>
 
@@ -82,7 +91,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
                 >
                   열기
                 </a>
-                {isAdmin && (
+                {isAuthenticated && (
                   <button
                     type="button"
                     className="danger-btn"

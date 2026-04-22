@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import delete, insert, select, update
 
 from db import engine, properties, row_to_dict, rows_to_dicts
-from dependencies import get_current_user, require_admin
+from dependencies import get_current_user, is_admin
 
 
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -35,17 +35,23 @@ def _property_values(payload: dict, now: str | None = None):
 
 @router.get("")
 def list_properties(current_user: dict = Depends(get_current_user)):
+    query = select(properties).order_by(properties.c.id.desc())
+    if not is_admin(current_user):
+        query = query.where(properties.c.owner_id == current_user["id"])
+
     with engine.connect() as conn:
-        rows = conn.execute(select(properties).order_by(properties.c.id.desc())).fetchall()
+        rows = conn.execute(query).fetchall()
     return {"items": rows_to_dicts(rows)}
 
 
 @router.get("/{property_id}")
 def get_property(property_id: int, current_user: dict = Depends(get_current_user)):
+    query = select(properties).where(properties.c.id == property_id)
+    if not is_admin(current_user):
+        query = query.where(properties.c.owner_id == current_user["id"])
+
     with engine.connect() as conn:
-        row = conn.execute(
-            select(properties).where(properties.c.id == property_id)
-        ).first()
+        row = conn.execute(query).first()
 
     item = row_to_dict(row)
     if not item:
@@ -55,7 +61,7 @@ def get_property(property_id: int, current_user: dict = Depends(get_current_user
 
 
 @router.post("")
-def create_property(payload: dict = Body(...), current_user: dict = Depends(require_admin)):
+def create_property(payload: dict = Body(...), current_user: dict = Depends(get_current_user)):
     title = str(payload.get("title", "")).strip()
     if not title:
         return {"success": False, "message": "매물명은 필수입니다."}
@@ -64,7 +70,7 @@ def create_property(payload: dict = Body(...), current_user: dict = Depends(requ
     with engine.begin() as conn:
         result = conn.execute(
             insert(properties)
-            .values(**_property_values(payload, now=now))
+            .values(**_property_values(payload, now=now), owner_id=current_user["id"])
             .returning(properties.c.id)
         )
         item_id = result.scalar_one()
@@ -76,18 +82,18 @@ def create_property(payload: dict = Body(...), current_user: dict = Depends(requ
 def update_property(
     property_id: int,
     payload: dict = Body(...),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(get_current_user),
 ):
     title = str(payload.get("title", "")).strip()
     if not title:
         return {"success": False, "message": "매물명은 필수입니다."}
 
+    query = update(properties).where(properties.c.id == property_id)
+    if not is_admin(current_user):
+        query = query.where(properties.c.owner_id == current_user["id"])
+
     with engine.begin() as conn:
-        result = conn.execute(
-            update(properties)
-            .where(properties.c.id == property_id)
-            .values(**_property_values(payload))
-        )
+        result = conn.execute(query.values(**_property_values(payload)))
 
     if result.rowcount == 0:
         return {"success": False, "message": "매물을 찾을 수 없습니다."}
@@ -96,9 +102,13 @@ def update_property(
 
 
 @router.delete("/{property_id}")
-def delete_property(property_id: int, current_user: dict = Depends(require_admin)):
+def delete_property(property_id: int, current_user: dict = Depends(get_current_user)):
+    query = delete(properties).where(properties.c.id == property_id)
+    if not is_admin(current_user):
+        query = query.where(properties.c.owner_id == current_user["id"])
+
     with engine.begin() as conn:
-        result = conn.execute(delete(properties).where(properties.c.id == property_id))
+        result = conn.execute(query)
 
     if result.rowcount == 0:
         return {"success": False, "message": "매물을 찾을 수 없습니다."}

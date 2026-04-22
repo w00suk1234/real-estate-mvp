@@ -1,11 +1,11 @@
 import { useState } from "react";
-import ProtectedRoute from "./auth/ProtectedRoute";
 import BriefingMakerPage from "./pages/BriefingMakerPage";
 import CustomersPage from "./pages/CustomersPage";
 import SchedulesPage from "./pages/SchedulesPage";
 import CalculatorsPage from "./pages/CalculatorsPage";
 import PhotoEditorPage from "./pages/PhotoEditorPage";
 import AddressHubPage from "./pages/AddressHubPage";
+import LoginPage from "./pages/LoginPage";
 import "./styles/theme.css";
 
 function App() {
@@ -18,8 +18,9 @@ function App() {
   if (page === "calculators") currentPage = <CalculatorsPage setPage={setPage} />;
   if (page === "photo-editor") currentPage = <PhotoEditorPage setPage={setPage} />;
   if (page === "address-hub") currentPage = <AddressHubPage setPage={setPage} />;
+  if (page === "auth") currentPage = <LoginPage setPage={setPage} />;
 
-  return <ProtectedRoute>{currentPage}</ProtectedRoute>;
+  return currentPage;
 }
 
 export default App;

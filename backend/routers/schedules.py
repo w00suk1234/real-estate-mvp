@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends
 from sqlalchemy import delete, insert, select, update
 
 from db import engine, rows_to_dicts, schedules
-from dependencies import get_current_user, require_admin
+from dependencies import get_current_user, is_admin
 
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
@@ -26,20 +26,23 @@ def _schedule_values(payload: dict):
 
 @router.get("")
 def list_schedules(current_user: dict = Depends(get_current_user)):
+    query = select(schedules).order_by(schedules.c.schedule_date.asc(), schedules.c.id.desc())
+    if not is_admin(current_user):
+        query = query.where(schedules.c.owner_id == current_user["id"])
+
     with engine.connect() as conn:
-        rows = conn.execute(
-            select(schedules).order_by(schedules.c.schedule_date.asc(), schedules.c.id.desc())
-        ).fetchall()
+        rows = conn.execute(query).fetchall()
     return {"items": rows_to_dicts(rows)}
 
 
 @router.post("")
-def create_schedule(payload: dict = Body(...), current_user: dict = Depends(require_admin)):
+def create_schedule(payload: dict = Body(...), current_user: dict = Depends(get_current_user)):
     values = _schedule_values(payload)
     if not values["title"]:
         return {"success": False, "message": "일정명은 필수입니다."}
 
     values["created_at"] = _now()
+    values["owner_id"] = current_user["id"]
     with engine.begin() as conn:
         result = conn.execute(
             insert(schedules).values(**values).returning(schedules.c.id)
@@ -53,16 +56,18 @@ def create_schedule(payload: dict = Body(...), current_user: dict = Depends(requ
 def update_schedule(
     schedule_id: int,
     payload: dict = Body(...),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(get_current_user),
 ):
     values = _schedule_values(payload)
     if not values["title"]:
         return {"success": False, "message": "일정명은 필수입니다."}
 
+    query = update(schedules).where(schedules.c.id == schedule_id)
+    if not is_admin(current_user):
+        query = query.where(schedules.c.owner_id == current_user["id"])
+
     with engine.begin() as conn:
-        result = conn.execute(
-            update(schedules).where(schedules.c.id == schedule_id).values(**values)
-        )
+        result = conn.execute(query.values(**values))
 
     if result.rowcount == 0:
         return {"success": False, "message": "일정을 찾을 수 없습니다."}
@@ -71,9 +76,13 @@ def update_schedule(
 
 
 @router.delete("/{schedule_id}")
-def delete_schedule(schedule_id: int, current_user: dict = Depends(require_admin)):
+def delete_schedule(schedule_id: int, current_user: dict = Depends(get_current_user)):
+    query = delete(schedules).where(schedules.c.id == schedule_id)
+    if not is_admin(current_user):
+        query = query.where(schedules.c.owner_id == current_user["id"])
+
     with engine.begin() as conn:
-        result = conn.execute(delete(schedules).where(schedules.c.id == schedule_id))
+        result = conn.execute(query)
 
     if result.rowcount == 0:
         return {"success": False, "message": "일정을 찾을 수 없습니다."}

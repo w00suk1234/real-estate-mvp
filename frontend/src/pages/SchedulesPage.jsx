@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api";
+import { useAuth } from "../auth/AuthContext";
 import PageShell from "../components/layout/PageShell";
 
 const emptyForm = {
@@ -11,18 +12,24 @@ const emptyForm = {
 };
 
 function SchedulesPage({ setPage }) {
+  const { isAuthenticated } = useAuth();
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
 
   const fetchSchedules = async () => {
+    if (!isAuthenticated) {
+      setItems([]);
+      return;
+    }
+
     const data = await apiFetch("/schedules");
     setItems(data.items || []);
   };
 
   useEffect(() => {
     fetchSchedules();
-  }, []);
+  }, [isAuthenticated]);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -35,6 +42,12 @@ function SchedulesPage({ setPage }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isAuthenticated) {
+      alert("일정을 저장하려면 로그인 또는 회원가입이 필요합니다.");
+      setPage?.("auth");
+      return;
+    }
 
     const url = editingId
       ? `/schedules/${editingId}`
@@ -68,6 +81,12 @@ function SchedulesPage({ setPage }) {
   };
 
   const handleDelete = async (id) => {
+    if (!isAuthenticated) {
+      alert("삭제하려면 로그인 또는 회원가입이 필요합니다.");
+      setPage?.("auth");
+      return;
+    }
+
     if (!window.confirm("일정을 삭제하시겠습니까?")) return;
 
     const data = await apiFetch(`/schedules/${id}`, {

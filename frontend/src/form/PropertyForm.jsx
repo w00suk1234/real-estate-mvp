@@ -24,7 +24,7 @@ function PropertyForm({
   onCreated,
 }) {
   const [loading, setLoading] = useState(false);
-  const { isAdmin } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -97,22 +97,13 @@ function PropertyForm({
     form.price_unit,
   ]);
 
-  if (!isAdmin) {
-    return (
-      <section className="panel">
-        <div className="panel-head">
-          <h3>매물 정보 입력</h3>
-          <p>viewer 계정은 조회만 가능합니다. 등록, 수정, 삭제는 admin 계정에서 처리합니다.</p>
-        </div>
-        <div className="empty-box" style={{ minHeight: "280px", display: "grid", placeItems: "center" }}>
-          관리자 권한이 필요합니다.
-        </div>
-      </section>
-    );
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isAuthenticated) {
+      alert("소개서를 저장하려면 로그인 또는 회원가입이 필요합니다.");
+      return;
+    }
 
     if (!mainImage) {
       alert("대표사진을 선택해주세요.");
