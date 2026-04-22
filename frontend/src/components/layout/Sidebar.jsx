@@ -2,6 +2,14 @@ import appIcon from "../../assets/icon1.png";
 
 function Sidebar({ page, setPage }) {
   const startNewWork = () => {
+    const hasWork = sessionStorage.getItem("briefing_has_work") === "1";
+    if (
+      hasWork &&
+      !window.confirm("작성 중인 내용이 초기화됩니다. 새 업무를 시작할까요?")
+    ) {
+      return;
+    }
+
     sessionStorage.setItem("briefing_reset_pending", "1");
     window.dispatchEvent(new Event("briefing:new"));
     setPage("briefing");

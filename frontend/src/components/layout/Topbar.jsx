@@ -12,10 +12,9 @@ function Topbar({ setPage }) {
 
   return (
     <header className="topbar">
-      <div className="topbar-title">부동산 업무 도구</div>
+      <div className="topbar-title">부동산 업무툴</div>
 
       <div className="topbar-right">
-        <input className="topbar-search" placeholder="검색..." />
         {isAuthenticated ? (
           <>
             <span className="role-pill">{roleText}</span>
@@ -25,7 +24,11 @@ function Topbar({ setPage }) {
             </button>
           </>
         ) : (
-          <button className="logout-btn" type="button" onClick={() => setPage?.("auth")}>
+          <button
+            className="logout-btn"
+            type="button"
+            onClick={() => setPage?.("auth")}
+          >
             로그인 / 회원가입
           </button>
         )}

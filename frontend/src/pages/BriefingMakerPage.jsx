@@ -41,6 +41,24 @@ const defaultForm = {
 };
 
 const BRIEFING_RESET_FLAG = "briefing_reset_pending";
+const BRIEFING_HAS_WORK_FLAG = "briefing_has_work";
+const WORK_FIELDS = [
+  "title",
+  "deposit",
+  "monthly_rent",
+  "maintenance_fee",
+  "address",
+  "supply_area",
+  "exclusive_area",
+  "floor",
+  "rooms",
+  "restroom_detail",
+  "parking_count",
+  "parking_fee",
+  "description",
+  "contact_name",
+  "contact_phone",
+];
 
 function createInitialForm() {
   if (typeof localStorage === "undefined") {
@@ -74,6 +92,11 @@ function createInitialForm() {
   }
 }
 
+function hasBriefingWork(form, mainImage, extraImages, result) {
+  const hasText = WORK_FIELDS.some((key) => String(form[key] ?? "").trim());
+  return hasText || Boolean(mainImage) || extraImages.length > 0 || Boolean(result);
+}
+
 function BriefingMakerPage({ setPage }) {
   const [form, setForm] = useState(() => createInitialForm());
   const [mainImage, setMainImage] = useState(null);
@@ -86,6 +109,7 @@ function BriefingMakerPage({ setPage }) {
     setMainImage(null);
     setExtraImages([]);
     setResult(null);
+    sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
   }, []);
 
   useEffect(() => {
@@ -128,6 +152,16 @@ function BriefingMakerPage({ setPage }) {
       window.removeEventListener("briefing:new", handleNewWork);
     };
   }, [resetWork]);
+
+  useEffect(() => {
+    const hasWork = hasBriefingWork(form, mainImage, extraImages, result);
+    if (hasWork) {
+      sessionStorage.setItem(BRIEFING_HAS_WORK_FLAG, "1");
+      return;
+    }
+
+    sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
+  }, [form, mainImage, extraImages, result]);
 
   return (
     <PageShell page="briefing" setPage={setPage}>
