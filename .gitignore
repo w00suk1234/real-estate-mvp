@@ -20,6 +20,10 @@ frontend/dist/
 *.log
 cloudflared.*.log
 
+# Local scratch assets
+images/
+httpsreal-estate-mvp-production.up..txt
+
 # Editor / OS
 .vscode/
 .idea/
