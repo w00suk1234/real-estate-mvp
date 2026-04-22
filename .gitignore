@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Backend local runtime
+backend/app.db
+backend/*.db
+backend/uploads/
+backend/outputs/
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Logs
+*.log
+cloudflared.*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+!.env.example
