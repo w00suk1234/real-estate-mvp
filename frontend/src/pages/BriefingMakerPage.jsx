@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PageShell from "../components/layout/PageShell";
 import PropertyForm from "../form/PropertyForm";
 import PreviewCard from "../cards/PreviewCard";
@@ -40,12 +40,53 @@ const defaultForm = {
   contact_phone: "",
 };
 
+const BRIEFING_RESET_FLAG = "briefing_reset_pending";
+
+function createInitialForm() {
+  if (typeof localStorage === "undefined") {
+    return defaultForm;
+  }
+
+  const saved = localStorage.getItem("briefing_default_settings");
+  if (!saved) {
+    return defaultForm;
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+    return {
+      ...defaultForm,
+      deal_type: parsed.deal_type ?? defaultForm.deal_type,
+      template_type: parsed.template_type ?? defaultForm.template_type,
+      price_unit: parsed.price_unit ?? defaultForm.price_unit,
+      supply_area_unit:
+        parsed.supply_area_unit ?? defaultForm.supply_area_unit,
+      exclusive_area_unit:
+        parsed.exclusive_area_unit ?? defaultForm.exclusive_area_unit,
+      elevator: parsed.elevator ?? defaultForm.elevator,
+      parking_type: parsed.parking_type ?? defaultForm.parking_type,
+      contact_name: parsed.contact_name ?? defaultForm.contact_name,
+      contact_phone: parsed.contact_phone ?? defaultForm.contact_phone,
+    };
+  } catch (err) {
+    console.error(err);
+    return defaultForm;
+  }
+}
+
 function BriefingMakerPage({ setPage }) {
-  const [form, setForm] = useState(defaultForm);
+  const [form, setForm] = useState(() => createInitialForm());
   const [mainImage, setMainImage] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
   const [result, setResult] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const resetWork = useCallback(() => {
+    setForm(createInitialForm());
+    setMainImage(null);
+    setExtraImages([]);
+    setResult(null);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("briefing_default_settings");
@@ -70,6 +111,23 @@ function BriefingMakerPage({ setPage }) {
       console.error(err);
     }
   }, []);
+
+  useEffect(() => {
+    const handleNewWork = () => {
+      sessionStorage.removeItem(BRIEFING_RESET_FLAG);
+      resetWork();
+    };
+
+    window.addEventListener("briefing:new", handleNewWork);
+
+    if (sessionStorage.getItem(BRIEFING_RESET_FLAG) === "1") {
+      handleNewWork();
+    }
+
+    return () => {
+      window.removeEventListener("briefing:new", handleNewWork);
+    };
+  }, [resetWork]);
 
   return (
     <PageShell page="briefing" setPage={setPage}>

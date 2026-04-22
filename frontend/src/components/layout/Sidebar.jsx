@@ -1,11 +1,21 @@
+import appIcon from "../../assets/icon1.png";
+
 function Sidebar({ page, setPage }) {
+  const startNewWork = () => {
+    sessionStorage.setItem("briefing_reset_pending", "1");
+    window.dispatchEvent(new Event("briefing:new"));
+    setPage("briefing");
+  };
+
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-logo">CP</div>
+        <div className="brand-logo" aria-hidden="true">
+          <img src={appIcon} alt="" />
+        </div>
         <div>
-          <h2>큐레이터 프로</h2>
-          <p>중개 업무 보조 도구</p>
+          <h2>부동산 업무툴</h2>
+          <p>중개 실무 보조 도구</p>
         </div>
       </div>
 
@@ -54,7 +64,9 @@ function Sidebar({ page, setPage }) {
       </nav>
 
       <div className="sidebar-bottom">
-        <button className="primary-side-btn">새 업무 시작</button>
+        <button className="primary-side-btn" onClick={startNewWork}>
+          새 업무 시작
+        </button>
       </div>
     </aside>
   );
