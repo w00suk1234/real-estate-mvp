@@ -5,6 +5,28 @@ class ListingImportRequest(BaseModel):
     listing_url: str = Field(..., min_length=10)
 
 
+class SnapshotPair(BaseModel):
+    key: str = ""
+    value: str = ""
+
+
+class ExtensionSnapshotImage(BaseModel):
+    url: str
+    alt: str = ""
+    source: str = "extension"
+    width: int = 0
+    height: int = 0
+
+
+class ExtensionSnapshotRequest(BaseModel):
+    listing_url: str = Field(..., min_length=10)
+    title: str = ""
+    page_title: str = ""
+    pairs: list[SnapshotPair] = Field(default_factory=list)
+    images: list[ExtensionSnapshotImage] = Field(default_factory=list)
+    visible_text: str = ""
+
+
 class ImageCandidate(BaseModel):
     url: str
     alt: str = ""

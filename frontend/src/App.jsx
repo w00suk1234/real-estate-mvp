@@ -11,18 +11,42 @@ import "./styles/theme.css";
 function App() {
   const [page, setPage] = useState("briefing");
   const [importUrl, setImportUrl] = useState("");
+  const [importSnapshot, setImportSnapshot] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const url = params.get("import_url");
-    if (!url) return;
+    const hasExtensionImport = params.get("extension_import") === "1";
+    const snapshotRaw = sessionStorage.getItem("naver_import_snapshot");
 
-    setImportUrl(url);
-    setPage("briefing");
-    window.history.replaceState({}, "", window.location.pathname);
+    if (snapshotRaw) {
+      try {
+        setImportSnapshot(JSON.parse(snapshotRaw));
+        setPage("briefing");
+      } catch (err) {
+        console.error(err);
+      } finally {
+        sessionStorage.removeItem("naver_import_snapshot");
+      }
+    }
+
+    if (url) {
+      setImportUrl(url);
+      setPage("briefing");
+    }
+
+    if (url || hasExtensionImport) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
-  let currentPage = <BriefingMakerPage setPage={setPage} importUrl={importUrl} />;
+  let currentPage = (
+    <BriefingMakerPage
+      setPage={setPage}
+      importUrl={importUrl}
+      importSnapshot={importSnapshot}
+    />
+  );
 
   if (page === "customers") currentPage = <CustomersPage setPage={setPage} />;
   if (page === "schedules") currentPage = <SchedulesPage setPage={setPage} />;

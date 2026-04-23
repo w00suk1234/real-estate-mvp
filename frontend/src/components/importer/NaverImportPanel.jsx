@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { importNaverListing } from "../../api";
+import { importNaverListing, importNaverSnapshot } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 
 const NAVER_LAND_URL = "https://new.land.naver.com/";
@@ -10,11 +10,12 @@ function extractNaverLandUrl(value) {
   return match?.[0] || trimmed;
 }
 
-function NaverImportPanel({ initialUrl = "", onApplyDraft }) {
+function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraft }) {
   const [listingUrl, setListingUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [handledSnapshotKey, setHandledSnapshotKey] = useState("");
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -22,6 +23,49 @@ function NaverImportPanel({ initialUrl = "", onApplyDraft }) {
     setListingUrl(extractNaverLandUrl(initialUrl));
     setError("");
   }, [initialUrl]);
+
+  useEffect(() => {
+    if (!initialSnapshot?.listing_url) return;
+
+    const snapshotKey = [
+      initialSnapshot.listing_url,
+      initialSnapshot.visible_text?.length || 0,
+      initialSnapshot.images?.length || 0,
+      initialSnapshot.pairs?.length || 0,
+    ].join(":");
+
+    if (handledSnapshotKey === snapshotKey) return;
+
+    setListingUrl(extractNaverLandUrl(initialSnapshot.listing_url));
+
+    if (!isAuthenticated) {
+      setError("로그인 후 확장 프로그램으로 가져온 매물을 자동 분석할 수 있습니다.");
+      return;
+    }
+
+    let ignore = false;
+    setHandledSnapshotKey(snapshotKey);
+    setLoading(true);
+    setError("");
+
+    importNaverSnapshot(initialSnapshot)
+      .then((data) => {
+        if (!ignore) setResult(data);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!ignore) {
+          setError(err.message || "확장 프로그램이 보낸 매물 정보를 처리하지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [initialSnapshot, isAuthenticated, handledSnapshotKey]);
 
   const openNaverLand = () => {
     window.open(NAVER_LAND_URL, "_blank", "noopener,noreferrer");

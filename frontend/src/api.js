@@ -80,3 +80,10 @@ export function importNaverListing(listingUrl) {
     body: JSON.stringify({ listing_url: listingUrl }),
   });
 }
+
+export function importNaverSnapshot(snapshot) {
+  return apiFetch("/import/naver-snapshot", {
+    method: "POST",
+    body: JSON.stringify(snapshot),
+  });
+}

@@ -98,7 +98,7 @@ function hasBriefingWork(form, mainImage, extraImages, result) {
   return hasText || Boolean(mainImage) || extraImages.length > 0 || Boolean(result);
 }
 
-function BriefingMakerPage({ setPage, importUrl }) {
+function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
   const [form, setForm] = useState(() => createInitialForm());
   const [mainImage, setMainImage] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
@@ -185,6 +185,7 @@ function BriefingMakerPage({ setPage, importUrl }) {
 
       <NaverImportPanel
         initialUrl={importUrl}
+        initialSnapshot={importSnapshot}
         onApplyDraft={applyImportedDraft}
       />
 

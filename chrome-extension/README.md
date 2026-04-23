@@ -1,33 +1,42 @@
-# 부동산 업무툴 크롬 확장
+# Real Estate Listing Importer Extension
 
-현재 보고 있는 네이버 부동산 URL을 부동산 업무툴의 소개서 작성 화면으로 전달하는 Manifest V3 확장입니다.
+Chrome Manifest V3 extension for sending the currently open Naver Land page to the real estate work app.
 
-## 설치 방법
+The extension now sends a page snapshot, not only a URL:
 
-1. Chrome 주소창에 입력:
+- Current page URL
+- Visible title and text
+- Table-like key/value data found in the page
+- Image candidates from `img`, Open Graph metadata, and background images
+
+This avoids the slower fallback where the Railway server tries to open Naver Land directly.
+
+## Install Locally
+
+1. Open this URL in Chrome:
 
 ```text
 chrome://extensions
 ```
 
-2. 오른쪽 위 `개발자 모드` 켜기
-3. `압축해제된 확장 프로그램을 로드합니다` 클릭
-4. 이 폴더 선택:
+2. Enable Developer mode.
+3. Click "Load unpacked".
+4. Select this folder:
 
 ```text
 chrome-extension
 ```
 
-## 사용 방법
+## Use
 
-1. 네이버 부동산에서 매물 상세 페이지 열기
-2. 확장 아이콘 클릭
-3. `업무툴에서 열기` 클릭
-4. 부동산 업무툴이 열리며 `import_url`이 자동 입력됨
-5. `가져오기` 클릭 후 소개서 폼에 반영
+1. Open a Naver Land page in Chrome.
+2. Click the extension icon.
+3. Click "Send to Work App".
+4. The work app opens and imports the visible page snapshot.
+5. Review the generated draft, then apply it to the brochure form.
 
-## 주의
+## Notes
 
-- 현재는 URL 전달 방식입니다. 네이버 페이지 DOM을 확장에서 직접 읽지 않습니다.
-- 실제 수집/분석은 FastAPI 백엔드의 `/import/naver-listing`에서 수행합니다.
-- Chrome Web Store 배포 전에는 아이콘 사이즈, 개인정보처리방침, 권한 설명을 정리해야 합니다.
+- If the extension was already loaded, click the reload button on `chrome://extensions` after pulling new code.
+- The app still requires login before importing and saving listing data.
+- Server-side Naver import remains as a fallback, but the extension snapshot path is the recommended MVP path.
