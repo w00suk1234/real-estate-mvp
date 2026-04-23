@@ -73,3 +73,10 @@ export async function apiFetch(path, options = {}) {
 
   return data;
 }
+
+export function importNaverListing(listingUrl) {
+  return apiFetch("/import/naver-listing", {
+    method: "POST",
+    body: JSON.stringify({ listing_url: listingUrl }),
+  });
+}

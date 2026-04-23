@@ -4,6 +4,7 @@ import PropertyForm from "../form/PropertyForm";
 import PreviewCard from "../cards/PreviewCard";
 import ResultCard from "../cards/ResultCard";
 import RecentBrochureList from "../cards/RecentBrochureList";
+import NaverImportPanel from "../components/importer/NaverImportPanel";
 
 const defaultForm = {
   title: "",
@@ -112,6 +113,15 @@ function BriefingMakerPage({ setPage }) {
     sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
   }, []);
 
+  const applyImportedDraft = useCallback((draft) => {
+    const fieldMapping = draft?.field_mapping || {};
+    setForm((prev) => ({
+      ...prev,
+      ...fieldMapping,
+    }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem("briefing_default_settings");
     if (!saved) return;
@@ -172,6 +182,8 @@ function BriefingMakerPage({ setPage }) {
           사무실 / 상가 중개용 소개서를 생성합니다.
         </p>
       </div>
+
+      <NaverImportPanel onApplyDraft={applyImportedDraft} />
 
       <div className="briefing-grid-v2">
         <div className="grid-card property-card">

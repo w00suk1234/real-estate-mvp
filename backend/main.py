@@ -11,7 +11,7 @@ from db import (
     ensure_runtime_dirs,
     init_db,
 )
-from routers import auth, brochures, customers, properties, schedules
+from routers import auth, brochures, customers, importer, properties, schedules
 from services.seed import seed_users_from_env
 from services.storage import ensure_storage_configured, storage_status
 
@@ -41,6 +41,7 @@ app.include_router(auth.router)
 app.include_router(properties.router)
 app.include_router(brochures.router)
 app.include_router(customers.router)
+app.include_router(importer.router)
 app.include_router(schedules.router)
 
 
