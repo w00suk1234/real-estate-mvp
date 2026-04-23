@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { importNaverListing } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -263,8 +263,10 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
   const [localDraft, setLocalDraft] = useState(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  const [helpOpen, setHelpOpen] = useState(false);
   const [handledSnapshotKey, setHandledSnapshotKey] = useState("");
   const { isAuthenticated } = useAuth();
+  const helpRef = useRef(null);
 
   const activeDraft = result?.brochure_draft || localDraft;
   const images = activeDraft?.recommended_images || [];
@@ -285,6 +287,19 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     setListingUrl(extractNaverLandUrl(initialUrl));
     setError("");
   }, [initialUrl]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!helpRef.current?.contains(event.target)) {
+        setHelpOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (!initialSnapshot?.listing_url) return;
@@ -365,16 +380,33 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           <h3>네이버 매물 → 소개서 초안</h3>
           <p>현재 보고 있는 네이버 상세 패널만 읽어와 폼에 넣는 반자동 흐름입니다.</p>
         </div>
-        <span className="agent-pill">Agent MVP</span>
-      </div>
+        <div className="import-head-actions" ref={helpRef}>
+          <button
+            type="button"
+            className="import-help-trigger"
+            onClick={() => setHelpOpen((prev) => !prev)}
+            aria-label="네이버 매물 가져오기 도움말"
+            aria-expanded={helpOpen}
+          >
+            !
+          </button>
 
-      <div className="import-flow-card">
-        <strong>정확도를 높이는 사용법</strong>
-        <ol className="import-flow-steps">
-          <li>네이버에서 매물 리스트의 실제 매물 하나를 클릭합니다.</li>
-          <li>상세 정보 또는 사진 탭이 왼쪽/가운데 패널에 보이는 상태로 둡니다.</li>
-          <li>오른쪽 아래 업무툴로 가져오기 버튼을 누르고, 채워진 값만 검토합니다.</li>
-        </ol>
+          {helpOpen && (
+            <div className="import-help-popover">
+              <strong>처음 쓰는 분 가이드</strong>
+              <ol className="import-help-list">
+                <li>네이버에서 실제 매물 하나를 클릭합니다.</li>
+                <li>상세 정보나 사진 탭이 보이게 둡니다.</li>
+                <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
+                <li>우리 앱에서 채워진 값만 검토하고 저장합니다.</li>
+              </ol>
+              <p>
+                가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 펼쳐져 있는지 먼저 확인해
+                주세요.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {snapshotStats && (
