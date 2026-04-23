@@ -107,7 +107,9 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       setResult(data);
     } catch (err) {
       console.error(err);
-      setError(err.message || "매물 가져오기 중 오류가 발생했습니다.");
+      setError(
+        `${err.message || "매물 가져오기 중 오류가 발생했습니다."} URL 입력 방식은 서버가 네이버를 직접 여는 예비 기능이라 실패할 수 있습니다. 네이버 페이지에서 크롬 확장프로그램의 "Send to Work App"을 눌러 가져오는 방식을 추천합니다.`
+      );
     } finally {
       setLoading(false);
     }
@@ -121,9 +123,14 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       <div className="panel-head import-panel-head">
         <div>
           <h3>네이버 매물 가져오기</h3>
-          <p>네이버에서 매물 상세를 열고 주소를 복사한 뒤 붙여넣으면 소개서 초안을 만듭니다.</p>
+          <p>추천 방식은 네이버 페이지에서 크롬 확장프로그램을 눌러 현재 화면을 가져오는 것입니다.</p>
         </div>
         <span className="agent-pill">Agent MVP</span>
+      </div>
+
+      <div className="import-alert">
+        URL을 직접 붙여넣는 방식은 서버가 네이버를 다시 열어보는 예비 기능이라 timeout이 날 수 있습니다.
+        네이버에서 매물 상세 패널을 열고 확장프로그램의 <strong>Send to Work App</strong>을 누르는 방식이 더 안정적입니다.
       </div>
 
       <div className="import-quick-actions">
@@ -148,12 +155,12 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           onClick={handleImport}
           disabled={loading}
         >
-          {loading ? "수집 중..." : "가져오기"}
+          {loading ? "수집 중..." : "URL로 가져오기"}
         </button>
       </div>
 
       <p className="import-helper">
-        매물 상세가 열린 상태의 주소가 가장 좋습니다. 목록 URL이면 일부 정보가 비어 있을 수 있습니다.
+        추천 URL 형태는 매물 하나를 클릭한 뒤 주소창에 articleNo가 포함된 주소입니다. 그래도 실패하면 확장프로그램으로 가져오세요.
       </p>
 
       {error && <div className="import-alert danger">{error}</div>}
