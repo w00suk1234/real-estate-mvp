@@ -1036,6 +1036,13 @@ h4 {
   gap: 12px;
 }
 
+.import-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .import-url-input {
   width: 100%;
   border: 1px solid #d9e0e8;
@@ -1056,6 +1063,13 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.import-helper {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .import-result-top {
