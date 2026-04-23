@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { importNaverListing } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -10,12 +10,18 @@ function extractNaverLandUrl(value) {
   return match?.[0] || trimmed;
 }
 
-function NaverImportPanel({ onApplyDraft }) {
+function NaverImportPanel({ initialUrl = "", onApplyDraft }) {
   const [listingUrl, setListingUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!initialUrl) return;
+    setListingUrl(extractNaverLandUrl(initialUrl));
+    setError("");
+  }, [initialUrl]);
 
   const openNaverLand = () => {
     window.open(NAVER_LAND_URL, "_blank", "noopener,noreferrer");

@@ -98,7 +98,7 @@ function hasBriefingWork(form, mainImage, extraImages, result) {
   return hasText || Boolean(mainImage) || extraImages.length > 0 || Boolean(result);
 }
 
-function BriefingMakerPage({ setPage }) {
+function BriefingMakerPage({ setPage, importUrl }) {
   const [form, setForm] = useState(() => createInitialForm());
   const [mainImage, setMainImage] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
@@ -183,7 +183,10 @@ function BriefingMakerPage({ setPage }) {
         </p>
       </div>
 
-      <NaverImportPanel onApplyDraft={applyImportedDraft} />
+      <NaverImportPanel
+        initialUrl={importUrl}
+        onApplyDraft={applyImportedDraft}
+      />
 
       <div className="briefing-grid-v2">
         <div className="grid-card property-card">

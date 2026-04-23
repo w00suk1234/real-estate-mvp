@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BriefingMakerPage from "./pages/BriefingMakerPage";
 import CustomersPage from "./pages/CustomersPage";
 import SchedulesPage from "./pages/SchedulesPage";
@@ -10,8 +10,19 @@ import "./styles/theme.css";
 
 function App() {
   const [page, setPage] = useState("briefing");
+  const [importUrl, setImportUrl] = useState("");
 
-  let currentPage = <BriefingMakerPage setPage={setPage} />;
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get("import_url");
+    if (!url) return;
+
+    setImportUrl(url);
+    setPage("briefing");
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  let currentPage = <BriefingMakerPage setPage={setPage} importUrl={importUrl} />;
 
   if (page === "customers") currentPage = <CustomersPage setPage={setPage} />;
   if (page === "schedules") currentPage = <SchedulesPage setPage={setPage} />;
