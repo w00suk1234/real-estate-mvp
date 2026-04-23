@@ -10,6 +10,27 @@ import "./styles/theme.css";
 
 const NAVER_IMPORT_SNAPSHOT_KEY = "naver_import_snapshot";
 
+function decodeSnapshotPayload(payload) {
+  if (!payload) return null;
+
+  try {
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+function readHashSnapshot() {
+  const hash = window.location.hash || "";
+  const match = hash.match(/snapshot=([^&]+)/);
+  return decodeSnapshotPayload(match?.[1] || "");
+}
+
 function App() {
   const [page, setPage] = useState("briefing");
   const [importUrl, setImportUrl] = useState("");
@@ -17,15 +38,16 @@ function App() {
 
   useEffect(() => {
     const readImportSnapshot = () => {
+      const hashSnapshot = readHashSnapshot();
       const snapshotRaw =
         sessionStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY) ||
         localStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY);
 
-      if (!snapshotRaw) return false;
+      if (!hashSnapshot && !snapshotRaw) return false;
 
       try {
         setImportSnapshot({
-          ...JSON.parse(snapshotRaw),
+          ...(hashSnapshot || JSON.parse(snapshotRaw)),
           received_at: Date.now(),
         });
         setPage("briefing");
@@ -49,7 +71,7 @@ function App() {
       setPage("briefing");
     }
 
-    if (url || hasExtensionImport) {
+    if (url || hasExtensionImport || window.location.hash.includes("snapshot=")) {
       window.history.replaceState({}, "", window.location.pathname);
     }
 

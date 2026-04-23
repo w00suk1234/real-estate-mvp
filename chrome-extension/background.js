@@ -1,38 +1,35 @@
 const APP_URL = "https://real-estate-mvp-production.up.railway.app";
 
-async function waitForTabComplete(tabId) {
-  return new Promise((resolve) => {
-    const timeoutId = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve();
-    }, 12000);
+function makeCompactSnapshot(snapshot) {
+  return {
+    listing_url: snapshot?.listing_url || "",
+    title: snapshot?.title || "",
+    page_title: snapshot?.page_title || "",
+    pairs: (snapshot?.pairs || []).slice(0, 80),
+    images: (snapshot?.images || []).slice(0, 12),
+    visible_text: String(snapshot?.visible_text || "").slice(0, 6000),
+  };
+}
 
-    function listener(updatedTabId, changeInfo) {
-      if (updatedTabId !== tabId || changeInfo.status !== "complete") return;
-      clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve();
-    }
+function encodePayload(payload) {
+  const json = JSON.stringify(payload);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  const chunkSize = 0x8000;
 
-    chrome.tabs.onUpdated.addListener(listener);
-  });
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.slice(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 async function sendSnapshotToApp(snapshot) {
-  const targetUrl = `${APP_URL}/?extension_import=1`;
-  const appTab = await chrome.tabs.create({ url: targetUrl });
-  await waitForTabComplete(appTab.id);
-
-  await chrome.scripting.executeScript({
-    target: { tabId: appTab.id },
-    args: [snapshot],
-    func: (payload) => {
-      sessionStorage.setItem("naver_import_snapshot", JSON.stringify(payload));
-      localStorage.setItem("naver_import_snapshot", JSON.stringify(payload));
-      window.dispatchEvent(new CustomEvent("naver-import-snapshot"));
-      window.location.replace(`/?extension_import=1&snapshot=${Date.now()}`);
-    },
-  });
+  const compactSnapshot = makeCompactSnapshot(snapshot);
+  const payload = encodePayload(compactSnapshot);
+  const targetUrl = `${APP_URL}/?extension_import=1#snapshot=${payload}`;
+  await chrome.tabs.create({ url: targetUrl });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

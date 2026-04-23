@@ -154,7 +154,9 @@ async function handleImportClick(button) {
       throw new Error(response?.error || "업무툴로 보내지 못했습니다.");
     }
 
-    showStatus("업무툴로 보냈습니다. 열린 앱 화면에서 결과를 확인하세요.");
+    showStatus(
+      `업무툴로 보냈습니다. 필드 ${snapshot.pairs.length}개, 이미지 ${snapshot.images.length}개를 전달했습니다.`
+    );
   } catch (err) {
     console.error(err);
     showStatus(err?.message || "매물 가져오기에 실패했습니다.", true);
