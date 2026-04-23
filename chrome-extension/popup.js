@@ -2,7 +2,7 @@ const APP_URL = "https://real-estate-mvp-production.up.railway.app";
 const NAVER_LAND_URL = "https://new.land.naver.com/";
 
 function isNaverLandUrl(url) {
-  return /^https:\/\/(new\.)?land\.naver\.com\//i.test(url || "");
+  return /^https:\/\/(?:fin\.|new\.)?land\.naver\.com\//i.test(url || "");
 }
 
 async function getActiveTab() {

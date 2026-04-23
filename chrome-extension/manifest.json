@@ -5,6 +5,7 @@
   "description": "Extract the current Naver Land page and send it to the real estate work app.",
   "permissions": ["tabs", "activeTab", "scripting"],
   "host_permissions": [
+    "https://fin.land.naver.com/*",
     "https://new.land.naver.com/*",
     "https://land.naver.com/*",
     "https://real-estate-mvp-production.up.railway.app/*"
@@ -19,6 +20,7 @@
   "content_scripts": [
     {
       "matches": [
+        "https://fin.land.naver.com/*",
         "https://new.land.naver.com/*",
         "https://land.naver.com/*"
       ],
