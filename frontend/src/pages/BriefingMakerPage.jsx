@@ -61,6 +61,31 @@ const WORK_FIELDS = [
   "contact_phone",
 ];
 
+function isUsableImportedImage(image) {
+  const url = String(image?.url || "").toLowerCase();
+  const alt = String(image?.alt || "").toLowerCase();
+  const haystack = `${url} ${alt}`;
+  if (!url.startsWith("http")) return false;
+  return ![
+    "sprite",
+    "sp_",
+    "favicon",
+    "logo",
+    "profile",
+    "avatar",
+    "default",
+    "blank",
+    "icon",
+    "marker",
+    "map",
+    "npay",
+    "pay",
+    "banner",
+    "gnb",
+    "talk",
+  ].some((token) => haystack.includes(token));
+}
+
 function createInitialForm() {
   if (typeof localStorage === "undefined") {
     return defaultForm;
@@ -121,9 +146,10 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     }));
 
     const importedImages = (draft?.recommended_images || [])
+      .filter(isUsableImportedImage)
       .map((image, index) => ({
         url: image.url,
-        name: image.alt || `naver-image-${index + 1}`,
+        name: image.category || `naver-image-${index + 1}`,
         imported: true,
       }))
       .filter((image) => image.url);

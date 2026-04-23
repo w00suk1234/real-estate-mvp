@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { importNaverListing, importNaverSnapshot } from "../../api";
+import { importNaverListing } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 
 const NAVER_LAND_URL = "https://new.land.naver.com/";
@@ -14,6 +14,21 @@ function extractNaverLandUrl(value) {
   return match?.[0] || trimmed;
 }
 
+function firstRegex(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return normalize(match[1]);
+  }
+  return "";
+}
+
+function findByAliases(table, aliases) {
+  for (const [key, value] of Object.entries(table)) {
+    if (aliases.some((alias) => key.includes(alias))) return normalize(value);
+  }
+  return "";
+}
+
 function makePairTable(snapshot) {
   const table = {};
   for (const pair of snapshot?.pairs || []) {
@@ -24,106 +39,168 @@ function makePairTable(snapshot) {
   return table;
 }
 
-function findByAliases(table, aliases) {
-  for (const [key, value] of Object.entries(table)) {
-    if (aliases.some((alias) => key.includes(alias))) return value;
-  }
-  return "";
-}
-
-function firstRegex(text, patterns) {
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) return normalize(match[1]);
-  }
-  return "";
-}
-
 function cleanNumber(value) {
   const match = String(value || "").match(/[\d,.]+/);
   return match ? match[0].replaceAll(",", "") : "";
 }
 
-function splitArea(areaText) {
-  const numbers = String(areaText || "").match(/[\d,.]+/g) || [];
+function moneyToManwon(value) {
+  const text = normalize(value).replaceAll(",", "");
+  const eokMatch = text.match(/([\d.]+)\s*억/);
+  if (eokMatch) {
+    const eok = Number(eokMatch[1]) || 0;
+    const afterEok = text.slice(eokMatch.index + eokMatch[0].length);
+    const restMatch = afterEok.match(/([\d.]+)/);
+    return String(Math.round(eok * 10000 + (Number(restMatch?.[1]) || 0)));
+  }
+  return cleanNumber(text);
+}
+
+function normalizeAddress(value) {
+  const text = normalize(value);
+  if (!text) return "";
+  const parts = text
+    .replace(/(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)/g, "\n$1")
+    .split("\n")
+    .map((part) => normalize(part))
+    .filter((part) => part.length >= 8 && part.length <= 80);
+  if (parts.length === 0) return text.slice(0, 80);
+  return parts.find((part) => /로|길/.test(part)) || parts[0];
+}
+
+function isBadImageCandidate(image) {
+  const url = String(image?.url || "").toLowerCase();
+  const alt = String(image?.alt || "").toLowerCase();
+  const haystack = `${url} ${alt}`;
+  const width = Number(image?.width) || 0;
+  const height = Number(image?.height) || 0;
+
+  if (!url || !url.startsWith("http")) return true;
+  if (
+    [
+      "sprite",
+      "sp_",
+      "favicon",
+      "logo",
+      "profile",
+      "avatar",
+      "default",
+      "blank",
+      "icon",
+      "marker",
+      "map",
+      "npay",
+      "pay",
+      "banner",
+      "gnb",
+      "talk",
+    ].some((token) => haystack.includes(token))
+  ) {
+    return true;
+  }
+
+  if (width && height) {
+    const area = width * height;
+    const ratio = width / height;
+    if (width < 160 || height < 100 || area < 24000) return true;
+    if (ratio < 0.45 || ratio > 4.2) return true;
+  }
+
+  return false;
+}
+
+function extractPrice(text, table, parsed) {
+  return (
+    normalize(parsed?.price_text) ||
+    findByAliases(table, ["가격", "매매가", "전세가", "보증금", "월세"]) ||
+    firstRegex(text, [
+      /(월세\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?\s*\/\s*[\d,.]+)/,
+      /(매매\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?)/,
+      /(전세\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?)/,
+      /(해당면적\s*최고가\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?)/,
+    ])
+  );
+}
+
+function extractArea(text, table, parsed) {
+  const areaText =
+    normalize(parsed?.area_text) ||
+    findByAliases(table, ["계약면적", "공급면적", "전용면적"]) ||
+    firstRegex(text, [
+      /((?:공급|계약|전용)\s*[\d,.]+\s*(?:㎡|m²|m2|평)[^ ]{0,30})/,
+      /((?:[\d,.]+\s*(?:㎡|m²|m2|평)\s*\/\s*)?전용\s*[\d,.]+\s*(?:㎡|m²|m2|평))/,
+    ]);
+
   return {
-    supplyArea: numbers[0]?.replaceAll(",", "") || "",
-    exclusiveArea: numbers[1]?.replaceAll(",", "") || numbers[0]?.replaceAll(",", "") || "",
+    areaText,
+    supplyArea:
+      cleanNumber(parsed?.supply_area) ||
+      firstRegex(areaText, [/(?:공급|계약)\s*([\d,.]+)/]) ||
+      firstRegex(text, [/(?:공급|계약)면적\s*([\d,.]+)/]),
+    exclusiveArea:
+      cleanNumber(parsed?.exclusive_area) ||
+      firstRegex(areaText, [/전용\s*([\d,.]+)/]) ||
+      firstRegex(text, [/전용(?:면적)?\s*([\d,.]+)/]),
   };
 }
 
-function inferTitle(snapshot, text) {
-  const rawTitle = normalize(snapshot?.title || snapshot?.page_title);
-  const badTitle = !rawTitle || rawTitle.includes("네이버") || rawTitle.includes("부동산");
-  if (!badTitle && rawTitle.length <= 80) return rawTitle;
-
-  return firstRegex(text, [
-    /([가-힣A-Za-z0-9.\s-]{2,40}(?:아파트|오피스텔|빌라|상가|사무실|빌딩|단지|동)\s*\d{0,4})/,
-    /([가-힣A-Za-z0-9.\s-]{2,40}\s+(?:매매|전세|월세)\s*[\d,.]+[^\s]{0,10})/,
-  ]);
-}
-
-function inferDealType(priceText, text) {
-  if (priceText.includes("매매") || text.includes("매매")) return "매매";
-  if (priceText.includes("전세") || text.includes("전세")) return "전세";
-  return "월세";
-}
-
 function buildLocalDraftFromSnapshot(snapshot) {
+  const parsed = snapshot?.parsed_fields || {};
   const table = makePairTable(snapshot);
-  const text = normalize(snapshot?.visible_text);
-  const title = inferTitle(snapshot, text) || "네이버 매물 초안";
+  const text = normalize(snapshot?.focused_text || snapshot?.visible_text);
 
-  const address =
-    findByAliases(table, ["주소", "소재지", "위치"]) ||
+  const title =
+    normalize(parsed.title) ||
     firstRegex(text, [
-      /(서울[^\n]{4,70})/,
-      /(경기[^\n]{4,70})/,
-      /(인천[^\n]{4,70})/,
-      /주소\s*([^\n]{4,80})/,
-    ]);
+      /([가-힣A-Za-z0-9.\s-]{2,42}(?:아파트|오피스텔|빌라|상가|사무실|빌딩|단지|동)\s*\d{0,4})/,
+    ]) ||
+    "네이버 매물 초안";
 
-  const areaText =
-    findByAliases(table, ["계약면적", "공급면적", "전용면적", "면적"]) ||
-    firstRegex(text, [
-      /면적\s*([^\n]{2,80})/,
-      /([\d,.]+\s*(?:㎡|m²|m2|평)(?:\s*[/,]\s*[\d,.]+\s*(?:㎡|m²|m2|평))?)/,
-    ]);
+  const priceText = extractPrice(text, table, parsed);
+  const dealType =
+    normalize(parsed.deal_type) ||
+    (priceText.includes("매매") ? "매매" : priceText.includes("전세") ? "전세" : "월세");
 
-  const { supplyArea, exclusiveArea } = splitArea(areaText);
-
-  const floor =
-    findByAliases(table, ["층수", "해당층", "층"]) ||
-    firstRegex(text, [
-      /(\d+\s*\/\s*\d+\s*층)/,
-      /(\d+\s*층\s*\/\s*\d+\s*층)/,
-      /(지하\s*\d+\s*층|반지하|\d+\s*층)/,
-    ]);
-
-  const priceText =
-    findByAliases(table, ["가격", "보증금", "매매가", "전세가", "월세"]) ||
-    firstRegex(text, [
-      /(월세\s*[\d,.]+\s*\/\s*[\d,.]+)/,
-      /(매매\s*[\d,.]+[^\s]{0,10})/,
-      /(전세\s*[\d,.]+[^\s]{0,10})/,
-    ]);
-
-  const dealType = inferDealType(priceText, text);
-  const priceNumbers = priceText.match(/[\d,.]+/g) || [];
   const deposit =
-    dealType === "매매" || dealType === "전세"
-      ? cleanNumber(priceText)
-      : priceNumbers[0]?.replaceAll(",", "") || "";
-  const monthlyRent = dealType === "월세" ? priceNumbers[1]?.replaceAll(",", "") || "" : "";
+    normalize(parsed.deposit) ||
+    (dealType === "월세"
+      ? moneyToManwon(priceText.split("/")[0])
+      : moneyToManwon(priceText));
+  const monthlyRent =
+    normalize(parsed.monthly_rent) ||
+    (dealType === "월세" ? moneyToManwon(priceText.split("/")[1] || "") : "");
 
-  const rooms =
-    findByAliases(table, ["방수", "방"]) || firstRegex(text, [/방\s*([0-9]+개?)/]);
+  const address = normalizeAddress(
+    normalize(parsed.address) ||
+      findByAliases(table, ["주소", "소재지", "위치"]) ||
+      firstRegex(text, [
+        /((?:서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)[^\n]{8,90})/,
+      ])
+  );
+
+  const { areaText, supplyArea, exclusiveArea } = extractArea(text, table, parsed);
+  const floor =
+    normalize(parsed.floor) ||
+    findByAliases(table, ["층수", "해당층", "층"]) ||
+    firstRegex(text, [/(\d+\s*층\s*\/\s*\d+\s*층|\d+\s*\/\s*\d+\s*층|지하\s*\d+\s*층|반지하)/]);
   const parking =
+    normalize(parsed.parking) ||
     findByAliases(table, ["주차", "주차가능여부"]) ||
-    firstRegex(text, [/(주차\s*(?:가능|불가|협의|[0-9]+대))/]);
+    firstRegex(text, [/(주차\s*(?:가능|불가|협의|무료|유료|[\d,]+대))/]);
+  const elevator = normalize(parsed.elevator) || findByAliases(table, ["엘리베이터"]);
+
+  const images = (snapshot?.images || [])
+    .filter((image) => !isBadImageCandidate(image))
+    .slice(0, 10)
+    .map((image, index) => ({
+      ...image,
+      alt: "",
+      category: index === 0 ? "대표 후보" : "매물 사진 후보",
+      confidence: image.confidence || 0.6,
+    }));
 
   const description = [
-    "네이버 화면에서 가져온 정보를 바탕으로 만든 소개서 초안입니다.",
+    "네이버 화면에서 읽은 값으로 만든 소개서 초안입니다.",
     priceText ? `가격: ${priceText}` : "",
     address ? `주소: ${address}` : "",
     areaText ? `면적: ${areaText}` : "",
@@ -137,34 +214,21 @@ function buildLocalDraftFromSnapshot(snapshot) {
     title,
     deal_type: dealType,
     address,
-    supply_area: supplyArea,
-    exclusive_area: exclusiveArea,
+    supply_area: cleanNumber(supplyArea),
+    exclusive_area: cleanNumber(exclusiveArea),
     floor,
     deposit,
     monthly_rent: monthlyRent,
-    rooms: cleanNumber(rooms),
+    elevator: /무|없음/.test(elevator) ? "무" : elevator ? "유" : "",
     parking_count: cleanNumber(parking),
     description,
   };
 
-  const recommendedImages = (snapshot?.images || [])
-    .filter((image) => image.url)
-    .filter((image) => {
-      const url = image.url.toLowerCase();
-      return !url.includes("sprite") && !url.includes("sp_") && !url.includes("favicon");
-    })
-    .slice(0, 10)
-    .map((image, index) => ({
-      ...image,
-      category: index === 0 ? "대표 후보" : "네이버 이미지",
-      confidence: image.confidence || 0.5,
-    }));
-
   const warnings = [];
-  if (!address) warnings.push("주소를 못 읽었습니다. 네이버 상세 패널에 주소가 보이게 한 뒤 다시 가져와보세요.");
-  if (!priceText) warnings.push("가격을 못 읽었습니다. 매물 리스트에서 실제 매물을 클릭한 상태인지 확인해주세요.");
-  if (!areaText) warnings.push("면적을 못 읽었습니다. 단지정보가 아니라 매물 상세 정보 패널이 열려 있어야 합니다.");
-  if (recommendedImages.length === 0) warnings.push("사진 URL을 못 찾았습니다. 사진 탭을 연 뒤 다시 가져오면 성공률이 올라갑니다.");
+  if (!priceText) warnings.push("가격을 못 읽었습니다. 실제 매물 상세가 열린 상태인지 확인해주세요.");
+  if (!address) warnings.push("주소를 못 읽었습니다. 상세 정보 패널에 주소가 보이게 한 뒤 다시 가져와보세요.");
+  if (!areaText && !supplyArea && !exclusiveArea) warnings.push("면적을 못 읽었습니다. 단지정보가 아니라 매물 상세 정보가 보여야 합니다.");
+  if (images.length === 0) warnings.push("사진을 못 찾았습니다. 네이버의 사진 탭을 연 상태에서 다시 가져오면 성공률이 올라갑니다.");
 
   return {
     brochure_title: title,
@@ -173,7 +237,7 @@ function buildLocalDraftFromSnapshot(snapshot) {
     field_mapping: Object.fromEntries(
       Object.entries(fieldMapping).filter(([, value]) => normalize(value))
     ),
-    recommended_images: recommendedImages,
+    recommended_images: images,
     warnings,
     source: "extension-local",
   };
@@ -203,7 +267,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
   const { isAuthenticated } = useAuth();
 
   const activeDraft = result?.brochure_draft || localDraft;
-  const images = result?.vision_analysis?.images || activeDraft?.recommended_images || [];
+  const images = activeDraft?.recommended_images || [];
   const coverage = useMemo(() => makeCoverage(activeDraft), [activeDraft]);
 
   const snapshotStats = useMemo(() => {
@@ -211,7 +275,8 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     return {
       pairs: initialSnapshot.pairs?.length || 0,
       images: initialSnapshot.images?.length || 0,
-      textLength: initialSnapshot.visible_text?.length || 0,
+      textLength: (initialSnapshot.focused_text || initialSnapshot.visible_text || "").length,
+      parsed: Object.values(initialSnapshot.parsed_fields || {}).filter(Boolean).length,
     };
   }, [initialSnapshot]);
 
@@ -227,7 +292,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     const snapshotKey = [
       initialSnapshot.listing_url,
       initialSnapshot.received_at || "",
-      initialSnapshot.visible_text?.length || 0,
+      initialSnapshot.focused_text?.length || initialSnapshot.visible_text?.length || 0,
       initialSnapshot.images?.length || 0,
       initialSnapshot.pairs?.length || 0,
     ].join(":");
@@ -240,40 +305,9 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     setLocalDraft(fallbackDraft);
     setResult(null);
     setError("");
-    setStatus("현재 네이버 화면에서 읽은 값으로 1차 자동기입했습니다. 비어 있는 항목은 아래 진단을 확인해주세요.");
+    setStatus("현재 네이버 화면에서 읽은 값을 정제해서 반영했습니다. 서버가 다시 긁어오는 방식은 자동으로 덮어쓰지 않습니다.");
     onApplyDraft?.(fallbackDraft);
-
-    if (!isAuthenticated) {
-      setError("로그인 전이라 서버/AI 초안 생성은 건너뛰었습니다. 현재 화면에서 읽은 값만 먼저 반영했습니다.");
-      return;
-    }
-
-    let ignore = false;
-    setLoading(true);
-
-    importNaverSnapshot(initialSnapshot)
-      .then((data) => {
-        if (ignore) return;
-        setResult(data);
-        if (data?.brochure_draft) {
-          onApplyDraft?.(data.brochure_draft);
-          setStatus("서버 분석 결과까지 반영했습니다. 저장 전 값이 맞는지 확인해주세요.");
-        }
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!ignore) {
-          setError(`서버 분석은 실패했지만, 현재 화면에서 읽은 값은 반영했습니다. (${err.message})`);
-        }
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [initialSnapshot, isAuthenticated, handledSnapshotKey, onApplyDraft]);
+  }, [initialSnapshot, handledSnapshotKey, onApplyDraft]);
 
   const openNaverLand = () => {
     window.open(NAVER_LAND_URL, "_blank", "noopener,noreferrer");
@@ -329,26 +363,27 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       <div className="panel-head import-panel-head">
         <div>
           <h3>네이버 매물 → 소개서 초안</h3>
-          <p>메인 방식은 현재 보고 있는 네이버 화면을 읽어와 자동기입하는 것입니다.</p>
+          <p>현재 보고 있는 네이버 상세 패널만 읽어와 폼에 넣는 반자동 흐름입니다.</p>
         </div>
         <span className="agent-pill">Agent MVP</span>
       </div>
 
       <div className="import-flow-card">
-        <strong>추천 흐름</strong>
+        <strong>정확도를 높이는 사용법</strong>
         <ol className="import-flow-steps">
-          <li>네이버 부동산에서 실제 매물 상세 패널을 엽니다.</li>
-          <li>사진 탭이나 상세 정보가 보이는 상태에서 오른쪽 아래 업무툴 버튼을 누릅니다.</li>
-          <li>가져온 값은 초안으로만 반영하고, 저장 전 사람이 확인합니다.</li>
+          <li>네이버에서 매물 리스트의 실제 매물 하나를 클릭합니다.</li>
+          <li>상세 정보 또는 사진 탭이 왼쪽/가운데 패널에 보이는 상태로 둡니다.</li>
+          <li>오른쪽 아래 업무툴로 가져오기 버튼을 누르고, 채워진 값만 검토합니다.</li>
         </ol>
       </div>
 
       {snapshotStats && (
         <div className="import-debug-box">
-          <strong>확장 데이터 수신됨</strong>
+          <strong>정제 수집 결과</strong>
+          <span>핵심값 {snapshotStats.parsed}개</span>
           <span>표 후보 {snapshotStats.pairs}개</span>
-          <span>이미지 후보 {snapshotStats.images}개</span>
-          <span>화면 텍스트 {snapshotStats.textLength.toLocaleString()}자</span>
+          <span>사진 후보 {snapshotStats.images}개</span>
+          <span>패널 텍스트 {snapshotStats.textLength.toLocaleString()}자</span>
         </div>
       )}
 
@@ -372,7 +407,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       <details className="url-fallback-box">
         <summary>URL로 가져오기 예비 기능</summary>
         <p>
-          URL 방식은 서버가 네이버를 다시 열어야 해서 timeout이 날 수 있습니다. 서비스 메인 흐름은
+          URL 방식은 서버가 네이버를 다시 열어야 해서 timeout이 날 수 있습니다. 실제 서비스 흐름은
           네이버 화면의 업무툴 버튼입니다.
         </p>
         <div className="import-quick-actions">

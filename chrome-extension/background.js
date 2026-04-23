@@ -8,6 +8,9 @@ function makeCompactSnapshot(snapshot) {
     pairs: (snapshot?.pairs || []).slice(0, 80),
     images: (snapshot?.images || []).slice(0, 12),
     visible_text: String(snapshot?.visible_text || "").slice(0, 6000),
+    focused_text: String(snapshot?.focused_text || snapshot?.visible_text || "").slice(0, 6000),
+    panel_texts: (snapshot?.panel_texts || []).slice(0, 4),
+    parsed_fields: snapshot?.parsed_fields || {},
   };
 }
 
