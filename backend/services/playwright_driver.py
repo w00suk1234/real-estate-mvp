@@ -17,9 +17,9 @@ class PageFetchError(RuntimeError):
 def assert_allowed_url(url: str) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
-        raise PageFetchError("http 또는 https URL만 사용할 수 있습니다.")
+        raise PageFetchError("Only http or https URLs are supported.")
     if parsed.hostname not in ALLOWED_NAVER_HOSTS:
-        raise PageFetchError("현재는 네이버 부동산 URL만 가져올 수 있습니다.")
+        raise PageFetchError("Only Naver Land URLs are supported for now.")
 
 
 async def auto_scroll(page, rounds: int = 6) -> None:
@@ -32,26 +32,53 @@ async def fetch_page_dom_snapshot(url: str) -> dict:
     assert_allowed_url(url)
 
     try:
+        from playwright.async_api import TimeoutError as PlaywrightTimeoutError
         from playwright.async_api import async_playwright
     except ImportError as exc:
-        raise PageFetchError("Playwright가 설치되어 있지 않습니다.") from exc
+        raise PageFetchError("Playwright is not installed.") from exc
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
+            ],
         )
-        page = await browser.new_page(
+        context = await browser.new_context(
             viewport={"width": 1440, "height": 1600},
+            locale="ko-KR",
+            timezone_id="Asia/Seoul",
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/122.0.0.0 Safari/537.36"
             ),
         )
+        page = await context.new_page()
 
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=35000)
+            try:
+                await page.goto(url, wait_until="commit", timeout=45000)
+            except PlaywrightTimeoutError as exc:
+                raise PageFetchError(
+                    "Naver Land did not respond in time. Try an individual listing detail URL, "
+                    "or try again after a moment."
+                ) from exc
+
+            # Naver Land is a heavy SPA. The initial response can be enough for
+            # basic extraction even when full DOMContentLoaded is delayed.
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=15000)
+            except PlaywrightTimeoutError:
+                pass
+
+            try:
+                await page.wait_for_selector("body", timeout=15000)
+            except PlaywrightTimeoutError as exc:
+                raise PageFetchError("The page body was not available for extraction.") from exc
+
             await page.wait_for_timeout(2500)
             await close_common_popups(page)
             await auto_scroll(page)
@@ -59,9 +86,12 @@ async def fetch_page_dom_snapshot(url: str) -> dict:
             screenshot = await page.screenshot(full_page=True, type="png")
             data["screenshot_base64"] = base64.b64encode(screenshot).decode("ascii")
             return data
+        except PageFetchError:
+            raise
         except Exception as exc:
-            raise PageFetchError(f"페이지 수집 실패: {exc}") from exc
+            raise PageFetchError(f"Page extraction failed: {exc}") from exc
         finally:
+            await context.close()
             await browser.close()
 
 
@@ -114,9 +144,9 @@ DOM_EXTRACT_SCRIPT = """
     });
   });
 
-  document.querySelectorAll('li, .info, .item, .detail, .detail_box').forEach((node) => {
+  document.querySelectorAll('li, .info, .item, .detail, .detail_box, [class*=detail], [class*=info]').forEach((node) => {
     const text = normalize(node.innerText);
-    if (!text || text.length > 180) return;
+    if (!text || text.length > 220) return;
     const parts = text.split(/[:：]/);
     if (parts.length >= 2) {
       pairs.push({ key: normalize(parts[0]), value: normalize(parts.slice(1).join(':')) });
@@ -124,27 +154,32 @@ DOM_EXTRACT_SCRIPT = """
   });
 
   const images = [];
+  const pushImage = (url, alt, source, width = 0, height = 0) => {
+    const absolute = absoluteUrl(url);
+    if (!absolute) return;
+    images.push({ url: absolute, alt: normalize(alt), width, height, source });
+  };
+
+  pushImage(meta['og:image'], 'og:image', 'meta');
+
   document.querySelectorAll('img').forEach((img) => {
-    const src = absoluteUrl(img.currentSrc || img.src || img.getAttribute('data-src'));
-    if (!src) return;
-    images.push({
-      url: src,
-      alt: normalize(img.alt),
-      width: img.naturalWidth || img.width || 0,
-      height: img.naturalHeight || img.height || 0,
-      source: 'img'
-    });
+    pushImage(
+      img.currentSrc || img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src'),
+      img.alt,
+      'img',
+      img.naturalWidth || img.width || 0,
+      img.naturalHeight || img.height || 0
+    );
   });
 
   document.querySelectorAll('[style]').forEach((node) => {
     const style = node.getAttribute('style') || '';
     const match = style.match(/url\\(["']?(.*?)["']?\\)/);
-    const src = absoluteUrl(match?.[1]);
-    if (src) images.push({ url: src, alt: normalize(node.innerText), width: 0, height: 0, source: 'background' });
+    pushImage(match?.[1], node.innerText, 'background');
   });
 
   const uniqueImages = Array.from(new Map(images.map((item) => [item.url, item])).values())
-    .filter((item) => !/sprite|blank|logo|favicon/i.test(item.url))
+    .filter((item) => !/sprite|blank|logo|favicon|map/i.test(item.url))
     .slice(0, 40);
 
   return {
