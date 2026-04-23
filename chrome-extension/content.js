@@ -24,6 +24,7 @@ const DETAIL_KEYWORDS = [
   "매매",
   "전세",
   "월세",
+  "보증금/월세",
   "보증금",
   "관리비",
   "주소",
@@ -40,6 +41,9 @@ const DETAIL_KEYWORDS = [
   "매물번호",
   "단지 정보",
   "사진",
+  "사무실",
+  "중소형사무실",
+  "전용률",
   "엘리베이터",
   "화장실",
 ];
@@ -61,6 +65,31 @@ function normalizeLines(value) {
       seen.add(line);
       return true;
     });
+}
+
+function collectRelevantBodyText() {
+  const seen = new Set();
+  return String(document.body?.innerText || "")
+    .split(/\n+/)
+    .map((line) => normalize(line))
+    .filter(Boolean)
+    .filter((line) => line.length <= 140)
+    .filter((line) => !JUNK_LINE_PATTERNS.some((pattern) => pattern.test(line)))
+    .filter((line) => {
+      if (seen.has(line)) return false;
+      seen.add(line);
+      return true;
+    })
+    .filter(
+      (line) =>
+        DETAIL_KEYWORDS.some((keyword) => line.includes(keyword)) ||
+        /(?:월세|전세|매매)\s*[\d,.]+/.test(line) ||
+        /[\d,.]+\s*(?:㎡|m²|m2|평)\s*\/\s*[\d,.]+\s*(?:㎡|m²|m2|평)/.test(line) ||
+        /(?:서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)/.test(line) ||
+        /\d+\s*\/\s*\d+\s*층/.test(line)
+    )
+    .slice(0, 140)
+    .join("\n");
 }
 
 function absoluteUrl(value) {
@@ -158,6 +187,23 @@ function addPairFromText(text, addPair) {
       DETAIL_KEYWORDS.some((keyword) => key.includes(keyword))
     ) {
       addPair(key, value);
+    }
+  }
+
+  for (const line of lines) {
+    const directPatterns = [
+      [/^(보증금\/월세)\s+(.+)$/, 1, 2],
+      [/^(관리비)\s+(.+)$/, 1, 2],
+      [/^(주소|소재지|위치)\s+(.+)$/, 1, 2],
+      [/^(전용면적|공급면적|계약면적)\s+(.+)$/, 1, 2],
+      [/^(층수|해당층)\s+(.+)$/, 1, 2],
+      [/^(엘리베이터)\s+(.+)$/, 1, 2],
+      [/^(주차(?:가능여부)?)\s+(.+)$/, 1, 2],
+    ];
+
+    for (const [pattern, keyIndex, valueIndex] of directPatterns) {
+      const match = line.match(pattern);
+      if (match) addPair(match[keyIndex], match[valueIndex]);
     }
   }
 }
@@ -381,8 +427,8 @@ function extractStructuredFields(focusedText, pairs, title) {
   const titleCandidate =
     lines.find((line) => {
       if (line.length < 4 || line.length > 42) return false;
-      if (/매매|전세|월세|가격|주소|면적|층수/.test(line)) return false;
-      return /[가-힣]/.test(line) && /동|단지|상가|오피스텔|아파트|빌딩|사무실/.test(line);
+      if (/매매|전세|월세|가격|주소|면적|층수|관리비|허위매물/.test(line)) return false;
+      return /[가-힣]/.test(line) && /동|단지|상가|오피스텔|아파트|빌딩|사무실|중소형사무실/.test(line);
     }) ||
     normalize(title).replace(/네이버.*$/, "").slice(0, 42);
 
@@ -410,7 +456,8 @@ function collectNaverSnapshot() {
   const fallbackPanel = panels.length > 0 ? panels : [document.body].filter(Boolean);
   const pairs = collectPairsFromPanels(fallbackPanel);
   const panelTexts = fallbackPanel.map((panel) => normalizeLines(panel.innerText).join("\n"));
-  const focusedText = normalizeLines(panelTexts.join("\n")).join("\n").slice(0, 9000);
+  const bodyHints = collectRelevantBodyText();
+  const focusedText = normalizeLines(`${panelTexts.join("\n")}\n${bodyHints}`).join("\n").slice(0, 9000);
 
   const metaTitle = document.querySelector("meta[property='og:title']")?.content || "";
   const title =
