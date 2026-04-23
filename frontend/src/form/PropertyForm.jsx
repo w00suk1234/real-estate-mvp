@@ -13,6 +13,14 @@ const QUICK_DESC_TAGS = [
   "가시성 우수",
 ];
 
+function isImportedImage(image) {
+  return Boolean(image?.imported && image?.url);
+}
+
+function imageName(image, idx) {
+  return image?.name || image?.url || `image-${idx + 1}`;
+}
+
 function PropertyForm({
   form,
   setForm,
@@ -116,11 +124,24 @@ function PropertyForm({
       formData.append(key, value ?? "");
     });
 
-    formData.append("main_image", mainImage);
+    if (isImportedImage(mainImage)) {
+      formData.append("main_image_url", mainImage.url);
+    } else {
+      formData.append("main_image", mainImage);
+    }
 
     extraImages.forEach((file) => {
-      formData.append("extra_images", file);
+      if (!isImportedImage(file)) {
+        formData.append("extra_images", file);
+      }
     });
+
+    const importedExtraUrls = extraImages
+      .filter(isImportedImage)
+      .map((image) => image.url);
+    if (importedExtraUrls.length > 0) {
+      formData.append("extra_image_urls", JSON.stringify(importedExtraUrls));
+    }
 
     try {
       setLoading(true);
@@ -222,7 +243,7 @@ function PropertyForm({
           <div className="extra-manage-box">
             {extraImages.map((file, idx) => (
               <div className="extra-manage-item" key={`${file.name}-${idx}`}>
-                <span className="extra-manage-name">{file.name}</span>
+                <span className="extra-manage-name">{imageName(file, idx)}</span>
                 <div className="extra-manage-actions">
                   <button
                     type="button"

@@ -21,6 +21,8 @@ router = APIRouter(prefix="/import", tags=["importer"])
 def _build_raw_listing_from_snapshot(payload: ExtensionSnapshotRequest) -> RawListing:
     pair_dicts = [pair.model_dump() for pair in payload.pairs]
     table = normalize_table(pair_dicts)
+    if payload.visible_text:
+        table["_visible_text"] = payload.visible_text
     normalized = normalize_listing_fields(table, title=payload.title)
     images = [
         ImageCandidate(

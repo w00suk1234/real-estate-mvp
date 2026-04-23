@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from fastapi import UploadFile
@@ -125,6 +127,55 @@ def save_upload_image(upload_file: UploadFile, base_url: str) -> StoredFile | No
         while chunk := upload_file.file.read(1024 * 1024):
             buffer.write(chunk)
 
+    return StoredFile(
+        filename=filename,
+        url=f"{base_url}/uploads/{filename}",
+        storage_key=storage_key,
+        backend="local",
+    )
+
+
+def save_remote_image(image_url: str, base_url: str) -> StoredFile | None:
+    ensure_storage_configured()
+
+    parsed = urlparse(image_url or "")
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    ext = Path(parsed.path).suffix.lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        ext = ".jpg"
+
+    filename = f"{uuid4().hex}{ext}"
+    storage_key = f"uploads/{filename}"
+    request = Request(
+        image_url,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://new.land.naver.com/",
+        },
+    )
+
+    with urlopen(request, timeout=15) as response:
+        body = response.read(12 * 1024 * 1024)
+
+    if r2_enabled():
+        client = _r2_client()
+        client.put_object(
+            Bucket=os.environ["R2_BUCKET"],
+            Key=storage_key,
+            Body=body,
+            ContentType=_content_type(filename, "image/jpeg"),
+        )
+        return StoredFile(
+            filename=filename,
+            url=f"{_public_base_url()}/{storage_key}",
+            storage_key=storage_key,
+            backend="r2",
+        )
+
+    file_path = UPLOAD_DIR / filename
+    file_path.write_bytes(body)
     return StoredFile(
         filename=filename,
         url=f"{base_url}/uploads/{filename}",

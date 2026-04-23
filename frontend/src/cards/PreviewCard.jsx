@@ -1,5 +1,15 @@
+function imageSrc(image) {
+  if (!image) return null;
+  if (image.url) return image.url;
+  return URL.createObjectURL(image);
+}
+
+function imageKey(image, idx) {
+  return image?.url || image?.name || `image-${idx}`;
+}
+
 function PreviewCard({ form, mainImage, extraImages }) {
-  const mainPreview = mainImage ? URL.createObjectURL(mainImage) : null;
+  const mainPreview = imageSrc(mainImage);
 
   const priceText =
     form.deal_type === "월세"
@@ -8,12 +18,12 @@ function PreviewCard({ form, mainImage, extraImages }) {
         }${form.price_unit} / 관리비 ${form.maintenance_fee || "-"}${
           form.price_unit
         }`
-      : `전세 ${form.deposit || "-"}${form.price_unit}`;
+      : `${form.deal_type || "전세"} ${form.deposit || "-"}${form.price_unit}`;
 
   const restroomText =
     form.restroom_type === "직접입력"
       ? form.restroom_detail || "-"
-      : form.restroom_type;
+      : form.restroom_type || form.restroom_detail || "-";
 
   const parkingText = form.parking_count
     ? `${form.parking_count}대 / ${form.parking_type}${
@@ -117,11 +127,11 @@ function PreviewCard({ form, mainImage, extraImages }) {
             <div className="brochure-section">
               <div className="brochure-label">추가 사진</div>
               <div className="extra-photo-grid">
-                {previewExtra.map((file, idx) => (
+                {previewExtra.map((image, idx) => (
                   <img
-                    key={`${file.name}-${idx}`}
-                    src={URL.createObjectURL(file)}
-                    alt={`추가사진-${idx + 1}`}
+                    key={imageKey(image, idx)}
+                    src={imageSrc(image)}
+                    alt={`추가 사진-${idx + 1}`}
                     className="extra-thumb"
                   />
                 ))}

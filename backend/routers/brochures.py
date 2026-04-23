@@ -1,5 +1,6 @@
 from datetime import datetime
 from html import escape
+import json
 import logging
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -7,7 +8,7 @@ from sqlalchemy import delete, insert, select
 
 from db import brochures, engine, row_to_dict, rows_to_dicts
 from dependencies import get_current_user, is_admin
-from services.storage import delete_stored_file, save_html_file, save_upload_image
+from services.storage import delete_stored_file, save_html_file, save_remote_image, save_upload_image
 
 
 router = APIRouter(tags=["brochures"])
@@ -77,20 +78,37 @@ async def create_brochure(
     description: str = Form(""),
     contact_name: str = Form(""),
     contact_phone: str = Form(""),
-    main_image: UploadFile = File(...),
+    main_image_url: str = Form(""),
+    extra_image_urls: str = Form("[]"),
+    main_image: UploadFile | None = File(None),
     extra_images: list[UploadFile] | None = File(None),
     current_user: dict = Depends(get_current_user),
 ):
     base_url = str(request.base_url).rstrip("/")
 
     try:
-        main_image_file = save_upload_image(main_image, base_url)
+        main_image_file = None
+        if main_image and main_image.filename:
+            main_image_file = save_upload_image(main_image, base_url)
+        elif main_image_url:
+            main_image_file = save_remote_image(main_image_url, base_url)
+
         if not main_image_file:
             return {"success": False, "message": "대표 이미지는 jpg, png, webp 형식만 가능합니다."}
 
         extra_image_files = []
         for img in (extra_images or [])[:10]:
             saved = save_upload_image(img, base_url)
+            if saved:
+                extra_image_files.append(saved)
+
+        try:
+            remote_extra_urls = json.loads(extra_image_urls or "[]")
+        except json.JSONDecodeError:
+            remote_extra_urls = []
+
+        for image_url in remote_extra_urls[: max(0, 10 - len(extra_image_files))]:
+            saved = save_remote_image(str(image_url), base_url)
             if saved:
                 extra_image_files.append(saved)
     except Exception:

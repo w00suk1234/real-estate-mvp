@@ -24,7 +24,26 @@ def infer_deal_type(fields: dict[str, str]) -> str:
     text = " ".join(fields.values())
     if "전세" in text:
         return "전세"
+    if "매매" in text:
+        return "매매"
     return "월세"
+
+
+def split_price(fields: dict[str, str]) -> dict[str, str]:
+    result = {
+        "deposit": first_value(fields, "deposit"),
+        "monthly_rent": first_value(fields, "monthly_rent"),
+        "maintenance_fee": first_value(fields, "maintenance_fee"),
+    }
+    price_text = first_value(fields, "price_text")
+    if price_text and not (result["deposit"] or result["monthly_rent"]):
+        numbers = re.findall(r"[\d,.]+", price_text)
+        if "월세" in price_text and len(numbers) >= 2:
+            result["deposit"] = numbers[0].replace(",", "")
+            result["monthly_rent"] = numbers[1].replace(",", "")
+        elif ("전세" in price_text or "매매" in price_text) and numbers:
+            result["deposit"] = numbers[0].replace(",", "")
+    return {key: value for key, value in result.items() if value}
 
 
 def build_description(fields: dict[str, str], summary_points: list[str]) -> str:
@@ -69,6 +88,7 @@ def build_brochure_draft(raw_listing: RawListing, vision: VisionAnalysis) -> Bro
         "restroom_detail": restroom,
         "parking_count": "1" if "가능" in parking else "",
         "description": build_description(fields, summary_points),
+        **split_price(fields),
     }
     field_mapping = {key: value for key, value in field_mapping.items() if value}
 
@@ -81,7 +101,7 @@ def build_brochure_draft(raw_listing: RawListing, vision: VisionAnalysis) -> Bro
     warnings = []
     for required in ["address", "supply_area", "floor"]:
         if required not in field_mapping:
-            warnings.append(f"{required} 필드는 자동 추출 신뢰도가 낮습니다. 저장 전 확인하세요.")
+            warnings.append(f"{required} field could not be extracted automatically. Please review it.")
     warnings.extend(raw_listing.extraction_warnings)
     warnings.extend(vision.warnings)
 

@@ -119,6 +119,20 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
       ...prev,
       ...fieldMapping,
     }));
+
+    const importedImages = (draft?.recommended_images || [])
+      .map((image, index) => ({
+        url: image.url,
+        name: image.alt || `naver-image-${index + 1}`,
+        imported: true,
+      }))
+      .filter((image) => image.url);
+
+    if (importedImages.length > 0) {
+      setMainImage(importedImages[0]);
+      setExtraImages(importedImages.slice(1, 11));
+    }
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
