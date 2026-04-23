@@ -1020,19 +1020,28 @@ h4 {
   align-items: flex-start;
 }
 
-.import-setup-note {
-  margin: 10px 0 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #dbeafe;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.6;
+.import-link-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.import-setup-note strong {
-  color: #0f172a;
+.import-link-badge {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.import-link-badge:hover {
+  filter: brightness(1.02);
+  transform: translateY(-1px);
 }
 
 .import-head-actions {
@@ -1057,8 +1066,8 @@ h4 {
   position: absolute;
   top: 42px;
   right: 0;
-  width: 320px;
-  padding: 16px;
+  width: 360px;
+  padding: 18px;
   border-radius: 16px;
   border: 1px solid #dbeafe;
   background: #ffffff;
@@ -1068,23 +1077,52 @@ h4 {
 
 .import-help-popover strong {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   color: #0f172a;
 }
 
+.import-help-section {
+  margin-bottom: 14px;
+}
+
+.import-help-kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.import-help-popover > .import-help-list:not(.import-help-list-clean),
+.import-help-popover > p:not(.import-help-footnote) {
+  display: none;
+}
+
 .import-help-list {
-  margin: 0 0 10px;
+  margin: 0;
   padding-left: 18px;
   color: #475569;
   font-size: 13px;
   line-height: 1.7;
 }
 
-.import-help-popover p {
+.import-help-bullets {
+  list-style: disc;
+}
+
+.import-help-section p,
+.import-help-footnote {
   margin: 0;
   color: #64748b;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.import-help-footnote {
+  padding-top: 2px;
 }
 
 .import-row {
@@ -1287,6 +1325,18 @@ h4 {
 }
 
 @media (max-width: 900px) {
+  .import-panel-head {
+    flex-direction: column;
+  }
+
+  .import-head-actions {
+    align-self: flex-end;
+  }
+
+  .import-help-popover {
+    width: min(360px, calc(100vw - 56px));
+  }
+
   .import-row {
     grid-template-columns: 1fr;
   }
