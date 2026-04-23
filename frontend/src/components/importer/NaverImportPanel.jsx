@@ -379,6 +379,10 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
         <div>
           <h3>네이버 매물 → 소개서 초안</h3>
           <p>현재 보고 있는 네이버 상세 패널만 읽어와 폼에 넣는 반자동 흐름입니다.</p>
+          <p className="import-setup-note">
+            메인 방식은 <strong>크롬 확장프로그램을 처음 한 번만 불러온 뒤</strong> 사용하는 방식입니다.
+            그다음부터는 네이버 매물 화면에서 바로 업무툴로 가져오기 버튼을 눌러 쓸 수 있습니다.
+          </p>
         </div>
         <div className="import-head-actions" ref={helpRef}>
           <button
@@ -395,12 +399,15 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
             <div className="import-help-popover">
               <strong>처음 쓰는 분 가이드</strong>
               <ol className="import-help-list">
+                <li>처음 한 번은 크롬 확장프로그램을 불러와야 합니다.</li>
                 <li>네이버에서 실제 매물 하나를 클릭합니다.</li>
                 <li>상세 정보나 사진 탭이 보이게 둡니다.</li>
                 <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
                 <li>우리 앱에서 채워진 값만 검토하고 저장합니다.</li>
               </ol>
               <p>
+                크롬 확장프로그램을 아직 안 불러왔다면 네이버 화면에서 버튼이 보이지 않을 수 있습니다.
+                <br />
                 가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 펼쳐져 있는지 먼저 확인해
                 주세요.
               </p>

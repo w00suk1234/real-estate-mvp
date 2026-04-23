@@ -1020,6 +1020,21 @@ h4 {
   align-items: flex-start;
 }
 
+.import-setup-note {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.import-setup-note strong {
+  color: #0f172a;
+}
+
 .import-head-actions {
   position: relative;
   flex: none;
