@@ -9,7 +9,7 @@ function normalize(value) {
 }
 
 function extractNaverLandUrl(value) {
-  const trimmed = value.trim();
+  const trimmed = normalize(value);
   const match = trimmed.match(/https?:\/\/(?:new\.)?land\.naver\.com[^\s"'<>)]*/i);
   return match?.[0] || trimmed;
 }
@@ -39,27 +39,41 @@ function firstRegex(text, patterns) {
   return "";
 }
 
-function firstNumber(value) {
+function cleanNumber(value) {
   const match = String(value || "").match(/[\d,.]+/);
-  return match ? match[0].replace(",", "") : "";
+  return match ? match[0].replaceAll(",", "") : "";
+}
+
+function splitArea(areaText) {
+  const numbers = String(areaText || "").match(/[\d,.]+/g) || [];
+  return {
+    supplyArea: numbers[0]?.replaceAll(",", "") || "",
+    exclusiveArea: numbers[1]?.replaceAll(",", "") || numbers[0]?.replaceAll(",", "") || "",
+  };
 }
 
 function inferTitle(snapshot, text) {
-  const rawTitle = normalize(snapshot?.title);
-  if (rawTitle && !rawTitle.includes("네이버") && rawTitle.length < 80) {
-    return rawTitle;
-  }
+  const rawTitle = normalize(snapshot?.title || snapshot?.page_title);
+  const badTitle = !rawTitle || rawTitle.includes("네이버") || rawTitle.includes("부동산");
+  if (!badTitle && rawTitle.length <= 80) return rawTitle;
 
   return firstRegex(text, [
-    /([가-힣A-Za-z0-9·\s]+(?:단지|상가|오피스텔|아파트|빌딩)\s*\d{0,4}동?)/,
-    /([가-힣A-Za-z0-9·\s]+(?:매매|전세|월세)\s*[\d,.]+[^\n]{0,30})/,
+    /([가-힣A-Za-z0-9.\s-]{2,40}(?:아파트|오피스텔|빌라|상가|사무실|빌딩|단지|동)\s*\d{0,4})/,
+    /([가-힣A-Za-z0-9.\s-]{2,40}\s+(?:매매|전세|월세)\s*[\d,.]+[^\s]{0,10})/,
   ]);
+}
+
+function inferDealType(priceText, text) {
+  if (priceText.includes("매매") || text.includes("매매")) return "매매";
+  if (priceText.includes("전세") || text.includes("전세")) return "전세";
+  return "월세";
 }
 
 function buildLocalDraftFromSnapshot(snapshot) {
   const table = makePairTable(snapshot);
   const text = normalize(snapshot?.visible_text);
-  const title = inferTitle(snapshot, text) || "네이버 부동산 매물";
+  const title = inferTitle(snapshot, text) || "네이버 매물 초안";
+
   const address =
     findByAliases(table, ["주소", "소재지", "위치"]) ||
     firstRegex(text, [
@@ -71,28 +85,53 @@ function buildLocalDraftFromSnapshot(snapshot) {
 
   const areaText =
     findByAliases(table, ["계약면적", "공급면적", "전용면적", "면적"]) ||
-    firstRegex(text, [/([/\d,.]+\s*㎡)/, /면적\s*([^\n]{2,80})/]);
+    firstRegex(text, [
+      /면적\s*([^\n]{2,80})/,
+      /([\d,.]+\s*(?:㎡|m²|m2|평)(?:\s*[/,]\s*[\d,.]+\s*(?:㎡|m²|m2|평))?)/,
+    ]);
 
-  const areaNumbers = areaText.match(/[\d,.]+/g) || [];
-  const supplyArea = areaNumbers[0]?.replace(",", "") || "";
-  const exclusiveArea = areaNumbers[1]?.replace(",", "") || "";
+  const { supplyArea, exclusiveArea } = splitArea(areaText);
 
   const floor =
     findByAliases(table, ["층수", "해당층", "층"]) ||
-    firstRegex(text, [/(\d+\s*\/\s*\d+\s*층)/, /(\d+\s*층\s*\/\s*\d+\s*층)/]);
+    firstRegex(text, [
+      /(\d+\s*\/\s*\d+\s*층)/,
+      /(\d+\s*층\s*\/\s*\d+\s*층)/,
+      /(지하\s*\d+\s*층|반지하|\d+\s*층)/,
+    ]);
 
-  const priceText = firstRegex(text, [
-    /(월세\s*[\d,.]+\s*\/\s*[\d,.]+)/,
-    /(매매\s*[\d,.]+[^\s]{0,8})/,
-    /(전세\s*[\d,.]+[^\s]{0,8})/,
-  ]);
+  const priceText =
+    findByAliases(table, ["가격", "보증금", "매매가", "전세가", "월세"]) ||
+    firstRegex(text, [
+      /(월세\s*[\d,.]+\s*\/\s*[\d,.]+)/,
+      /(매매\s*[\d,.]+[^\s]{0,10})/,
+      /(전세\s*[\d,.]+[^\s]{0,10})/,
+    ]);
 
+  const dealType = inferDealType(priceText, text);
   const priceNumbers = priceText.match(/[\d,.]+/g) || [];
-  const dealType = priceText.includes("전세")
-    ? "전세"
-    : priceText.includes("매매")
-      ? "매매"
-      : "월세";
+  const deposit =
+    dealType === "매매" || dealType === "전세"
+      ? cleanNumber(priceText)
+      : priceNumbers[0]?.replaceAll(",", "") || "";
+  const monthlyRent = dealType === "월세" ? priceNumbers[1]?.replaceAll(",", "") || "" : "";
+
+  const rooms =
+    findByAliases(table, ["방수", "방"]) || firstRegex(text, [/방\s*([0-9]+개?)/]);
+  const parking =
+    findByAliases(table, ["주차", "주차가능여부"]) ||
+    firstRegex(text, [/(주차\s*(?:가능|불가|협의|[0-9]+대))/]);
+
+  const description = [
+    "네이버 화면에서 가져온 정보를 바탕으로 만든 소개서 초안입니다.",
+    priceText ? `가격: ${priceText}` : "",
+    address ? `주소: ${address}` : "",
+    areaText ? `면적: ${areaText}` : "",
+    floor ? `층수: ${floor}` : "",
+    parking ? `주차: ${parking}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const fieldMapping = {
     title,
@@ -101,46 +140,71 @@ function buildLocalDraftFromSnapshot(snapshot) {
     supply_area: supplyArea,
     exclusive_area: exclusiveArea,
     floor,
-    deposit: priceNumbers[0]?.replace(",", "") || "",
-    monthly_rent: dealType === "월세" ? priceNumbers[1]?.replace(",", "") || "" : "",
-    description: [
-      priceText,
-      address,
-      areaText ? `면적 ${areaText}` : "",
-      floor ? `층수 ${floor}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n"),
+    deposit,
+    monthly_rent: monthlyRent,
+    rooms: cleanNumber(rooms),
+    parking_count: cleanNumber(parking),
+    description,
   };
 
   const recommendedImages = (snapshot?.images || [])
     .filter((image) => image.url)
+    .filter((image) => {
+      const url = image.url.toLowerCase();
+      return !url.includes("sprite") && !url.includes("sp_") && !url.includes("favicon");
+    })
     .slice(0, 10)
-    .map((image) => ({
+    .map((image, index) => ({
       ...image,
-      category: image.category || "naver_image",
+      category: index === 0 ? "대표 후보" : "네이버 이미지",
       confidence: image.confidence || 0.5,
     }));
+
+  const warnings = [];
+  if (!address) warnings.push("주소를 못 읽었습니다. 네이버 상세 패널에 주소가 보이게 한 뒤 다시 가져와보세요.");
+  if (!priceText) warnings.push("가격을 못 읽었습니다. 매물 리스트에서 실제 매물을 클릭한 상태인지 확인해주세요.");
+  if (!areaText) warnings.push("면적을 못 읽었습니다. 단지정보가 아니라 매물 상세 정보 패널이 열려 있어야 합니다.");
+  if (recommendedImages.length === 0) warnings.push("사진 URL을 못 찾았습니다. 사진 탭을 연 뒤 다시 가져오면 성공률이 올라갑니다.");
 
   return {
     brochure_title: title,
     summary_points: [address, priceText, areaText, floor].filter(Boolean),
+    description,
     field_mapping: Object.fromEntries(
       Object.entries(fieldMapping).filter(([, value]) => normalize(value))
     ),
     recommended_images: recommendedImages,
-    warnings: [],
+    warnings,
+    source: "extension-local",
   };
+}
+
+function makeCoverage(draft) {
+  const fields = draft?.field_mapping || {};
+  const images = draft?.recommended_images || [];
+  return [
+    { key: "title", label: "매물명", ok: Boolean(fields.title), value: fields.title },
+    { key: "price", label: "가격", ok: Boolean(fields.deposit || fields.monthly_rent), value: fields.monthly_rent ? `${fields.deposit}/${fields.monthly_rent}` : fields.deposit },
+    { key: "address", label: "주소", ok: Boolean(fields.address), value: fields.address },
+    { key: "area", label: "면적", ok: Boolean(fields.supply_area || fields.exclusive_area), value: fields.exclusive_area || fields.supply_area },
+    { key: "floor", label: "층수", ok: Boolean(fields.floor), value: fields.floor },
+    { key: "images", label: "사진", ok: images.length > 0, value: images.length ? `${images.length}장` : "" },
+  ];
 }
 
 function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraft }) {
   const [listingUrl, setListingUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [localDraft, setLocalDraft] = useState(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [handledSnapshotKey, setHandledSnapshotKey] = useState("");
   const { isAuthenticated } = useAuth();
+
+  const activeDraft = result?.brochure_draft || localDraft;
+  const images = result?.vision_analysis?.images || activeDraft?.recommended_images || [];
+  const coverage = useMemo(() => makeCoverage(activeDraft), [activeDraft]);
 
   const snapshotStats = useMemo(() => {
     if (!initialSnapshot?.listing_url) return null;
@@ -170,16 +234,17 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
 
     if (handledSnapshotKey === snapshotKey) return;
 
-    setListingUrl(extractNaverLandUrl(initialSnapshot.listing_url));
+    const fallbackDraft = buildLocalDraftFromSnapshot(initialSnapshot);
     setHandledSnapshotKey(snapshotKey);
+    setListingUrl(extractNaverLandUrl(initialSnapshot.listing_url));
+    setLocalDraft(fallbackDraft);
+    setResult(null);
     setError("");
-    setStatus("확장프로그램 데이터 수신 완료. 화면에서 1차 자동기입 중입니다.");
-
-    const localDraft = buildLocalDraftFromSnapshot(initialSnapshot);
-    onApplyDraft?.(localDraft);
+    setStatus("현재 네이버 화면에서 읽은 값으로 1차 자동기입했습니다. 비어 있는 항목은 아래 진단을 확인해주세요.");
+    onApplyDraft?.(fallbackDraft);
 
     if (!isAuthenticated) {
-      setError("로그인 후 서버 분석까지 진행할 수 있습니다. 현재는 화면에서 읽은 값만 1차 반영했습니다.");
+      setError("로그인 전이라 서버/AI 초안 생성은 건너뛰었습니다. 현재 화면에서 읽은 값만 먼저 반영했습니다.");
       return;
     }
 
@@ -192,15 +257,13 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
         setResult(data);
         if (data?.brochure_draft) {
           onApplyDraft?.(data.brochure_draft);
-          setStatus("서버 분석 결과까지 반영했습니다. 저장 전 값은 꼭 확인하세요.");
+          setStatus("서버 분석 결과까지 반영했습니다. 저장 전 값이 맞는지 확인해주세요.");
         }
       })
       .catch((err) => {
         console.error(err);
         if (!ignore) {
-          setError(
-            `서버 분석은 실패했습니다. 그래도 화면에서 읽은 값은 1차 반영했습니다. (${err.message})`
-          );
+          setError(`서버 분석은 실패했지만, 현재 화면에서 읽은 값은 반영했습니다. (${err.message})`);
         }
       })
       .finally(() => {
@@ -219,17 +282,16 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
   const pasteFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      const url = extractNaverLandUrl(text);
-      setListingUrl(url);
+      setListingUrl(extractNaverLandUrl(text));
       setError("");
     } catch {
       setError("브라우저가 클립보드 읽기를 막았습니다. 복사한 URL을 직접 붙여넣어 주세요.");
     }
   };
 
-  const handleImport = async () => {
+  const handleUrlImport = async () => {
     if (!isAuthenticated) {
-      setError("네이버 매물 가져오기는 로그인 후 사용할 수 있습니다.");
+      setError("URL 가져오기는 로그인 후 사용할 수 있습니다.");
       return;
     }
 
@@ -250,97 +312,116 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       setListingUrl(normalizedUrl);
       const data = await importNaverListing(normalizedUrl);
       setResult(data);
+      setLocalDraft(null);
       if (data?.brochure_draft) onApplyDraft?.(data.brochure_draft);
     } catch (err) {
       console.error(err);
       setError(
-        `${err.message || "매물 가져오기 중 오류가 발생했습니다."} URL 입력 방식은 서버가 네이버를 직접 여는 예비 기능이라 실패할 수 있습니다. 네이버 페이지의 업무툴로 가져오기 버튼을 추천합니다.`
+        `${err.message || "URL 가져오기 중 오류가 발생했습니다."} 이 방식은 서버가 네이버를 다시 여는 예비 기능이라 실패할 수 있습니다. 네이버 화면의 '업무툴로 가져오기' 버튼을 추천합니다.`
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const draft = result?.brochure_draft;
-  const images = result?.vision_analysis?.images || [];
-
   return (
     <section className="panel import-panel">
       <div className="panel-head import-panel-head">
         <div>
-          <h3>네이버 매물 가져오기</h3>
-          <p>추천 방식은 네이버 화면 오른쪽 아래의 업무툴로 가져오기 버튼입니다.</p>
+          <h3>네이버 매물 → 소개서 초안</h3>
+          <p>메인 방식은 현재 보고 있는 네이버 화면을 읽어와 자동기입하는 것입니다.</p>
         </div>
         <span className="agent-pill">Agent MVP</span>
       </div>
 
-      <div className="import-alert">
-        팩트: 네이버 공식 API가 아니라 화면을 읽는 방식이라 100% 정확하지 않습니다.
-        가져온 값은 초안으로 보고 저장 전 확인해야 합니다.
+      <div className="import-flow-card">
+        <strong>추천 흐름</strong>
+        <ol className="import-flow-steps">
+          <li>네이버 부동산에서 실제 매물 상세 패널을 엽니다.</li>
+          <li>사진 탭이나 상세 정보가 보이는 상태에서 오른쪽 아래 업무툴 버튼을 누릅니다.</li>
+          <li>가져온 값은 초안으로만 반영하고, 저장 전 사람이 확인합니다.</li>
+        </ol>
       </div>
 
       {snapshotStats && (
         <div className="import-debug-box">
-          <strong>확장프로그램 수신 상태</strong>
-          <span>필드 후보 {snapshotStats.pairs}개</span>
+          <strong>확장 데이터 수신됨</strong>
+          <span>표 후보 {snapshotStats.pairs}개</span>
           <span>이미지 후보 {snapshotStats.images}개</span>
-          <span>텍스트 {snapshotStats.textLength.toLocaleString()}자</span>
+          <span>화면 텍스트 {snapshotStats.textLength.toLocaleString()}자</span>
+        </div>
+      )}
+
+      {activeDraft && (
+        <div className="import-coverage-grid">
+          {coverage.map((item) => (
+            <div
+              key={item.key}
+              className={`coverage-item ${item.ok ? "ok" : "missing"}`}
+              title={item.value || "비어 있음"}
+            >
+              <span>{item.label}</span>
+              <strong>{item.ok ? "읽음" : "비어 있음"}</strong>
+            </div>
+          ))}
         </div>
       )}
 
       {status && <div className="import-alert success">{status}</div>}
 
-      <div className="import-quick-actions">
-        <button type="button" className="secondary-btn" onClick={openNaverLand}>
-          네이버 부동산 열기
-        </button>
-        <button type="button" className="secondary-btn" onClick={pasteFromClipboard}>
-          복사한 URL 붙여넣기
-        </button>
-      </div>
-
-      <div className="import-row">
-        <input
-          className="import-url-input"
-          value={listingUrl}
-          onChange={(e) => setListingUrl(e.target.value)}
-          placeholder="https://new.land.naver.com/..."
-        />
-        <button
-          type="button"
-          className="cta-btn import-btn"
-          onClick={handleImport}
-          disabled={loading}
-        >
-          {loading ? "분석 중..." : "URL로 가져오기"}
-        </button>
-      </div>
-
-      <p className="import-helper">
-        URL 버튼은 예비 기능입니다. 네이버 화면에서 매물 상세를 연 뒤 오른쪽 아래 업무툴로 가져오기 버튼을 누르는 편이 더 낫습니다.
-      </p>
+      <details className="url-fallback-box">
+        <summary>URL로 가져오기 예비 기능</summary>
+        <p>
+          URL 방식은 서버가 네이버를 다시 열어야 해서 timeout이 날 수 있습니다. 서비스 메인 흐름은
+          네이버 화면의 업무툴 버튼입니다.
+        </p>
+        <div className="import-quick-actions">
+          <button type="button" className="secondary-btn" onClick={openNaverLand}>
+            네이버 부동산 열기
+          </button>
+          <button type="button" className="secondary-btn" onClick={pasteFromClipboard}>
+            복사한 URL 붙여넣기
+          </button>
+        </div>
+        <div className="import-row">
+          <input
+            className="import-url-input"
+            value={listingUrl}
+            onChange={(e) => setListingUrl(e.target.value)}
+            placeholder="https://new.land.naver.com/..."
+          />
+          <button
+            type="button"
+            className="cta-btn import-btn"
+            onClick={handleUrlImport}
+            disabled={loading}
+          >
+            {loading ? "분석 중..." : "URL로 가져오기"}
+          </button>
+        </div>
+      </details>
 
       {error && <div className="import-alert danger">{error}</div>}
 
-      {draft && (
+      {activeDraft && (
         <div className="import-result">
           <div className="import-result-top">
             <div>
-              <strong>{draft.brochure_title}</strong>
-              <p>{draft.summary_points?.join(" · ")}</p>
+              <strong>{activeDraft.brochure_title}</strong>
+              <p>{activeDraft.summary_points?.join(" · ") || "읽은 값을 바탕으로 초안을 만들었습니다."}</p>
             </div>
             <button
               type="button"
               className="secondary-btn"
-              onClick={() => onApplyDraft?.(draft)}
+              onClick={() => onApplyDraft?.(activeDraft)}
             >
               다시 반영
             </button>
           </div>
 
-          {draft.warnings?.length > 0 && (
+          {activeDraft.warnings?.length > 0 && (
             <div className="import-alert">
-              {draft.warnings.slice(0, 3).map((warning) => (
+              {activeDraft.warnings.slice(0, 4).map((warning) => (
                 <p key={warning}>{warning}</p>
               ))}
             </div>
@@ -348,15 +429,15 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
 
           {images.length > 0 && (
             <div className="import-image-strip">
-              {images.slice(0, 6).map((image) => (
+              {images.slice(0, 8).map((image, index) => (
                 <a
-                  key={image.url}
+                  key={`${image.url}-${index}`}
                   href={image.url}
                   target="_blank"
                   rel="noreferrer"
                   className="import-image-item"
                 >
-                  <span>{image.category}</span>
+                  <span>{image.category || `이미지 ${index + 1}`}</span>
                 </a>
               ))}
             </div>
