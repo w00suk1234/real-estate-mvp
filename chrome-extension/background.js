@@ -28,7 +28,9 @@ async function sendSnapshotToApp(snapshot) {
     args: [snapshot],
     func: (payload) => {
       sessionStorage.setItem("naver_import_snapshot", JSON.stringify(payload));
-      window.location.replace("/?extension_import=1");
+      localStorage.setItem("naver_import_snapshot", JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent("naver-import-snapshot"));
+      window.location.replace(`/?extension_import=1&snapshot=${Date.now()}`);
     },
   });
 }

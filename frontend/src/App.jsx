@@ -8,27 +8,41 @@ import AddressHubPage from "./pages/AddressHubPage";
 import LoginPage from "./pages/LoginPage";
 import "./styles/theme.css";
 
+const NAVER_IMPORT_SNAPSHOT_KEY = "naver_import_snapshot";
+
 function App() {
   const [page, setPage] = useState("briefing");
   const [importUrl, setImportUrl] = useState("");
   const [importSnapshot, setImportSnapshot] = useState(null);
 
   useEffect(() => {
+    const readImportSnapshot = () => {
+      const snapshotRaw =
+        sessionStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY) ||
+        localStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY);
+
+      if (!snapshotRaw) return false;
+
+      try {
+        setImportSnapshot({
+          ...JSON.parse(snapshotRaw),
+          received_at: Date.now(),
+        });
+        setPage("briefing");
+        return true;
+      } catch (err) {
+        console.error(err);
+        return false;
+      } finally {
+        sessionStorage.removeItem(NAVER_IMPORT_SNAPSHOT_KEY);
+        localStorage.removeItem(NAVER_IMPORT_SNAPSHOT_KEY);
+      }
+    };
+
     const params = new URLSearchParams(window.location.search);
     const url = params.get("import_url");
     const hasExtensionImport = params.get("extension_import") === "1";
-    const snapshotRaw = sessionStorage.getItem("naver_import_snapshot");
-
-    if (snapshotRaw) {
-      try {
-        setImportSnapshot(JSON.parse(snapshotRaw));
-        setPage("briefing");
-      } catch (err) {
-        console.error(err);
-      } finally {
-        sessionStorage.removeItem("naver_import_snapshot");
-      }
-    }
+    readImportSnapshot();
 
     if (url) {
       setImportUrl(url);
@@ -38,6 +52,14 @@ function App() {
     if (url || hasExtensionImport) {
       window.history.replaceState({}, "", window.location.pathname);
     }
+
+    window.addEventListener("naver-import-snapshot", readImportSnapshot);
+    window.addEventListener("storage", readImportSnapshot);
+
+    return () => {
+      window.removeEventListener("naver-import-snapshot", readImportSnapshot);
+      window.removeEventListener("storage", readImportSnapshot);
+    };
   }, []);
 
   let currentPage = (

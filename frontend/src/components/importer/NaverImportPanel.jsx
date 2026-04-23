@@ -50,7 +50,11 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
 
     importNaverSnapshot(initialSnapshot)
       .then((data) => {
-        if (!ignore) setResult(data);
+        if (ignore) return;
+        setResult(data);
+        if (data?.brochure_draft) {
+          onApplyDraft?.(data.brochure_draft);
+        }
       })
       .catch((err) => {
         console.error(err);
