@@ -1020,30 +1020,6 @@ h4 {
   align-items: flex-start;
 }
 
-.import-link-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.import-link-badge {
-  border: 1px solid #dbeafe;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 0.15s ease, filter 0.15s ease;
-}
-
-.import-link-badge:hover {
-  filter: brightness(1.02);
-  transform: translateY(-1px);
-}
-
 .import-head-actions {
   position: relative;
   flex: none;
@@ -1056,9 +1032,12 @@ h4 {
   border: 1px solid #bfdbfe;
   background: #eff6ff;
   color: #1d4ed8;
-  font-size: 18px;
-  font-weight: 900;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: "Inter", sans-serif;
   line-height: 1;
+  display: grid;
+  place-items: center;
   cursor: pointer;
 }
 
