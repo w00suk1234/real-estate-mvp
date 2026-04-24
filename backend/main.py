@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -31,11 +33,18 @@ app.add_middleware(
 
 ensure_runtime_dirs()
 
+frontend_downloads = FRONTEND_DIST / "downloads"
+if not frontend_downloads.exists():
+    frontend_downloads = Path(__file__).resolve().parent.parent / "frontend" / "public" / "downloads"
+
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 
 if FRONTEND_ASSETS.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS)), name="frontend-assets")
+
+if frontend_downloads.exists():
+    app.mount("/downloads", StaticFiles(directory=str(frontend_downloads)), name="frontend-downloads")
 
 app.include_router(auth.router)
 app.include_router(properties.router)

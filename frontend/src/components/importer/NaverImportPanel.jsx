@@ -298,7 +298,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     setLocalDraft(fallbackDraft);
     setResult(null);
     setError("");
-    setStatus("?꾩옱 ?ㅼ씠踰??붾㈃?먯꽌 ?쎌? 媛믪쓣 ?뺤젣?댁꽌 諛섏쁺?덉뒿?덈떎. ?쒕쾭媛 ?ㅼ떆 湲곸뼱?ㅻ뒗 諛⑹떇? ?먮룞?쇰줈 ??뼱?곗? ?딆뒿?덈떎.");
+    setStatus("현재 네이버 화면에서 읽은 값을 정제해서 반영했습니다. 서버가 다시 긁어오는 방식은 자동으로 덮어쓰지 않습니다.");
     onApplyDraft?.(fallbackDraft);
   }, [initialSnapshot, handledSnapshotKey, onApplyDraft]);
 
@@ -312,24 +312,24 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       setListingUrl(extractNaverLandUrl(text));
       setError("");
     } catch {
-      setError("釉뚮씪?곗?媛 ?대┰蹂대뱶 ?쎄린瑜?留됱븯?듬땲?? 蹂듭궗??URL??吏곸젒 遺숈뿬?ｌ뼱 二쇱꽭??");
+      setError("브라우저가 클립보드 읽기를 막고 있습니다. 복사한 URL을 직접 붙여넣어 주세요.");
     }
   };
 
   const handleUrlImport = async () => {
     if (!isAuthenticated) {
-      setError("URL 媛?몄삤湲곕뒗 濡쒓렇?????ъ슜?????덉뒿?덈떎.");
+      setError("URL 가져오기는 로그인 후 사용할 수 있습니다.");
       return;
     }
 
     const normalizedUrl = extractNaverLandUrl(listingUrl);
     if (!normalizedUrl) {
-      setError("?ㅼ씠踰?遺?숈궛 留ㅻЪ URL???낅젰?댁＜?몄슂.");
+      setError("네이버 부동산 매물 URL을 입력해 주세요.");
       return;
     }
 
     if (!normalizedUrl.includes("land.naver.com")) {
-      setError("?꾩옱???ㅼ씠踰?遺?숈궛 URL留?媛?몄삱 ???덉뒿?덈떎.");
+      setError("현재는 네이버 부동산 URL만 가져올 수 있습니다.");
       return;
     }
 
@@ -344,7 +344,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     } catch (err) {
       console.error(err);
       setError(
-        `${err.message || "URL 媛?몄삤湲?以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎."} ??諛⑹떇? ?쒕쾭媛 ?ㅼ씠踰꾨? ?ㅼ떆 ?щ뒗 ?덈퉬 湲곕뒫?대씪 ?ㅽ뙣?????덉뒿?덈떎. ?ㅼ씠踰??붾㈃??'?낅Т?대줈 媛?몄삤湲? 踰꾪듉??異붿쿇?⑸땲??`
+        `${err.message || "URL 가져오기 중 오류가 발생했습니다."} URL 방식은 서버가 네이버를 다시 여는 예비 기능이라 실패할 수 있습니다. 가능하면 네이버 화면의 '업무툴로 가져오기' 버튼을 사용해 주세요.`
       );
     } finally {
       setLoading(false);
@@ -365,7 +365,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     <section className="panel import-panel">
       <div className="panel-head import-panel-head">
         <div>
-          <h3>?ㅼ씠踰?留ㅻЪ ???뚭컻??珥덉븞</h3>
+          <h3>네이버 매물 → 소개서 초안</h3>
         </div>
         <div className="import-head-actions" ref={helpRef}>
           <button
@@ -499,10 +499,10 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
             <div
               key={item.key}
               className={`coverage-item ${item.ok ? "ok" : "missing"}`}
-              title={item.value || "鍮꾩뼱 ?덉쓬"}
+              title={item.value || "비어 있음"}
             >
               <span>{item.label}</span>
-              <strong>{item.ok ? "?쎌쓬" : "鍮꾩뼱 ?덉쓬"}</strong>
+              <strong>{item.ok ? "읽음" : "비어 있음"}</strong>
             </div>
           ))}
         </div>
@@ -511,17 +511,17 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       {status && <div className="import-alert success">{status}</div>}
 
       <details className="url-fallback-box">
-        <summary>URL濡?媛?몄삤湲??덈퉬 湲곕뒫</summary>
+        <summary>URL로 가져오기 예비 기능</summary>
         <p>
-          URL 諛⑹떇? ?쒕쾭媛 ?ㅼ씠踰꾨? ?ㅼ떆 ?댁뼱???댁꽌 timeout???????덉뒿?덈떎. ?ㅼ젣 ?쒕퉬???먮쫫?
-          ?ㅼ씠踰??붾㈃???낅Т??踰꾪듉?낅땲??
+          URL 방식은 서버가 네이버를 다시 열어 읽는 예비 기능이라 timeout이 날 수 있습니다. 실제 사용 흐름은
+          네이버 화면에서 바로 업무툴 버튼을 누르는 방식입니다.
         </p>
         <div className="import-quick-actions">
           <button type="button" className="secondary-btn" onClick={openNaverLand}>
-            ?ㅼ씠踰?遺?숈궛 ?닿린
+            네이버 부동산 열기
           </button>
           <button type="button" className="secondary-btn" onClick={pasteFromClipboard}>
-            蹂듭궗??URL 遺숈뿬?ｊ린
+            복사한 URL 붙여넣기
           </button>
         </div>
         <div className="import-row">
@@ -549,14 +549,14 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           <div className="import-result-top">
             <div>
               <strong>{activeDraft.brochure_title}</strong>
-              <p>{activeDraft.summary_points?.join(" 쨌 ") || "?쎌? 媛믪쓣 諛뷀깢?쇰줈 珥덉븞??留뚮뱾?덉뒿?덈떎."}</p>
+              <p>{activeDraft.summary_points?.join(" · ") || "읽은 값을 바탕으로 소개서 초안을 만들었습니다."}</p>
             </div>
             <button
               type="button"
               className="secondary-btn"
               onClick={() => onApplyDraft?.(activeDraft)}
             >
-              ?ㅼ떆 諛섏쁺
+              다시 반영
             </button>
           </div>
 
@@ -578,7 +578,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
                   rel="noreferrer"
                   className="import-image-item"
                 >
-                  <span>{image.category || `?대?吏 ${index + 1}`}</span>
+                  <span>{image.category || `이미지 ${index + 1}`}</span>
                 </a>
               ))}
             </div>
