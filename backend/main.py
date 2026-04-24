@@ -1,8 +1,11 @@
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from db import (
@@ -64,6 +67,34 @@ def startup():
 @app.get("/health/storage")
 def health_storage():
     return storage_status()
+
+
+@app.get("/proxy/image")
+def proxy_image(url: str):
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return Response(content=b"invalid image url", status_code=400, media_type="text/plain")
+
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://new.land.naver.com/",
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=20) as upstream:
+            media_type = upstream.headers.get_content_type() or "image/jpeg"
+            data = upstream.read()
+    except (HTTPError, URLError, TimeoutError):
+        return Response(content=b"image fetch failed", status_code=502, media_type="text/plain")
+
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @app.get("/")

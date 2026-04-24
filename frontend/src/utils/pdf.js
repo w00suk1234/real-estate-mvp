@@ -1,5 +1,10 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { API_BASE_URL } from "../api";
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function waitForImages(element) {
   const images = Array.from(element.querySelectorAll("img"));
@@ -19,17 +24,80 @@ async function waitForImages(element) {
   );
 }
 
+function isRemoteUrl(src) {
+  return /^https?:\/\//i.test(String(src || ""));
+}
+
+function toAbsoluteUrl(src) {
+  if (!src) return "";
+  if (isRemoteUrl(src)) return src;
+  return `${window.location.origin}${src.startsWith("/") ? src : `/${src}`}`;
+}
+
+function buildProxyUrl(src) {
+  const absolute = toAbsoluteUrl(src);
+  const base = API_BASE_URL || "";
+  return `${base}/proxy/image?url=${encodeURIComponent(absolute)}`;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchImageAsDataUrl(src) {
+  if (!src) return "";
+
+  const requestUrl = isRemoteUrl(src) || src.startsWith("/") ? buildProxyUrl(src) : buildProxyUrl(`/${src}`);
+
+  try {
+    const response = await fetch(requestUrl, {
+      credentials: "omit",
+      cache: "force-cache",
+    });
+
+    if (!response.ok) {
+      return "";
+    }
+
+    const blob = await response.blob();
+    return blobToDataUrl(blob);
+  } catch (error) {
+    console.error(error);
+    return "";
+  }
+}
+
+export async function preparePdfAssets({ mainImageSrc, extraImageSources = [] }) {
+  const [mainImageDataUrl, ...extraImageDataUrls] = await Promise.all([
+    fetchImageAsDataUrl(mainImageSrc),
+    ...extraImageSources.slice(0, 4).map((src) => fetchImageAsDataUrl(src)),
+  ]);
+
+  return {
+    mainImageSrc: mainImageDataUrl || "",
+    extraImageSources: extraImageDataUrls.filter(Boolean),
+  };
+}
+
 export async function downloadElementAsPdf(element, filename) {
   if (!element) {
     throw new Error("PDF로 만들 대상을 찾지 못했습니다.");
   }
 
   await waitForImages(element);
+  await wait(120);
 
   const canvas = await html2canvas(element, {
-    scale: 2,
+    scale: 2.4,
     backgroundColor: "#ffffff",
     useCORS: true,
+    allowTaint: false,
+    imageTimeout: 20000,
     logging: false,
     windowWidth: element.scrollWidth,
   });
@@ -77,7 +145,16 @@ export async function downloadElementAsPdf(element, filename) {
       pdf.addPage();
     }
 
-    pdf.addImage(imageData, "JPEG", margin, margin, contentWidth, renderedHeightMm, undefined, "FAST");
+    pdf.addImage(
+      imageData,
+      "JPEG",
+      margin,
+      margin,
+      contentWidth,
+      renderedHeightMm,
+      undefined,
+      "FAST",
+    );
 
     renderedHeight += sliceHeight;
     pageIndex += 1;

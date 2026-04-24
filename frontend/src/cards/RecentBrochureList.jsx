@@ -24,7 +24,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("이 소개서를 삭제하시겠습니까?")) return;
+    if (!window.confirm("이 소개서를 삭제하시겠어요?")) return;
 
     try {
       const data = await apiFetch(`/brochures/${id}`, {
@@ -54,31 +54,28 @@ function RecentBrochureList({ refreshKey = 0 }) {
     return items.slice(start, start + pageSize);
   }, [items, page]);
 
-  const goPrev = () => setPage((prev) => Math.max(1, prev - 1));
-  const goNext = () => setPage((prev) => Math.min(totalPages, prev + 1));
-
   return (
     <section className="panel fill-panel">
       <div className="panel-head">
         <h3>최근 생성 소개서</h3>
-        <p>로그인한 계정으로 저장한 소개서를 다시 열고 관리합니다.</p>
+        <p>로그인한 계정으로 저장한 소개서를 다시 열고 관리할 수 있습니다.</p>
       </div>
 
       <div className="recent-list recent-list-fixed">
         {pagedItems.length === 0 ? (
           <div className="empty-box">
-            {isAuthenticated
-              ? "아직 생성한 소개서가 없습니다."
-              : "로그인하면 저장한 소개서 목록을 볼 수 있습니다."}
+            {isAuthenticated ? "아직 생성한 소개서가 없습니다." : "로그인하면 저장한 소개서 목록을 볼 수 있습니다."}
           </div>
         ) : (
           pagedItems.map((item) => (
             <div className="recent-item" key={item.id}>
               <div className="recent-main">
-                <strong>{item.title}</strong>
-                <span>{item.address}</span>
+                <strong className="recent-title" title={item.title}>
+                  {item.title}
+                </strong>
+                <span className="recent-address">{item.address}</span>
                 <small>
-                  {item.deal_type} - {item.price} - {item.created_at}
+                  {item.deal_type} · {item.price} · {item.created_at}
                 </small>
               </div>
 
@@ -91,15 +88,11 @@ function RecentBrochureList({ refreshKey = 0 }) {
                 >
                   열기
                 </a>
-                {isAuthenticated && (
-                  <button
-                    type="button"
-                    className="danger-btn"
-                    onClick={() => handleDelete(item.id)}
-                  >
+                {isAuthenticated ? (
+                  <button type="button" className="danger-btn" onClick={() => handleDelete(item.id)}>
                     삭제
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
           ))
@@ -107,12 +100,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
       </div>
 
       <div className="pagination-row">
-        <button
-          type="button"
-          className="secondary-btn"
-          onClick={goPrev}
-          disabled={page === 1}
-        >
+        <button type="button" className="secondary-btn" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={page === 1}>
           이전
         </button>
 
@@ -123,7 +111,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
         <button
           type="button"
           className="secondary-btn"
-          onClick={goNext}
+          onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
           disabled={page === totalPages}
         >
           다음

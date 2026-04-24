@@ -11,7 +11,7 @@ function ResultCard({ result, onDownloadPdf, pdfLoading }) {
 
     const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
     if (!printWindow) {
-      alert("팝업이 차단되었습니다. 새 창에서 소개서를 연 뒤 Ctrl + P로 인쇄해 주세요.");
+      alert("팝업이 차단되어 있습니다. 새 창에서 소개서를 연 뒤 Ctrl + P로 인쇄해 주세요.");
       return;
     }
 
@@ -24,11 +24,11 @@ function ResultCard({ result, onDownloadPdf, pdfLoading }) {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h3>생성 결과</h3>
+        <h3>최종 소개서</h3>
         <p>
           {hasResult
-            ? result.message
-            : "미리보기를 확인한 뒤 소개서 생성 버튼을 누르면 PDF로 저장할 수 있습니다."}
+            ? "생성된 소개서를 바로 열어보고, PDF 또는 인쇄용으로 전달할 수 있습니다."
+            : "소개서를 생성하면 최종 소개서 보기, PDF 다운로드, 인쇄 기능이 활성화됩니다."}
         </p>
       </div>
 
@@ -38,7 +38,7 @@ function ResultCard({ result, onDownloadPdf, pdfLoading }) {
             <a href={result.brochure_url} target="_blank" rel="noreferrer" className="cta-btn inline-cta">
               최종 소개서 보기
             </a>
-            <button type="button" className="secondary-btn" onClick={onDownloadPdf} disabled={pdfLoading}>
+            <button type="button" className="cta-btn inline-cta" onClick={onDownloadPdf} disabled={pdfLoading}>
               {pdfLoading ? "PDF 생성 중..." : "PDF 다운로드"}
             </button>
           </div>
@@ -53,7 +53,7 @@ function ResultCard({ result, onDownloadPdf, pdfLoading }) {
           </div>
 
           <div className="result-tip">
-            PDF에는 고객용 소개서 내용만 포함되며, 입력 폼이나 내부 수집 정보는 제외됩니다.
+            고객 전달용 PDF에는 입력 폼과 내부 안내 정보가 포함되지 않고, 소개서 내용만 깔끔하게 정리됩니다.
           </div>
 
           <iframe className="result-frame" src={result.brochure_url} title="brochure-result" />
@@ -61,7 +61,7 @@ function ResultCard({ result, onDownloadPdf, pdfLoading }) {
       ) : (
         <div className="empty-box result-empty-box">
           <strong>아직 최종 소개서가 없습니다.</strong>
-          <p>현재 미리보기를 먼저 확인하고 소개서를 생성하면 고객 전달용 PDF까지 바로 저장할 수 있습니다.</p>
+          <p>미리보기를 확인한 뒤 소개서 생성 버튼을 누르면 최종 소개서와 PDF 저장 기능을 바로 사용할 수 있습니다.</p>
         </div>
       )}
     </section>

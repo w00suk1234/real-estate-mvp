@@ -1715,3 +1715,166 @@ h4 {
   color: #475569;
   font-size: 13px;
 }
+
+.panel-head-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.preview-mode-label {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.preview-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.preview-pdf-btn {
+  width: auto;
+  min-width: 138px;
+  padding: 12px 18px;
+}
+
+.preview-helper-box {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.property-card > .panel,
+.preview-card-wrap > .panel,
+.brochure-list-card > .panel,
+.result-card-wrap > .panel {
+  border-radius: 24px;
+  padding: 26px;
+}
+
+.preview-panel {
+  position: sticky;
+  top: 92px;
+}
+
+.brochure-preview-v3 {
+  border-radius: 22px;
+  box-shadow: inset 0 0 0 1px rgba(3, 22, 53, 0.05);
+}
+
+.brochure-cover-v3 {
+  height: 332px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.brochure-cover-v3.is-empty {
+  height: 220px;
+}
+
+.preview-empty.compact {
+  min-height: 180px;
+  background: linear-gradient(180deg, #eef4fb 0%, #f8fafc 100%);
+}
+
+.brochure-cover-overlay-v3 {
+  background: linear-gradient(to top, rgba(3, 22, 53, 0.84), rgba(3, 22, 53, 0.1));
+}
+
+.brochure-body-v3 {
+  padding: 24px;
+}
+
+.brochure-spec-grid-v3 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.brochure-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.photo-overflow-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.extra-photo-grid-v3 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.preview-photo-card {
+  margin: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.preview-photo-card .extra-thumb {
+  display: block;
+  width: 100%;
+  height: 138px;
+  background: #ffffff;
+}
+
+.recent-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.recent-address {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.briefing-pdf__hero-image img,
+.briefing-pdf__photo-card img {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .panel-head-with-actions {
+    flex-direction: column;
+  }
+
+  .preview-action-row {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .preview-panel {
+    position: static;
+  }
+
+  .brochure-spec-grid-v3,
+  .extra-photo-grid-v3 {
+    grid-template-columns: 1fr;
+  }
+}

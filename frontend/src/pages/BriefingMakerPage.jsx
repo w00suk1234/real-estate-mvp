@@ -6,8 +6,8 @@ import ResultCard from "../cards/ResultCard";
 import RecentBrochureList from "../cards/RecentBrochureList";
 import NaverImportPanel from "../components/importer/NaverImportPanel";
 import BriefingPdfView from "../components/pdf/BriefingPdfView";
-import { buildPdfFileName } from "../utils/brochure";
-import { downloadElementAsPdf } from "../utils/pdf";
+import { buildPdfFileName, normalizeBriefingData, resolveImageSource } from "../utils/brochure";
+import { downloadElementAsPdf, preparePdfAssets } from "../utils/pdf";
 
 const defaultForm = {
   title: "",
@@ -151,6 +151,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
   const [result, setResult] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfAssets, setPdfAssets] = useState({ mainImageSrc: "", extraImageSources: [] });
   const pdfRef = useRef(null);
 
   const resetWork = useCallback(() => {
@@ -158,6 +159,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     setMainImage(null);
     setExtraImages([]);
     setResult(null);
+    setPdfAssets({ mainImageSrc: "", extraImageSources: [] });
     sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
   }, []);
 
@@ -236,6 +238,17 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 
     try {
       setPdfLoading(true);
+
+      const preview = normalizeBriefingData(form, { result, mainImage, extraImages });
+      const preparedAssets = await preparePdfAssets({
+        mainImageSrc: preview.mainPhoto?.src,
+        extraImageSources: preview.extraPhotos.map((image) => image.src),
+      });
+
+      setPdfAssets(preparedAssets);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
       await downloadElementAsPdf(pdfRef.current, buildPdfFileName(form));
     } catch (error) {
       console.error(error);
@@ -243,14 +256,21 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     } finally {
       setPdfLoading(false);
     }
-  }, [form, result]);
+  }, [extraImages, form, mainImage, result]);
+
+  const handleOpenFinal = useCallback(() => {
+    if (!result?.brochure_url) return;
+    window.open(result.brochure_url, "_blank", "noreferrer");
+  }, [result]);
 
   return (
     <PageShell page="briefing" setPage={setPage}>
       <div className="page-header">
-        <p className="page-badge">핵심 도구</p>
+        <p className="page-badge">중개 업무</p>
         <h1>소개서 작성</h1>
-        <p className="page-desc">사무실과 상가 중개용 소개서를 빠르게 정리하고 고객용 브리핑으로 다듬습니다.</p>
+        <p className="page-desc">
+          사무실과 상가 매물 정보를 정리하고, 고객에게 바로 보낼 수 있는 소개서로 다듬습니다.
+        </p>
       </div>
 
       <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
@@ -270,7 +290,15 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         </div>
 
         <div className="grid-card preview-card-wrap">
-          <PreviewCard form={form} mainImage={mainImage} extraImages={extraImages} />
+          <PreviewCard
+            form={form}
+            result={result}
+            mainImage={mainImage}
+            extraImages={extraImages}
+            onDownloadPdf={handleDownloadPdf}
+            pdfLoading={pdfLoading}
+            onOpenFinal={handleOpenFinal}
+          />
         </div>
 
         <div className="grid-card brochure-list-card">
@@ -278,12 +306,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         </div>
 
         <div className="grid-card result-card-wrap">
-          <ResultCard
-            result={result}
-            form={form}
-            onDownloadPdf={handleDownloadPdf}
-            pdfLoading={pdfLoading}
-          />
+          <ResultCard result={result} form={form} onDownloadPdf={handleDownloadPdf} pdfLoading={pdfLoading} />
         </div>
       </div>
 
@@ -293,6 +316,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         result={result}
         mainImage={mainImage}
         extraImages={extraImages}
+        pdfAssets={pdfAssets}
       />
     </PageShell>
   );
