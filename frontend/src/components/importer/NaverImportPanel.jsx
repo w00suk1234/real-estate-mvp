@@ -264,6 +264,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [helpTab, setHelpTab] = useState("extension");
   const [handledSnapshotKey, setHandledSnapshotKey] = useState("");
   const { isAuthenticated } = useAuth();
   const helpRef = useRef(null);
@@ -383,7 +384,10 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           <button
             type="button"
             className="import-help-trigger"
-            onClick={() => setHelpOpen((prev) => !prev)}
+            onClick={() => {
+              setHelpTab("extension");
+              setHelpOpen((prev) => !prev);
+            }}
             aria-label="네이버 매물 가져오기 도움말"
             aria-expanded={helpOpen}
           >
@@ -393,6 +397,80 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           {helpOpen && (
             <div className="import-help-popover">
               <strong>처음 쓰는 분 가이드</strong>
+              <div className="import-help-tabs">
+                <button
+                  type="button"
+                  className={`import-help-tab ${helpTab === "extension" ? "active" : ""}`}
+                  onClick={() => setHelpTab("extension")}
+                >
+                  크롬 확장 설정
+                </button>
+                <button
+                  type="button"
+                  className={`import-help-tab ${helpTab === "usage" ? "active" : ""}`}
+                  onClick={() => setHelpTab("usage")}
+                >
+                  사용 방법
+                </button>
+              </div>
+              <div className="import-help-body">
+                {helpTab === "extension" ? (
+                  <>
+                    <div className="import-help-section">
+                      <span className="import-help-kicker">처음 한 번만</span>
+                      <ol className="import-help-list import-help-list-clean">
+                        <li>
+                          먼저{" "}
+                          <a
+                            className="import-help-link"
+                            href="chrome://extensions/"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            chrome://extensions/
+                          </a>
+                          {" "}를 새 탭으로 엽니다.
+                        </li>
+                        <li>오른쪽 위 개발자 모드를 켭니다.</li>
+                        <li>왼쪽 위 압축해제된 확장 프로그램 로드를 누릅니다.</li>
+                        <li>프로젝트 폴더 안의 <code>chrome-extension</code> 폴더를 선택합니다.</li>
+                        <li>확장이 추가되면 네이버 매물 탭을 새로고침합니다.</li>
+                      </ol>
+                    </div>
+                    <div className="import-help-section">
+                      <span className="import-help-kicker">설치 후 확인</span>
+                      <ul className="import-help-list import-help-bullets">
+                        <li>확장 목록에 업무툴 확장이 보여야 합니다.</li>
+                        <li>네이버 화면 오른쪽 아래에 업무툴로 가져오기 버튼이 보여야 합니다.</li>
+                        <li>안 보이면 확장 새로고침 후 네이버 탭도 다시 새로고침합니다.</li>
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="import-help-section">
+                      <span className="import-help-kicker">사용 순서</span>
+                      <ol className="import-help-list import-help-list-clean">
+                        <li>네이버에서 실제 매물 하나를 클릭합니다.</li>
+                        <li>상세 정보나 사진 탭이 보이게 둡니다.</li>
+                        <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
+                        <li>우리 앱에서 채워진 값만 검토하고 저장합니다.</li>
+                      </ol>
+                    </div>
+                    <div className="import-help-section">
+                      <span className="import-help-kicker">버튼이 안 보일 때</span>
+                      <ul className="import-help-list import-help-bullets">
+                        <li>크롬 확장프로그램을 아직 불러오지 않은 경우</li>
+                        <li>네이버 탭을 새로고침하지 않은 경우</li>
+                        <li>매물 상세 패널이 충분히 펼쳐지지 않은 경우</li>
+                      </ul>
+                    </div>
+                    <p className="import-help-footnote">
+                      가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 펼쳐져 있는지 먼저 확인해 주세요.
+                    </p>
+                  </>
+                )}
+              </div>
               <div className="import-help-section">
                 <span className="import-help-kicker">확장 실행 방법</span>
                 <ol className="import-help-list import-help-list-clean">

@@ -1060,6 +1060,40 @@ h4 {
   color: #0f172a;
 }
 
+.import-help-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.import-help-tab {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.import-help-tab.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.import-help-body .import-help-section {
+  margin-bottom: 14px;
+}
+
+.import-help-link {
+  color: #1d4ed8;
+  font-weight: 800;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
 .import-help-section {
   margin-bottom: 14px;
 }
@@ -1077,6 +1111,11 @@ h4 {
 
 .import-help-popover > .import-help-list:not(.import-help-list-clean),
 .import-help-popover > p:not(.import-help-footnote) {
+  display: none;
+}
+
+.import-help-popover > .import-help-section,
+.import-help-popover > .import-help-footnote {
   display: none;
 }
 
