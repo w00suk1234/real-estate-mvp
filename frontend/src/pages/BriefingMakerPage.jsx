@@ -9,34 +9,33 @@ import NaverImportPanel from "../components/importer/NaverImportPanel";
 const defaultForm = {
   title: "",
   deal_type: "월세",
-
   template_type: "1page",
-
   deposit: "",
   monthly_rent: "",
   maintenance_fee: "",
+  premium: "",
   price_unit: "만원",
-
+  price_status: "missing",
   address: "",
-
   supply_area: "",
   supply_area_unit: "㎡",
   exclusive_area: "",
   exclusive_area_unit: "㎡",
-
   floor: "",
-  elevator: "유",
-
+  elevator: "",
   rooms: "0",
   restroom_type: "직접입력",
   restroom_detail: "",
-
   parking_count: "",
   parking_type: "무료",
   parking_fee: "",
-
+  recommended_industry: "",
+  hvac: "",
+  sign_allowed: "",
+  available_from: "",
+  maintenance_includes: "",
+  caution_notes: "",
   description: "",
-
   contact_name: "",
   contact_phone: "",
 };
@@ -48,6 +47,7 @@ const WORK_FIELDS = [
   "deposit",
   "monthly_rent",
   "maintenance_fee",
+  "premium",
   "address",
   "supply_area",
   "exclusive_area",
@@ -56,6 +56,12 @@ const WORK_FIELDS = [
   "restroom_detail",
   "parking_count",
   "parking_fee",
+  "recommended_industry",
+  "hvac",
+  "sign_allowed",
+  "available_from",
+  "maintenance_includes",
+  "caution_notes",
   "description",
   "contact_name",
   "contact_phone",
@@ -103,12 +109,12 @@ function createInitialForm() {
       deal_type: parsed.deal_type ?? defaultForm.deal_type,
       template_type: parsed.template_type ?? defaultForm.template_type,
       price_unit: parsed.price_unit ?? defaultForm.price_unit,
-      supply_area_unit:
-        parsed.supply_area_unit ?? defaultForm.supply_area_unit,
-      exclusive_area_unit:
-        parsed.exclusive_area_unit ?? defaultForm.exclusive_area_unit,
+      supply_area_unit: parsed.supply_area_unit ?? defaultForm.supply_area_unit,
+      exclusive_area_unit: parsed.exclusive_area_unit ?? defaultForm.exclusive_area_unit,
       elevator: parsed.elevator ?? defaultForm.elevator,
       parking_type: parsed.parking_type ?? defaultForm.parking_type,
+      hvac: parsed.hvac ?? defaultForm.hvac,
+      sign_allowed: parsed.sign_allowed ?? defaultForm.sign_allowed,
       contact_name: parsed.contact_name ?? defaultForm.contact_name,
       contact_phone: parsed.contact_phone ?? defaultForm.contact_phone,
     };
@@ -140,6 +146,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 
   const applyImportedDraft = useCallback((draft) => {
     const fieldMapping = draft?.field_mapping || {};
+
     setForm((prev) => ({
       ...prev,
       ...fieldMapping,
@@ -174,10 +181,11 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         template_type: parsed.template_type ?? prev.template_type,
         price_unit: parsed.price_unit ?? prev.price_unit,
         supply_area_unit: parsed.supply_area_unit ?? prev.supply_area_unit,
-        exclusive_area_unit:
-          parsed.exclusive_area_unit ?? prev.exclusive_area_unit,
+        exclusive_area_unit: parsed.exclusive_area_unit ?? prev.exclusive_area_unit,
         elevator: parsed.elevator ?? prev.elevator,
         parking_type: parsed.parking_type ?? prev.parking_type,
+        hvac: parsed.hvac ?? prev.hvac,
+        sign_allowed: parsed.sign_allowed ?? prev.sign_allowed,
         contact_name: parsed.contact_name ?? prev.contact_name,
         contact_phone: parsed.contact_phone ?? prev.contact_phone,
       }));
@@ -216,18 +224,12 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
   return (
     <PageShell page="briefing" setPage={setPage}>
       <div className="page-header">
-        <p className="page-badge">활성 도구</p>
+        <p className="page-badge">핵심 도구</p>
         <h1>소개서 작성</h1>
-        <p className="page-desc">
-          사무실 / 상가 중개용 소개서를 생성합니다.
-        </p>
+        <p className="page-desc">사무실과 상가 중개용 소개서를 빠르게 정리하고 고객용 브리핑으로 다듬습니다.</p>
       </div>
 
-      <NaverImportPanel
-        initialUrl={importUrl}
-        initialSnapshot={importSnapshot}
-        onApplyDraft={applyImportedDraft}
-      />
+      <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
 
       <div className="briefing-grid-v2">
         <div className="grid-card property-card">
@@ -244,11 +246,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         </div>
 
         <div className="grid-card preview-card-wrap">
-          <PreviewCard
-            form={form}
-            mainImage={mainImage}
-            extraImages={extraImages}
-          />
+          <PreviewCard form={form} mainImage={mainImage} extraImages={extraImages} />
         </div>
 
         <div className="grid-card brochure-list-card">
@@ -256,7 +254,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         </div>
 
         <div className="grid-card result-card-wrap">
-          <ResultCard result={result} />
+          <ResultCard result={result} form={form} />
         </div>
       </div>
     </PageShell>
@@ -264,3 +262,4 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 }
 
 export default BriefingMakerPage;
+

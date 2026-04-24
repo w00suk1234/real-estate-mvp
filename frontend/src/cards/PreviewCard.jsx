@@ -1,3 +1,12 @@
+import {
+  buildAreaText,
+  buildBriefing,
+  buildParkingText,
+  buildPriceSummary,
+  buildRestroomText,
+  hasValue,
+} from "../utils/brochure";
+
 function imageSrc(image) {
   if (!image) return null;
   if (image.url) return image.url;
@@ -8,137 +17,137 @@ function imageKey(image, idx) {
   return image?.url || image?.name || `image-${idx}`;
 }
 
-function hasValue(value) {
-  return String(value ?? "").trim() !== "";
-}
-
-function buildPriceText(form) {
-  const parts = [];
-
-  if (hasValue(form.deposit)) {
-    parts.push(`${form.deal_type === "월세" ? "보증금" : form.deal_type} ${form.deposit}${form.price_unit}`);
-  }
-
-  if (form.deal_type === "월세" && hasValue(form.monthly_rent)) {
-    parts.push(`월세 ${form.monthly_rent}${form.price_unit}`);
-  }
-
-  if (hasValue(form.maintenance_fee)) {
-    parts.push(`관리비 ${form.maintenance_fee}${form.price_unit}`);
-  }
-
-  return parts.length ? parts.join(" / ") : "가격 확인 필요";
-}
-
-function buildRestroomText(form) {
-  if (form.restroom_type === "직접입력") {
-    return form.restroom_detail || "";
-  }
-
-  return form.restroom_type || form.restroom_detail || "";
-}
-
-function buildParkingText(form) {
-  if (!hasValue(form.parking_count)) return "";
-
-  const feeText =
-    form.parking_type === "유료" && hasValue(form.parking_fee)
-      ? ` (${form.parking_fee}${form.price_unit})`
-      : "";
-
-  return `${form.parking_count}대 / ${form.parking_type || "주차"}${feeText}`;
-}
-
-function makeSpecItems(form) {
-  const restroomText = buildRestroomText(form);
-  const parkingText = buildParkingText(form);
-
-  return [
-    hasValue(form.supply_area) && {
-      label: "공급면적",
-      value: `${form.supply_area}${form.supply_area_unit}`,
-    },
-    hasValue(form.exclusive_area) && {
-      label: "전용면적",
-      value: `${form.exclusive_area}${form.exclusive_area_unit}`,
-    },
+function makeInfoCards(form) {
+  const cards = [
+    hasValue(form.exclusive_area) && { label: "전용면적", value: `${form.exclusive_area}${form.exclusive_area_unit}` },
+    hasValue(form.supply_area) && { label: "공급면적", value: `${form.supply_area}${form.supply_area_unit}` },
     hasValue(form.floor) && { label: "층수", value: form.floor },
     hasValue(form.elevator) && { label: "엘리베이터", value: form.elevator },
-    hasValue(form.rooms) && form.rooms !== "0" && { label: "방", value: form.rooms },
-    hasValue(restroomText) && { label: "화장실", value: restroomText },
-    hasValue(parkingText) && { label: "주차", value: parkingText },
+    hasValue(form.parking_count) && { label: "주차", value: buildParkingText(form) },
+    hasValue(form.available_from) && { label: "입주 가능일", value: form.available_from },
+    hasValue(form.hvac) && { label: "냉난방", value: form.hvac },
+    hasValue(form.sign_allowed) && { label: "간판 가능", value: form.sign_allowed },
+    hasValue(form.restroom_detail) && { label: "화장실", value: buildRestroomText(form) },
+    hasValue(form.maintenance_includes) && { label: "관리비 포함", value: form.maintenance_includes },
   ].filter(Boolean);
+
+  return cards.slice(0, 8);
 }
 
 function PreviewCard({ form, mainImage, extraImages }) {
   const mainPreview = imageSrc(mainImage);
-  const priceText = buildPriceText(form);
-  const previewExtra = form.template_type === "1page" ? extraImages.slice(0, 2) : extraImages.slice(0, 6);
-  const specItems = makeSpecItems(form);
+  const priceText = buildPriceSummary(form);
+  const briefing = buildBriefing(form);
+  const previewExtra = extraImages.slice(0, form.template_type === "2page" ? 6 : 4);
+  const infoCards = makeInfoCards(form);
+  const areaText = buildAreaText(form);
 
   return (
     <section className="panel preview-panel">
       <div className="panel-head">
         <h3>미리보기</h3>
-        <p>{form.template_type === "1page" ? "1페이지형 소개서 미리보기" : "2페이지형 소개서 미리보기"}</p>
+        <p>고객에게 바로 보여줄 수 있는 브리핑형 소개서 미리보기입니다.</p>
       </div>
 
-      <div className="brochure-preview office-preview">
-        <div className="brochure-cover">
+      <div className="brochure-preview office-preview brochure-preview-v2">
+        <div className="brochure-cover brochure-cover-v2">
           {mainPreview ? (
-            <img src={mainPreview} alt="대표사진" />
+            <img src={mainPreview} alt="대표 사진" />
           ) : (
-            <div className="preview-empty">대표사진 미리보기</div>
+            <div className="preview-empty">대표 사진 미리보기</div>
           )}
 
-          <div className="brochure-cover-overlay">
-            <span className="preview-chip">{form.deal_type} 매물</span>
-            <h4>{form.title || "매물명"}</h4>
+          <div className="brochure-cover-overlay brochure-cover-overlay-v2">
+            <div className="brochure-cover-meta">
+              <span className="preview-chip">{form.deal_type || "월세"} 매물</span>
+              {hasValue(form.recommended_industry) && <span className="preview-chip subtle">{form.recommended_industry}</span>}
+            </div>
+            <h4>{form.title || "매물명을 입력하면 여기에 표시됩니다."}</h4>
+            <p className="cover-address">{form.address || "주소 확인 필요"}</p>
+            <div className="cover-price">{priceText}</div>
           </div>
         </div>
 
-        <div className="brochure-body">
+        <div className="brochure-body brochure-body-v2">
+          {briefing.strengths.length > 0 && (
+            <div className="brochure-section">
+              <div className="brochure-badge-row">
+                {briefing.strengths.map((item) => (
+                  <span key={item} className="brochure-badge">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="brochure-section">
-            <div className="brochure-label">가격</div>
-            <p className="preview-description">{priceText}</p>
+            <div className="brochure-label">한 줄 요약</div>
+            <p className="preview-description">{briefing.oneLineSummary}</p>
           </div>
 
-          {hasValue(form.address) && (
+          {infoCards.length > 0 && (
             <div className="brochure-section">
-              <div className="brochure-label">주소</div>
-              <p className="preview-address-line">{form.address}</p>
+              <div className="brochure-label">기본 정보</div>
+              <div className="brochure-spec-grid brochure-spec-grid-v2">
+                {infoCards.map((item) => (
+                  <div className="spec-item" key={item.label}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {specItems.length > 0 && (
-            <div className="brochure-spec-grid">
-              {specItems.map((item) => (
-                <div className="spec-item" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {hasValue(form.description) && (
+          {(hasValue(form.description) || hasValue(areaText)) && (
             <div className="brochure-section">
               <div className="brochure-label">상세 설명</div>
-              <p className="preview-description">{form.description}</p>
+              <p className="preview-description">
+                {[form.description, areaText && `면적 기준: ${areaText}`].filter(Boolean).join("\n")}
+              </p>
+            </div>
+          )}
+
+          {briefing.recommendedTargets.length > 0 && (
+            <div className="brochure-section">
+              <div className="brochure-label">추천 대상 / 추천 업종</div>
+              <ul className="brochure-list">
+                {briefing.recommendedTargets.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {briefing.consultPoints.length > 0 && (
+            <div className="brochure-section">
+              <div className="brochure-label">상담 시 강조 포인트</div>
+              <ul className="brochure-list">
+                {briefing.consultPoints.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {briefing.checkItems.length > 0 && (
+            <div className="brochure-section">
+              <div className="brochure-label">확인 필요 사항</div>
+              <ul className="brochure-list brochure-list-warning">
+                {briefing.checkItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
             </div>
           )}
 
           {previewExtra.length > 0 && (
             <div className="brochure-section">
               <div className="brochure-label">추가 사진</div>
-              <div className="extra-photo-grid">
+              <div className="extra-photo-grid extra-photo-grid-v2">
                 {previewExtra.map((image, idx) => (
-                  <img
-                    key={imageKey(image, idx)}
-                    src={imageSrc(image)}
-                    alt={`추가 사진-${idx + 1}`}
-                    className="extra-thumb"
-                  />
+                  <img key={imageKey(image, idx)} src={imageSrc(image)} alt={`추가 사진 ${idx + 1}`} className="extra-thumb" />
                 ))}
               </div>
             </div>
@@ -159,3 +168,4 @@ function PreviewCard({ form, mainImage, extraImages }) {
 }
 
 export default PreviewCard;
+

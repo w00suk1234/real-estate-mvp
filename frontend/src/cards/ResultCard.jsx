@@ -1,5 +1,7 @@
-function ResultCard({ result }) {
-  const hasResult = result && result.success;
+import { buildShareMessage } from "../utils/brochure";
+
+function ResultCard({ result, form }) {
+  const hasResult = Boolean(result?.success);
 
   const handleOpenNewTab = () => {
     if (!hasResult) return;
@@ -11,7 +13,7 @@ function ResultCard({ result }) {
 
     const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
     if (!printWindow) {
-      alert("팝업이 차단되었습니다. 새 창에서 열기 후 Ctrl + P를 사용해주세요.");
+      alert("팝업이 차단되었습니다. 새 창에서 열기 후 Ctrl + P를 사용해 주세요.");
       return;
     }
 
@@ -21,51 +23,59 @@ function ResultCard({ result }) {
     };
   };
 
+  const handleCopyShareText = async () => {
+    if (!hasResult) return;
+
+    const text = result.share_text || buildShareMessage(form, result.brochure_url);
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("카톡/문자용 문구를 복사했습니다.");
+    } catch (error) {
+      console.error(error);
+      alert("문구 복사에 실패했습니다. 다시 시도해 주세요.");
+    }
+  };
+
   return (
     <section className="panel">
       <div className="panel-head">
         <h3>생성 결과</h3>
-        <p>
-          {hasResult
-            ? result.message
-            : "소개서를 생성하면 여기에서 결과를 확인할 수 있습니다."}
-        </p>
+        <p>{hasResult ? result.message : "소개서를 생성하면 여기에서 최종 결과와 전달용 액션을 확인할 수 있습니다."}</p>
       </div>
 
       {hasResult ? (
         <>
-          <div className="result-links">
-            <a href={result.image_url} target="_blank" rel="noreferrer">
-              업로드 이미지 보기
+          <div className="result-action-row result-action-row-primary">
+            <a href={result.brochure_url} target="_blank" rel="noreferrer" className="cta-btn inline-cta">
+              최종 소개서 보기
             </a>
-            <a href={result.brochure_url} target="_blank" rel="noreferrer">
-              소개서 결과 보기
-            </a>
+            <button type="button" className="secondary-btn" onClick={handleCopyShareText}>
+              카톡 문구 복사
+            </button>
+            <button type="button" className="secondary-btn" onClick={handlePrintBrochure}>
+              PDF / 인쇄
+            </button>
           </div>
 
-          <div className="result-action-row">
-            <button type="button" className="secondary-btn" onClick={handleOpenNewTab}>
+          <div className="result-links">
+            <a href={result.image_url} target="_blank" rel="noreferrer">
+              대표 이미지 보기
+            </a>
+            <button type="button" className="secondary-btn result-open-btn" onClick={handleOpenNewTab}>
               새 창에서 열기
-            </button>
-            <button type="button" className="cta-btn result-print-btn" onClick={handlePrintBrochure}>
-              인쇄 / PDF 저장
             </button>
           </div>
 
           <div className="result-tip">
-            팝업이 차단되면 <strong>새 창에서 열기</strong> 후 <strong>Ctrl + P</strong>로
-            PDF 저장하면 됩니다.
+            고객 전달 전 가격, 관리비 포함 항목, 권리금 등 확인 필요 항목만 한 번 더 점검해 주세요.
           </div>
 
-          <iframe
-            className="result-frame"
-            src={result.brochure_url}
-            title="brochure-result"
-          />
+          <iframe className="result-frame" src={result.brochure_url} title="brochure-result" />
         </>
       ) : (
-        <div className="empty-box" style={{ minHeight: "280px", display: "grid", placeItems: "center" }}>
-          아직 생성된 결과가 없습니다.
+        <div className="empty-box result-empty-box">
+          <strong>아직 최종 소개서가 없습니다.</strong>
+          <p>매물 정보를 정리한 뒤 소개서 생성 버튼을 누르면 고객용 결과물을 바로 확인할 수 있습니다.</p>
         </div>
       )}
     </section>
@@ -73,3 +83,4 @@ function ResultCard({ result }) {
 }
 
 export default ResultCard;
+

@@ -93,6 +93,22 @@ function extractPrice(text, table, parsed) {
   );
 }
 
+function extractPremium(text, table, parsed) {
+  return (
+    cleanNumber(parsed?.premium) ||
+    cleanNumber(findByAliases(table, ["권리금"])) ||
+    firstRegex(text, [/권리금\s*([\d,.]+)/])
+  );
+}
+
+function extractSimpleField(text, table, parsedValue, aliases, regexes = []) {
+  return (
+    normalize(parsedValue) ||
+    findByAliases(table, aliases) ||
+    firstRegex(text, regexes)
+  );
+}
+
 function extractArea(text, table, parsed) {
   const areaText =
     normalize(parsed?.area_text) ||
@@ -183,6 +199,7 @@ function buildLocalDraftFromSnapshot(snapshot) {
     parsedMaintenanceFee ||
     cleanNumber(findByAliases(table, ["관리비"])) ||
     firstRegex(text, [/관리비\s*([\d,.]+)/]);
+  const premium = extractPremium(text, table, parsed);
 
   const address = normalizeAddress(
     normalize(parsed?.address) ||
@@ -202,6 +219,48 @@ function buildLocalDraftFromSnapshot(snapshot) {
     findByAliases(table, ["주차", "주차가능여부"]) ||
     firstRegex(text, [/(주차\s*(?:가능|불가|무료|유료|[\d,]+대))/]);
   const elevator = normalize(parsed?.elevator) || findByAliases(table, ["엘리베이터", "승강기"]);
+  const restroom = extractSimpleField(text, table, parsed?.restroom, ["화장실", "화장실위치", "화장실 형태"], [/(내부 화장실|외부 화장실|남녀분리|층별 공용)/]);
+  const availableFrom = extractSimpleField(text, table, parsed?.available_from, ["입주가능일", "입주 가능일"], [/(즉시입주|즉시 입주|협의 입주|입주 협의)/]);
+  const hvac = extractSimpleField(text, table, parsed?.hvac, ["냉난방", "난방", "냉방"], [/(개별냉난방|중앙냉난방|시스템냉난방|천장형 냉난방)/]);
+  const maintenanceIncludes = extractSimpleField(
+    text,
+    table,
+    parsed?.maintenance_includes,
+    ["관리비포함", "관리비 포함", "포함항목", "포함 내역"],
+    [/(관리비\s*포함[^.\n]{0,40})/]
+  );
+  const recommendedIndustry = extractSimpleField(
+    text,
+    table,
+    parsed?.recommended_industry,
+    ["추천업종", "가능업종", "업종"],
+    [/(사무실|예약제 업종|상담형 업종|소형 사무실|학원|병원|뷰티|쇼룸)/]
+  );
+  const signAllowed = extractSimpleField(
+    text,
+    table,
+    parsed?.sign_allowed,
+    ["간판", "간판가능", "간판 가능"],
+    [/(간판\s*(?:가능|협의 가능|불가))/]
+  );
+  const cautionNotes = [maintenanceIncludes ? "" : "관리비 포함 항목 확인 필요", !premium && /권리금/.test(text) ? "권리금 협의 여부 확인 필요" : ""]
+    .filter(Boolean)
+    .join(", ");
+
+  let priceStatus = "missing";
+  if (dealType === "월세") {
+    if (deposit && monthlyRent) {
+      priceStatus = "ok";
+    } else if (deposit || monthlyRent) {
+      priceStatus = "partial";
+    } else if (maintenanceFee || premium) {
+      priceStatus = "manual_required";
+    }
+  } else if (deposit) {
+    priceStatus = "ok";
+  } else if (maintenanceFee || premium) {
+    priceStatus = "manual_required";
+  }
 
   const images = (Array.isArray(snapshot?.images) ? snapshot.images : [])
     .filter((image) => !isBadImageCandidate(image))
@@ -223,6 +282,8 @@ function buildLocalDraftFromSnapshot(snapshot) {
     title && title !== "네이버 매물 초안" ? `${title} 소개 초안` : "매물 소개 초안",
     summaryLines.length ? summaryLines.join(" · ") : "",
     priceText ? `가격 정보: ${priceText}` : "가격 정보는 확인 후 입력해 주세요.",
+    recommendedIndustry ? `추천 업종: ${recommendedIndustry}` : "",
+    availableFrom ? `입주 가능일: ${availableFrom}` : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -234,11 +295,20 @@ function buildLocalDraftFromSnapshot(snapshot) {
     supply_area: cleanNumber(supplyArea),
     exclusive_area: cleanNumber(exclusiveArea),
     floor,
+    premium,
     deposit,
     monthly_rent: monthlyRent,
     maintenance_fee: maintenanceFee,
+    price_status: priceStatus,
     elevator: /없음/.test(elevator) ? "무" : elevator ? "유" : "",
     parking_count: cleanNumber(parking),
+    restroom_detail: restroom,
+    available_from: availableFrom,
+    hvac,
+    maintenance_includes: maintenanceIncludes,
+    recommended_industry: recommendedIndustry,
+    sign_allowed: signAllowed,
+    caution_notes: cautionNotes,
     description,
   };
 
