@@ -14,8 +14,8 @@ class ExtensionSnapshotImage(BaseModel):
     url: str
     alt: str = ""
     source: str = "extension"
-    width: int = 0
-    height: int = 0
+    width: float = 0
+    height: float = 0
 
 
 class ExtensionSnapshotRequest(BaseModel):

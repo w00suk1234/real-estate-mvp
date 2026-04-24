@@ -294,8 +294,8 @@ function collectImagesFromPanels(panels) {
   const addImage = (url, alt = "", source = "extension", width = 0, height = 0) => {
     const cleanUrl = absoluteUrl(url);
     const cleanAlt = normalize(alt);
-    const numericWidth = Number(width) || 0;
-    const numericHeight = Number(height) || 0;
+    const numericWidth = Math.round(Number(width) || 0);
+    const numericHeight = Math.round(Number(height) || 0);
     if (isBadImage(cleanUrl, cleanAlt, numericWidth, numericHeight)) return;
     if (!imageMap.has(cleanUrl)) {
       imageMap.set(cleanUrl, {
