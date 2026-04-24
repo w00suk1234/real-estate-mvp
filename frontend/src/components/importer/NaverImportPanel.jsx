@@ -118,6 +118,33 @@ function pickTitle(text, table, parsed) {
   return lines[0] || "네이버 매물 초안";
 }
 
+function isBadImageCandidate(image) {
+  const url = String(image?.url || "").toLowerCase();
+  const alt = String(image?.alt || "").toLowerCase();
+  const haystack = `${url} ${alt}`;
+
+  if (!url.startsWith("http")) return true;
+
+  return [
+    "sprite",
+    "sp_",
+    "favicon",
+    "logo",
+    "profile",
+    "avatar",
+    "default",
+    "blank",
+    "icon",
+    "marker",
+    "map",
+    "npay",
+    "pay",
+    "banner",
+    "gnb",
+    "talk",
+  ].some((token) => haystack.includes(token));
+}
+
 function buildLocalDraftFromSnapshot(snapshot) {
   const parsed = snapshot?.parsed_fields || {};
   const table = makePairTable(snapshot);
