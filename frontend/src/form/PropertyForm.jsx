@@ -21,6 +21,28 @@ function imageName(image, idx) {
   return image?.name || image?.url || `image-${idx + 1}`;
 }
 
+function hasValue(value) {
+  return String(value ?? "").trim() !== "";
+}
+
+function buildPricePreview(form) {
+  const parts = [];
+
+  if (hasValue(form.deposit)) {
+    parts.push(`${form.deal_type === "월세" ? "보증금" : form.deal_type} ${form.deposit}${form.price_unit}`);
+  }
+
+  if (form.deal_type === "월세" && hasValue(form.monthly_rent)) {
+    parts.push(`월세 ${form.monthly_rent}${form.price_unit}`);
+  }
+
+  if (hasValue(form.maintenance_fee)) {
+    parts.push(`관리비 ${form.maintenance_fee}${form.price_unit}`);
+  }
+
+  return parts.length ? parts.join(" / ") : "가격 확인 필요";
+}
+
 function PropertyForm({
   form,
   setForm,
@@ -89,21 +111,8 @@ function PropertyForm({
   };
 
   const pricePreview = useMemo(() => {
-    if (form.deal_type === "월세") {
-      return `보증금 ${form.deposit || "-"}${form.price_unit} / 월세 ${
-        form.monthly_rent || "-"
-      }${form.price_unit} / 관리비 ${form.maintenance_fee || "-"}${
-        form.price_unit
-      }`;
-    }
-    return `전세 ${form.deposit || "-"}${form.price_unit}`;
-  }, [
-    form.deal_type,
-    form.deposit,
-    form.monthly_rent,
-    form.maintenance_fee,
-    form.price_unit,
-  ]);
+    return buildPricePreview(form);
+  }, [form]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

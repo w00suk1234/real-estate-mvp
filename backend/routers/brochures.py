@@ -19,6 +19,34 @@ def _now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _has_value(value: str) -> bool:
+    return bool(str(value or "").strip())
+
+
+def _build_price_text(
+    deal_type: str,
+    deposit: str,
+    monthly_rent: str,
+    maintenance_fee: str,
+    price_unit: str,
+) -> str:
+    parts: list[str] = []
+    if _has_value(deposit):
+        label = "보증금" if deal_type == "월세" else deal_type
+        parts.append(f"{label} {deposit}{price_unit}")
+    if deal_type == "월세" and _has_value(monthly_rent):
+        parts.append(f"월세 {monthly_rent}{price_unit}")
+    if _has_value(maintenance_fee):
+        parts.append(f"관리비 {maintenance_fee}{price_unit}")
+    return " / ".join(parts) if parts else "가격 확인 필요"
+
+
+def _make_spec_html(label: str, value: str) -> str:
+    if not _has_value(value):
+        return ""
+    return f'<div class="spec"><span>{escape(label)}</span><strong>{escape(value)}</strong></div>'
+
+
 @router.get("/brochures")
 def list_brochures(current_user: dict = Depends(get_current_user)):
     query = select(brochures).order_by(brochures.c.id.desc()).limit(50)
@@ -118,26 +146,34 @@ async def create_brochure(
             "message": "파일 저장에 실패했습니다. R2 설정 또는 저장소 상태를 확인해주세요.",
         }
 
-    price_parts = []
-    if deposit:
-        price_parts.append(f"보증금 {deposit}{price_unit}")
-    if monthly_rent:
-        price_parts.append(f"월세 {monthly_rent}{price_unit}")
-    if maintenance_fee:
-        price_parts.append(f"관리비 {maintenance_fee}{price_unit}")
-    if not price_parts:
-        price_parts.append(f"{deal_type} 금액 협의")
-    price_text = " / ".join(price_parts)
+    price_text = _build_price_text(
+        deal_type=deal_type,
+        deposit=deposit,
+        monthly_rent=monthly_rent,
+        maintenance_fee=maintenance_fee,
+        price_unit=price_unit,
+    )
 
-    restroom_text = restroom_detail or restroom_type or "-"
-    parking_text = "-"
-    if parking_count:
+    restroom_text = restroom_detail or restroom_type or ""
+    parking_text = ""
+    if _has_value(parking_count):
         parking_text = f"{parking_count}대 / {parking_type or '주차'}"
-        if parking_fee:
+        if _has_value(parking_fee):
             parking_text += f" ({parking_fee}{price_unit})"
 
-    area_text = f"공급 {supply_area or '-'}{supply_area_unit} / 전용 {exclusive_area or '-'}{exclusive_area_unit}"
-    floor_text = f"{floor or '-'} / 엘리베이터 {elevator or '-'}"
+    area_parts = []
+    if _has_value(supply_area):
+        area_parts.append(f"공급 {supply_area}{supply_area_unit}")
+    if _has_value(exclusive_area):
+        area_parts.append(f"전용 {exclusive_area}{exclusive_area_unit}")
+    area_text = " / ".join(area_parts)
+
+    floor_parts = []
+    if _has_value(floor):
+        floor_parts.append(floor)
+    if _has_value(elevator):
+        floor_parts.append(f"엘리베이터 {elevator}")
+    floor_text = " / ".join(floor_parts)
 
     used_extra = extra_image_files[:10] if template_type == "2page" else extra_image_files[:2]
     extra_images_html = ""
@@ -167,6 +203,47 @@ async def create_brochure(
         "contact_name": escape(contact_name or "-"),
         "contact_phone": escape(contact_phone or "-"),
     }
+
+    spec_items_html = "".join(
+        [
+            _make_spec_html("면적", area_text),
+            _make_spec_html("층수", floor_text),
+            _make_spec_html("방", rooms if _has_value(rooms) and rooms != "0" else ""),
+            _make_spec_html("화장실", restroom_text),
+            _make_spec_html("주차", parking_text),
+        ]
+    )
+
+    address_section_html = (
+        f"""
+      <section class="section">
+        <div class="section-label">주소</div>
+        <p class="text">{safe['address']}</p>
+      </section>
+        """
+        if _has_value(address)
+        else ""
+    )
+
+    description_section_html = (
+        f"""
+      <section class="section">
+        <div class="section-label">상세 설명</div>
+        <p class="text">{safe['description']}</p>
+      </section>
+        """
+        if _has_value(description)
+        else ""
+    )
+
+    contact_box_html = ""
+    if _has_value(contact_name) or _has_value(contact_phone):
+        contact_parts = []
+        if _has_value(contact_name):
+            contact_parts.append(f"담당자 {escape(contact_name)}")
+        if _has_value(contact_phone):
+            contact_parts.append(f"연락처 {escape(contact_phone)}")
+        contact_box_html = f'<div class="contact-box">{" / ".join(contact_parts)}</div>'
 
     html = f"""<!DOCTYPE html>
 <html lang="ko">
@@ -258,23 +335,11 @@ async def create_brochure(
         <div class="section-label">가격</div>
         <div class="price">{safe['price']}</div>
       </section>
-      <section class="section">
-        <div class="section-label">주소</div>
-        <p class="text">{safe['address']}</p>
-      </section>
-      <div class="spec-grid">
-        <div class="spec"><span>면적</span><strong>{safe['area']}</strong></div>
-        <div class="spec"><span>층수</span><strong>{safe['floor']}</strong></div>
-        <div class="spec"><span>방</span><strong>{safe['rooms']}</strong></div>
-        <div class="spec"><span>화장실</span><strong>{safe['restroom']}</strong></div>
-        <div class="spec"><span>주차</span><strong>{safe['parking']}</strong></div>
-      </div>
-      <section class="section">
-        <div class="section-label">상세 설명</div>
-        <p class="text">{safe['description']}</p>
-      </section>
+      {address_section_html}
+      {f'<div class="spec-grid">{spec_items_html}</div>' if spec_items_html else ''}
+      {description_section_html}
       {extra_images_html}
-      <div class="contact-box">담당자 {safe['contact_name']} / 연락처 {safe['contact_phone']}</div>
+      {contact_box_html}
     </div>
   </article>
 </body>

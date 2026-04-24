@@ -3,8 +3,18 @@ import re
 from schemas.import_schema import BrochureDraft, ImageCandidate, RawListing, VisionAnalysis
 
 
+PRICE_NOISE_TOKENS = ["허위매물", "신고", "인쇄", "문의", "상담", "공유"]
+
+
 def compact(value: str | None) -> str:
     return re.sub(r"\s+", " ", value or "").strip()
+
+
+def strip_price_noise(value: str | None) -> str:
+    text = compact(value)
+    for token in PRICE_NOISE_TOKENS:
+        text = text.replace(token, " ")
+    return compact(text)
 
 
 def first_value(fields: dict[str, str], *keys: str) -> str:
@@ -31,33 +41,54 @@ def infer_deal_type(fields: dict[str, str]) -> str:
 
 def split_price(fields: dict[str, str]) -> dict[str, str]:
     result = {
-        "deposit": first_value(fields, "deposit"),
-        "monthly_rent": first_value(fields, "monthly_rent"),
-        "maintenance_fee": first_value(fields, "maintenance_fee"),
+        "deposit": compact(fields.get("deposit", "")).replace(",", ""),
+        "monthly_rent": compact(fields.get("monthly_rent", "")).replace(",", ""),
+        "maintenance_fee": compact(fields.get("maintenance_fee", "")).replace(",", ""),
     }
-    price_text = first_value(fields, "price_text")
-    if price_text and not (result["deposit"] or result["monthly_rent"]):
+    result = {key: value for key, value in result.items() if value}
+
+    price_text = strip_price_noise(first_value(fields, "price_text"))
+    if price_text and not (result.get("deposit") or result.get("monthly_rent")):
         numbers = re.findall(r"[\d,.]+", price_text)
         if "월세" in price_text and len(numbers) >= 2:
             result["deposit"] = numbers[0].replace(",", "")
             result["monthly_rent"] = numbers[1].replace(",", "")
         elif ("전세" in price_text or "매매" in price_text) and numbers:
             result["deposit"] = numbers[0].replace(",", "")
-    return {key: value for key, value in result.items() if value}
+
+    return result
 
 
 def build_description(fields: dict[str, str], summary_points: list[str]) -> str:
-    base = []
+    parts = []
+
     feature = first_value(fields, "feature")
     if feature:
-        base.append(feature)
+        parts.append(feature)
+
     if summary_points:
-        base.append(" / ".join(summary_points))
-    return "\n".join(base).strip()
+        parts.append("핵심 정보: " + " / ".join(summary_points))
+
+    floor = first_value(fields, "floor")
+    parking = first_value(fields, "parking")
+    direction = first_value(fields, "direction")
+    guidance = []
+    if floor:
+        guidance.append(f"층수는 {floor} 기준으로 확인해 주세요.")
+    if parking:
+        guidance.append(f"주차 조건은 {parking}입니다.")
+    if direction:
+        guidance.append(f"방향은 {direction} 기준입니다.")
+    if guidance:
+        parts.append("상담 포인트: " + " ".join(guidance))
+
+    return "\n".join(parts).strip()
 
 
 def build_brochure_draft(raw_listing: RawListing, vision: VisionAnalysis) -> BrochureDraft:
     fields = {**raw_listing.normalized_fields, **vision.screenshot_fields}
+    price_fields = split_price(fields)
+
     title = first_value(fields, "title") or raw_listing.title or "네이버 부동산 매물"
     address = first_value(fields, "address")
     supply_area = numeric_area(first_value(fields, "supply_area", "area_text"))
@@ -70,7 +101,7 @@ def build_brochure_draft(raw_listing: RawListing, vision: VisionAnalysis) -> Bro
     if address:
         summary_points.append(address)
     if supply_area:
-        summary_points.append(f"계약면적 {supply_area}")
+        summary_points.append(f"공급면적 {supply_area}")
     if exclusive_area:
         summary_points.append(f"전용면적 {exclusive_area}")
     if floor:
@@ -86,9 +117,10 @@ def build_brochure_draft(raw_listing: RawListing, vision: VisionAnalysis) -> Bro
         "exclusive_area": exclusive_area,
         "floor": floor,
         "restroom_detail": restroom,
+        "maintenance_fee": price_fields.get("maintenance_fee", ""),
         "parking_count": "1" if "가능" in parking else "",
         "description": build_description(fields, summary_points),
-        **split_price(fields),
+        **price_fields,
     }
     field_mapping = {key: value for key, value in field_mapping.items() if value}
 

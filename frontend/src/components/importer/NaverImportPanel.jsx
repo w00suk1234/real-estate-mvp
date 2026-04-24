@@ -4,9 +4,18 @@ import { useAuth } from "../../auth/AuthContext";
 
 const NAVER_LAND_URL = "https://new.land.naver.com/";
 const EXTENSION_DOWNLOAD_URL = "/downloads/real-estate-mvp-extension.zip";
+const PRICE_NOISE_TOKENS = ["허위매물", "신고", "인쇄", "공유", "상담", "문의", "중개사", "등록"];
 
 function normalize(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function stripPriceNoise(value) {
+  let text = normalize(value);
+  for (const token of PRICE_NOISE_TOKENS) {
+    text = text.replaceAll(token, " ");
+  }
+  return normalize(text);
 }
 
 function extractNaverLandUrl(value) {
@@ -45,8 +54,12 @@ function cleanNumber(value) {
   return match ? match[0].replaceAll(",", "") : "";
 }
 
+function isMeaningfulNumber(value) {
+  return Boolean(cleanNumber(value));
+}
+
 function moneyToManwon(value) {
-  const text = normalize(value).replaceAll(",", "");
+  const text = stripPriceNoise(value).replaceAll(",", "");
   const eokMatch = text.match(/([\d.]+)\s*억/);
   if (eokMatch) {
     const eok = Number(eokMatch[1]) || 0;
@@ -67,7 +80,7 @@ function normalizeAddress(value) {
 
 function extractPrice(text, table, parsed) {
   return (
-    normalize(parsed?.price_text) ||
+    stripPriceNoise(parsed?.price_text) ||
     findByAliases(table, ["가격", "매매가", "전세가", "보증금", "월세", "매매", "전세"]) ||
     firstRegex(text, [
       /(월세\s*[\d,.]+(?:억)?(?:\s*\/\s*[\d,.]+)?)/,
@@ -151,17 +164,24 @@ function buildLocalDraftFromSnapshot(snapshot) {
   const text = normalize(snapshot?.focused_text || snapshot?.visible_text);
 
   const title = pickTitle(text, table, parsed);
-  const priceText = extractPrice(text, table, parsed);
+  const priceText = stripPriceNoise(extractPrice(text, table, parsed));
   const dealType =
     normalize(parsed?.deal_type) ||
     (priceText.includes("전세") ? "전세" : priceText.includes("매매") ? "매매" : "월세");
 
+  const parsedDeposit = cleanNumber(parsed?.deposit);
+  const parsedMonthlyRent = cleanNumber(parsed?.monthly_rent);
+  const parsedMaintenanceFee = cleanNumber(parsed?.maintenance_fee);
   const deposit =
-    normalize(parsed?.deposit) ||
+    parsedDeposit ||
     (dealType === "월세" ? moneyToManwon(priceText.split("/")[0]) : moneyToManwon(priceText));
   const monthlyRent =
-    normalize(parsed?.monthly_rent) ||
+    parsedMonthlyRent ||
     (dealType === "월세" ? moneyToManwon(priceText.split("/")[1] || "") : "");
+  const maintenanceFee =
+    parsedMaintenanceFee ||
+    cleanNumber(findByAliases(table, ["관리비"])) ||
+    firstRegex(text, [/관리비\s*([\d,.]+)/]);
 
   const address = normalizeAddress(
     normalize(parsed?.address) ||
@@ -192,13 +212,16 @@ function buildLocalDraftFromSnapshot(snapshot) {
       confidence: image.confidence || 0.6,
     }));
 
+  const summaryLines = [];
+  if (address) summaryLines.push(address);
+  if (areaText) summaryLines.push(areaText);
+  if (floor) summaryLines.push(`${floor} 기준`);
+  if (parking) summaryLines.push(`주차 ${parking}`);
+
   const description = [
-    "네이버 화면에서 가져온 정보를 바탕으로 만든 소개서 초안입니다.",
-    priceText ? `가격: ${priceText}` : "",
-    address ? `주소: ${address}` : "",
-    areaText ? `면적: ${areaText}` : "",
-    floor ? `층수: ${floor}` : "",
-    parking ? `주차: ${parking}` : "",
+    title && title !== "네이버 매물 초안" ? `${title} 소개 초안` : "매물 소개 초안",
+    summaryLines.length ? summaryLines.join(" · ") : "",
+    priceText ? `가격 정보: ${priceText}` : "가격 정보는 확인 후 입력해 주세요.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -212,13 +235,16 @@ function buildLocalDraftFromSnapshot(snapshot) {
     floor,
     deposit,
     monthly_rent: monthlyRent,
+    maintenance_fee: maintenanceFee,
     elevator: /없음/.test(elevator) ? "무" : elevator ? "유" : "",
     parking_count: cleanNumber(parking),
     description,
   };
 
   const warnings = [];
-  if (!priceText) warnings.push("가격을 읽지 못했습니다. 네이버 매물 상세 패널이 충분히 열려 있는지 확인해 주세요.");
+  if (!priceText || (!isMeaningfulNumber(deposit) && !isMeaningfulNumber(monthlyRent))) {
+    warnings.push("가격을 정확히 읽지 못했습니다. 가격은 자동 반영하지 않았으니 직접 확인해 주세요.");
+  }
   if (!address) warnings.push("주소를 읽지 못했습니다. 상세 정보 패널에서 주소가 보이는지 먼저 확인해 주세요.");
   if (!areaText && !supplyArea && !exclusiveArea) warnings.push("면적을 읽지 못했습니다. 공급면적이나 전용면적이 보이는 상태에서 다시 가져와 주세요.");
   if (images.length === 0) warnings.push("사진을 찾지 못했습니다. 네이버 사진 탭을 연 상태에서 다시 가져오면 더 잘 잡힙니다.");
