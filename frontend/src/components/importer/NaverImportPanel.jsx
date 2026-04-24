@@ -41,7 +41,8 @@ function findByAliases(table, aliases) {
 
 function makePairTable(snapshot) {
   const table = {};
-  for (const pair of snapshot?.pairs || []) {
+  const pairs = Array.isArray(snapshot?.pairs) ? snapshot.pairs : [];
+  for (const pair of pairs) {
     const key = normalize(pair.key);
     const value = normalize(pair.value);
     if (key && value && !table[key]) table[key] = value;
@@ -202,7 +203,7 @@ function buildLocalDraftFromSnapshot(snapshot) {
     firstRegex(text, [/(주차\s*(?:가능|불가|무료|유료|[\d,]+대))/]);
   const elevator = normalize(parsed?.elevator) || findByAliases(table, ["엘리베이터", "승강기"]);
 
-  const images = (snapshot?.images || [])
+  const images = (Array.isArray(snapshot?.images) ? snapshot.images : [])
     .filter((image) => !isBadImageCandidate(image))
     .slice(0, 10)
     .map((image, index) => ({
@@ -345,7 +346,15 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
 
     if (handledSnapshotKey === snapshotKey) return;
 
-    const fallbackDraft = buildLocalDraftFromSnapshot(initialSnapshot);
+    let fallbackDraft = null;
+    try {
+      fallbackDraft = buildLocalDraftFromSnapshot(initialSnapshot);
+    } catch (err) {
+      console.error(err);
+      setError("가져온 매물 데이터를 정리하는 중 오류가 발생했습니다. 사진 패널을 닫고 다시 시도해 주세요.");
+      return;
+    }
+
     setHandledSnapshotKey(snapshotKey);
     setListingUrl(extractNaverLandUrl(initialSnapshot.listing_url));
     setLocalDraft(fallbackDraft);

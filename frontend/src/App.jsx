@@ -11,6 +11,57 @@ import "./styles/theme.css";
 
 const NAVER_IMPORT_SNAPSHOT_KEY = "naver_import_snapshot";
 
+function sanitizeSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+
+  const pairs = Array.isArray(snapshot.pairs)
+    ? snapshot.pairs
+        .map((pair) => ({
+          key: String(pair?.key || ""),
+          value: String(pair?.value || ""),
+        }))
+        .filter((pair) => pair.key || pair.value)
+        .slice(0, 80)
+    : [];
+
+  const images = Array.isArray(snapshot.images)
+    ? snapshot.images
+        .map((image) => ({
+          url: String(image?.url || ""),
+          alt: String(image?.alt || ""),
+          source: String(image?.source || "extension"),
+          width: Number.isFinite(Number(image?.width)) ? Number(image.width) : 0,
+          height: Number.isFinite(Number(image?.height)) ? Number(image.height) : 0,
+        }))
+        .filter((image) => image.url)
+        .slice(0, 20)
+    : [];
+
+  const parsedFields =
+    snapshot.parsed_fields && typeof snapshot.parsed_fields === "object"
+      ? Object.fromEntries(
+          Object.entries(snapshot.parsed_fields).map(([key, value]) => [
+            String(key || ""),
+            String(value || ""),
+          ])
+        )
+      : {};
+
+  return {
+    listing_url: String(snapshot.listing_url || ""),
+    title: String(snapshot.title || ""),
+    page_title: String(snapshot.page_title || ""),
+    visible_text: String(snapshot.visible_text || ""),
+    focused_text: String(snapshot.focused_text || ""),
+    panel_texts: Array.isArray(snapshot.panel_texts)
+      ? snapshot.panel_texts.map((text) => String(text || "")).slice(0, 10)
+      : [],
+    pairs,
+    images,
+    parsed_fields: parsedFields,
+  };
+}
+
 function decodeSnapshotPayload(payload) {
   if (!payload) return null;
 
@@ -65,8 +116,13 @@ function App() {
 
       try {
         const storedSnapshot = snapshotRaw ? JSON.parse(snapshotRaw) : null;
+        const safeSnapshot = sanitizeSnapshot(
+          handoffSnapshot || hashSnapshot || storedSnapshot
+        );
+        if (!safeSnapshot) return false;
+
         setImportSnapshot({
-          ...(handoffSnapshot || hashSnapshot || storedSnapshot),
+          ...safeSnapshot,
           received_at: Date.now(),
         });
         setPage("briefing");
