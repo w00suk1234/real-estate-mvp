@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { importNaverListing } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 
 const NAVER_LAND_URL = "https://new.land.naver.com/";
+const EXTENSION_DOWNLOAD_URL = "/downloads/real-estate-mvp-extension.zip";
 
 function normalize(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -59,65 +60,21 @@ function moneyToManwon(value) {
 function normalizeAddress(value) {
   const text = normalize(value);
   if (!text) return "";
-  const parts = text
-    .replace(/(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)/g, "\n$1")
-    .split("\n")
-    .map((part) => normalize(part))
-    .filter((part) => part.length >= 8 && part.length <= 80);
-  if (parts.length === 0) return text.slice(0, 80);
-  return parts.find((part) => /로|길/.test(part)) || parts[0];
-}
 
-function isBadImageCandidate(image) {
-  const url = String(image?.url || "").toLowerCase();
-  const alt = String(image?.alt || "").toLowerCase();
-  const haystack = `${url} ${alt}`;
-  const width = Number(image?.width) || 0;
-  const height = Number(image?.height) || 0;
-
-  if (!url || !url.startsWith("http")) return true;
-  if (
-    [
-      "sprite",
-      "sp_",
-      "favicon",
-      "logo",
-      "profile",
-      "avatar",
-      "default",
-      "blank",
-      "icon",
-      "marker",
-      "map",
-      "npay",
-      "pay",
-      "banner",
-      "gnb",
-      "talk",
-    ].some((token) => haystack.includes(token))
-  ) {
-    return true;
-  }
-
-  if (width && height) {
-    const area = width * height;
-    const ratio = width / height;
-    if (width < 160 || height < 100 || area < 24000) return true;
-    if (ratio < 0.45 || ratio > 4.2) return true;
-  }
-
-  return false;
+  const addressMatch = text.match(/((?:서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)[^\n]{6,80})/);
+  return normalize(addressMatch?.[1] || text.slice(0, 80));
 }
 
 function extractPrice(text, table, parsed) {
   return (
     normalize(parsed?.price_text) ||
-    findByAliases(table, ["가격", "매매가", "전세가", "보증금", "월세"]) ||
+    findByAliases(table, ["가격", "매매가", "전세가", "보증금", "월세", "매매", "전세"]) ||
     firstRegex(text, [
-      /(월세\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?\s*\/\s*[\d,.]+)/,
-      /(매매\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?)/,
-      /(전세\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?)/,
-      /(해당면적\s*최고가\s*[\d,.]+(?:억)?(?:\s*[\d,.]+)?)/,
+      /(월세\s*[\d,.]+(?:억)?(?:\s*\/\s*[\d,.]+)?)/,
+      /(보증금\s*[\d,.]+(?:억)?(?:\s*\/\s*[\d,.]+)?)/,
+      /(전세\s*[\d,.]+(?:억)?)/,
+      /(매매\s*[\d,.]+(?:억)?)/,
+      /(\d+억\s*\d*[\d,.]*\s*\/\s*\d+[\d,.]*)/,
     ])
   );
 }
@@ -125,10 +82,10 @@ function extractPrice(text, table, parsed) {
 function extractArea(text, table, parsed) {
   const areaText =
     normalize(parsed?.area_text) ||
-    findByAliases(table, ["계약면적", "공급면적", "전용면적"]) ||
+    findByAliases(table, ["계약면적", "공급면적", "전용면적", "면적"]) ||
     firstRegex(text, [
-      /((?:공급|계약|전용)\s*[\d,.]+\s*(?:㎡|m²|m2|평)[^ ]{0,30})/,
-      /((?:[\d,.]+\s*(?:㎡|m²|m2|평)\s*\/\s*)?전용\s*[\d,.]+\s*(?:㎡|m²|m2|평))/,
+      /((?:공급|계약|전용)\s*[\d,.]+\s*(?:㎡|m²|m2)[^\n]{0,24})/,
+      /(([\d,.]+\s*(?:㎡|m²|m2)\s*\/\s*[\d,.]+\s*(?:㎡|m²|m2)))/,
     ]);
 
   return {
@@ -144,50 +101,59 @@ function extractArea(text, table, parsed) {
   };
 }
 
+function pickTitle(text, table, parsed) {
+  const direct =
+    normalize(parsed?.title) ||
+    findByAliases(table, ["매물명", "단지명", "건물명", "매물", "상호"]);
+  if (direct) return direct;
+
+  const lines = String(text || "")
+    .split(/\n+/)
+    .map((line) => normalize(line))
+    .filter(Boolean)
+    .filter((line) => line.length >= 2 && line.length <= 40)
+    .filter((line) => !/[/:]/.test(line))
+    .filter((line) => !/(네이버|로그인|회원가입|필터|지도|목록|바로가기|메일|알림|프로필|pay)/i.test(line));
+
+  return lines[0] || "네이버 매물 초안";
+}
+
 function buildLocalDraftFromSnapshot(snapshot) {
   const parsed = snapshot?.parsed_fields || {};
   const table = makePairTable(snapshot);
   const text = normalize(snapshot?.focused_text || snapshot?.visible_text);
 
-  const title =
-    normalize(parsed.title) ||
-    firstRegex(text, [
-      /([가-힣A-Za-z0-9.\s-]{2,42}(?:아파트|오피스텔|빌라|상가|사무실|빌딩|단지|동)\s*\d{0,4})/,
-    ]) ||
-    "네이버 매물 초안";
-
+  const title = pickTitle(text, table, parsed);
   const priceText = extractPrice(text, table, parsed);
   const dealType =
-    normalize(parsed.deal_type) ||
-    (priceText.includes("매매") ? "매매" : priceText.includes("전세") ? "전세" : "월세");
+    normalize(parsed?.deal_type) ||
+    (priceText.includes("전세") ? "전세" : priceText.includes("매매") ? "매매" : "월세");
 
   const deposit =
-    normalize(parsed.deposit) ||
-    (dealType === "월세"
-      ? moneyToManwon(priceText.split("/")[0])
-      : moneyToManwon(priceText));
+    normalize(parsed?.deposit) ||
+    (dealType === "월세" ? moneyToManwon(priceText.split("/")[0]) : moneyToManwon(priceText));
   const monthlyRent =
-    normalize(parsed.monthly_rent) ||
+    normalize(parsed?.monthly_rent) ||
     (dealType === "월세" ? moneyToManwon(priceText.split("/")[1] || "") : "");
 
   const address = normalizeAddress(
-    normalize(parsed.address) ||
+    normalize(parsed?.address) ||
       findByAliases(table, ["주소", "소재지", "위치"]) ||
       firstRegex(text, [
-        /((?:서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)[^\n]{8,90})/,
+        /((?:서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)[^\n]{6,80})/,
       ])
   );
 
   const { areaText, supplyArea, exclusiveArea } = extractArea(text, table, parsed);
   const floor =
-    normalize(parsed.floor) ||
+    normalize(parsed?.floor) ||
     findByAliases(table, ["층수", "해당층", "층"]) ||
-    firstRegex(text, [/(\d+\s*층\s*\/\s*\d+\s*층|\d+\s*\/\s*\d+\s*층|지하\s*\d+\s*층|반지하)/]);
+    firstRegex(text, [/(\d+\s*층\s*\/\s*\d+\s*층|\d+\s*층|저층|중층|고층)/]);
   const parking =
-    normalize(parsed.parking) ||
+    normalize(parsed?.parking) ||
     findByAliases(table, ["주차", "주차가능여부"]) ||
-    firstRegex(text, [/(주차\s*(?:가능|불가|협의|무료|유료|[\d,]+대))/]);
-  const elevator = normalize(parsed.elevator) || findByAliases(table, ["엘리베이터"]);
+    firstRegex(text, [/(주차\s*(?:가능|불가|무료|유료|[\d,]+대))/]);
+  const elevator = normalize(parsed?.elevator) || findByAliases(table, ["엘리베이터", "승강기"]);
 
   const images = (snapshot?.images || [])
     .filter((image) => !isBadImageCandidate(image))
@@ -200,7 +166,7 @@ function buildLocalDraftFromSnapshot(snapshot) {
     }));
 
   const description = [
-    "네이버 화면에서 읽은 값으로 만든 소개서 초안입니다.",
+    "네이버 화면에서 가져온 정보를 바탕으로 만든 소개서 초안입니다.",
     priceText ? `가격: ${priceText}` : "",
     address ? `주소: ${address}` : "",
     areaText ? `면적: ${areaText}` : "",
@@ -219,16 +185,16 @@ function buildLocalDraftFromSnapshot(snapshot) {
     floor,
     deposit,
     monthly_rent: monthlyRent,
-    elevator: /무|없음/.test(elevator) ? "무" : elevator ? "유" : "",
+    elevator: /없음/.test(elevator) ? "무" : elevator ? "유" : "",
     parking_count: cleanNumber(parking),
     description,
   };
 
   const warnings = [];
-  if (!priceText) warnings.push("가격을 못 읽었습니다. 실제 매물 상세가 열린 상태인지 확인해주세요.");
-  if (!address) warnings.push("주소를 못 읽었습니다. 상세 정보 패널에 주소가 보이게 한 뒤 다시 가져와보세요.");
-  if (!areaText && !supplyArea && !exclusiveArea) warnings.push("면적을 못 읽었습니다. 단지정보가 아니라 매물 상세 정보가 보여야 합니다.");
-  if (images.length === 0) warnings.push("사진을 못 찾았습니다. 네이버의 사진 탭을 연 상태에서 다시 가져오면 성공률이 올라갑니다.");
+  if (!priceText) warnings.push("가격을 읽지 못했습니다. 네이버 매물 상세 패널이 충분히 열려 있는지 확인해 주세요.");
+  if (!address) warnings.push("주소를 읽지 못했습니다. 상세 정보 패널에서 주소가 보이는지 먼저 확인해 주세요.");
+  if (!areaText && !supplyArea && !exclusiveArea) warnings.push("면적을 읽지 못했습니다. 공급면적이나 전용면적이 보이는 상태에서 다시 가져와 주세요.");
+  if (images.length === 0) warnings.push("사진을 찾지 못했습니다. 네이버 사진 탭을 연 상태에서 다시 가져오면 더 잘 잡힙니다.");
 
   return {
     brochure_title: title,
@@ -248,9 +214,19 @@ function makeCoverage(draft) {
   const images = draft?.recommended_images || [];
   return [
     { key: "title", label: "매물명", ok: Boolean(fields.title), value: fields.title },
-    { key: "price", label: "가격", ok: Boolean(fields.deposit || fields.monthly_rent), value: fields.monthly_rent ? `${fields.deposit}/${fields.monthly_rent}` : fields.deposit },
+    {
+      key: "price",
+      label: "가격",
+      ok: Boolean(fields.deposit || fields.monthly_rent),
+      value: fields.monthly_rent ? `${fields.deposit}/${fields.monthly_rent}` : fields.deposit,
+    },
     { key: "address", label: "주소", ok: Boolean(fields.address), value: fields.address },
-    { key: "area", label: "면적", ok: Boolean(fields.supply_area || fields.exclusive_area), value: fields.exclusive_area || fields.supply_area },
+    {
+      key: "area",
+      label: "면적",
+      ok: Boolean(fields.supply_area || fields.exclusive_area),
+      value: fields.exclusive_area || fields.supply_area,
+    },
     { key: "floor", label: "층수", ok: Boolean(fields.floor), value: fields.floor },
     { key: "images", label: "사진", ok: images.length > 0, value: images.length ? `${images.length}장` : "" },
   ];
@@ -265,6 +241,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
   const [status, setStatus] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState("extension");
+  const [extensionPathCopied, setExtensionPathCopied] = useState(false);
   const [handledSnapshotKey, setHandledSnapshotKey] = useState("");
   const { isAuthenticated } = useAuth();
   const helpRef = useRef(null);
@@ -321,7 +298,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     setLocalDraft(fallbackDraft);
     setResult(null);
     setError("");
-    setStatus("현재 네이버 화면에서 읽은 값을 정제해서 반영했습니다. 서버가 다시 긁어오는 방식은 자동으로 덮어쓰지 않습니다.");
+    setStatus("?꾩옱 ?ㅼ씠踰??붾㈃?먯꽌 ?쎌? 媛믪쓣 ?뺤젣?댁꽌 諛섏쁺?덉뒿?덈떎. ?쒕쾭媛 ?ㅼ떆 湲곸뼱?ㅻ뒗 諛⑹떇? ?먮룞?쇰줈 ??뼱?곗? ?딆뒿?덈떎.");
     onApplyDraft?.(fallbackDraft);
   }, [initialSnapshot, handledSnapshotKey, onApplyDraft]);
 
@@ -335,24 +312,24 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       setListingUrl(extractNaverLandUrl(text));
       setError("");
     } catch {
-      setError("브라우저가 클립보드 읽기를 막았습니다. 복사한 URL을 직접 붙여넣어 주세요.");
+      setError("釉뚮씪?곗?媛 ?대┰蹂대뱶 ?쎄린瑜?留됱븯?듬땲?? 蹂듭궗??URL??吏곸젒 遺숈뿬?ｌ뼱 二쇱꽭??");
     }
   };
 
   const handleUrlImport = async () => {
     if (!isAuthenticated) {
-      setError("URL 가져오기는 로그인 후 사용할 수 있습니다.");
+      setError("URL 媛?몄삤湲곕뒗 濡쒓렇?????ъ슜?????덉뒿?덈떎.");
       return;
     }
 
     const normalizedUrl = extractNaverLandUrl(listingUrl);
     if (!normalizedUrl) {
-      setError("네이버 부동산 매물 URL을 입력해주세요.");
+      setError("?ㅼ씠踰?遺?숈궛 留ㅻЪ URL???낅젰?댁＜?몄슂.");
       return;
     }
 
     if (!normalizedUrl.includes("land.naver.com")) {
-      setError("현재는 네이버 부동산 URL만 가져올 수 있습니다.");
+      setError("?꾩옱???ㅼ씠踰?遺?숈궛 URL留?媛?몄삱 ???덉뒿?덈떎.");
       return;
     }
 
@@ -367,10 +344,20 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     } catch (err) {
       console.error(err);
       setError(
-        `${err.message || "URL 가져오기 중 오류가 발생했습니다."} 이 방식은 서버가 네이버를 다시 여는 예비 기능이라 실패할 수 있습니다. 네이버 화면의 '업무툴로 가져오기' 버튼을 추천합니다.`
+        `${err.message || "URL 媛?몄삤湲?以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎."} ??諛⑹떇? ?쒕쾭媛 ?ㅼ씠踰꾨? ?ㅼ떆 ?щ뒗 ?덈퉬 湲곕뒫?대씪 ?ㅽ뙣?????덉뒿?덈떎. ?ㅼ씠踰??붾㈃??'?낅Т?대줈 媛?몄삤湲? 踰꾪듉??異붿쿇?⑸땲??`
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const copyExtensionsPath = async () => {
+    try {
+      await navigator.clipboard.writeText("chrome://extensions/");
+      setExtensionPathCopied(true);
+      window.setTimeout(() => setExtensionPathCopied(false), 1800);
+    } catch {
+      setExtensionPathCopied(false);
     }
   };
 
@@ -378,7 +365,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     <section className="panel import-panel">
       <div className="panel-head import-panel-head">
         <div>
-          <h3>네이버 매물 → 소개서 초안</h3>
+          <h3>?ㅼ씠踰?留ㅻЪ ???뚭컻??珥덉븞</h3>
         </div>
         <div className="import-head-actions" ref={helpRef}>
           <button
@@ -388,7 +375,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
               setHelpTab("extension");
               setHelpOpen((prev) => !prev);
             }}
-            aria-label="네이버 매물 가져오기 도움말"
+            aria-label="네이버 매물 가져오기 안내"
             aria-expanded={helpOpen}
           >
             i
@@ -416,33 +403,51 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
               <div className="import-help-body">
                 {helpTab === "extension" ? (
                   <>
+                    <div className="import-help-actions">
+                      <a
+                        className="import-help-download"
+                        href={EXTENSION_DOWNLOAD_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        확장 ZIP 다운로드
+                      </a>
+                      <button
+                        type="button"
+                        className="import-help-copy"
+                        onClick={copyExtensionsPath}
+                      >
+                        {extensionPathCopied ? "주소 복사됨" : "chrome://extensions 복사"}
+                      </button>
+                    </div>
+
+                    <div className="import-help-section">
+                      <span className="import-help-kicker">먼저 알아둘 점</span>
+                      <p>
+                        웹앱에서는 <code>chrome://extensions</code> 주소를 바로 열지 못할 수 있습니다.
+                        그래서 위 버튼으로 주소를 복사한 뒤, 크롬 주소창에 붙여넣는 방식이 가장 안정적입니다.
+                      </p>
+                    </div>
+
                     <div className="import-help-section">
                       <span className="import-help-kicker">처음 한 번만</span>
                       <ol className="import-help-list import-help-list-clean">
-                        <li>
-                          먼저{" "}
-                          <a
-                            className="import-help-link"
-                            href="chrome://extensions/"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            chrome://extensions/
-                          </a>
-                          {" "}를 새 탭으로 엽니다.
-                        </li>
+                        <li>위에서 확장 ZIP을 내려받습니다.</li>
+                        <li>내려받은 ZIP 파일의 압축을 풉니다.</li>
+                        <li><code>chrome://extensions</code> 주소를 복사해서 크롬 주소창에 붙여넣고 이동합니다.</li>
                         <li>오른쪽 위 개발자 모드를 켭니다.</li>
                         <li>왼쪽 위 압축해제된 확장 프로그램 로드를 누릅니다.</li>
-                        <li>프로젝트 폴더 안의 <code>chrome-extension</code> 폴더를 선택합니다.</li>
-                        <li>확장이 추가되면 네이버 매물 탭을 새로고침합니다.</li>
+                        <li>압축을 푼 폴더 안에 있는 <code>chrome-extension</code> 폴더를 선택합니다.</li>
+                        <li>설치가 끝나면 네이버 부동산 탭을 새로고침합니다.</li>
                       </ol>
                     </div>
+
                     <div className="import-help-section">
                       <span className="import-help-kicker">설치 후 확인</span>
                       <ul className="import-help-list import-help-bullets">
                         <li>확장 목록에 업무툴 확장이 보여야 합니다.</li>
                         <li>네이버 화면 오른쪽 아래에 업무툴로 가져오기 버튼이 보여야 합니다.</li>
-                        <li>안 보이면 확장 새로고침 후 네이버 탭도 다시 새로고침합니다.</li>
+                        <li>버튼이 안 보이면 확장을 새로고침하고 네이버 탭도 다시 새로고침합니다.</li>
                       </ul>
                     </div>
                   </>
@@ -451,74 +456,28 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
                     <div className="import-help-section">
                       <span className="import-help-kicker">사용 순서</span>
                       <ol className="import-help-list import-help-list-clean">
-                        <li>네이버에서 실제 매물 하나를 클릭합니다.</li>
-                        <li>상세 정보나 사진 탭이 보이게 둡니다.</li>
+                        <li>네이버 부동산에서 실제 매물 하나를 클릭합니다.</li>
+                        <li>가격, 면적, 사진 등 상세 정보가 보이게 둡니다.</li>
                         <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
-                        <li>우리 앱에서 채워진 값만 검토하고 저장합니다.</li>
+                        <li>우리 앱으로 돌아와 자동으로 채워진 값을 검토한 뒤 저장합니다.</li>
                       </ol>
                     </div>
+
                     <div className="import-help-section">
                       <span className="import-help-kicker">버튼이 안 보일 때</span>
                       <ul className="import-help-list import-help-bullets">
-                        <li>크롬 확장프로그램을 아직 불러오지 않은 경우</li>
-                        <li>네이버 탭을 새로고침하지 않은 경우</li>
-                        <li>매물 상세 패널이 충분히 펼쳐지지 않은 경우</li>
+                        <li>크롬 확장을 아직 설치하지 않았거나 꺼져 있는 경우</li>
+                        <li>확장을 설치한 뒤 네이버 탭을 다시 새로고침하지 않은 경우</li>
+                        <li>매물 상세 패널이 충분히 열려 있지 않은 경우</li>
                       </ul>
                     </div>
+
                     <p className="import-help-footnote">
-                      가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 펼쳐져 있는지 먼저 확인해 주세요.
+                      가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 열려 있는지 먼저 확인해 주세요.
                     </p>
                   </>
                 )}
               </div>
-              <div className="import-help-section">
-                <span className="import-help-kicker">확장 실행 방법</span>
-                <ol className="import-help-list import-help-list-clean">
-                  <li>처음 설치가 안 되어 있으면 <code>chrome://extensions</code> 에서 확장을 불러옵니다.</li>
-                  <li>크롬 오른쪽 위 퍼즐 아이콘을 누릅니다.</li>
-                  <li>확장프로그램 목록에서 이 업무툴 확장을 선택해 켭니다.</li>
-                  <li>그다음 네이버 매물 탭을 새로고침합니다.</li>
-                </ol>
-              </div>
-              <div className="import-help-section">
-                <span className="import-help-kicker">시작 전</span>
-                <p>
-                  메인 방식은 <strong>크롬 확장프로그램을 처음 한 번만 불러온 뒤</strong> 쓰는 방식입니다.
-                </p>
-              </div>
-              <div className="import-help-section">
-                <span className="import-help-kicker">사용 순서</span>
-                <ol className="import-help-list import-help-list-clean">
-                  <li>네이버에서 실제 매물 하나를 클릭합니다.</li>
-                  <li>상세 정보나 사진 탭이 보이게 둡니다.</li>
-                  <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
-                  <li>우리 앱에서 채워진 값만 검토하고 저장합니다.</li>
-                </ol>
-              </div>
-              <div className="import-help-section">
-                <span className="import-help-kicker">버튼이 안 보일 때</span>
-                <ul className="import-help-list import-help-bullets">
-                  <li>크롬 확장프로그램을 아직 불러오지 않은 경우</li>
-                  <li>네이버 탭을 새로고침하지 않은 경우</li>
-                  <li>매물 상세 패널이 충분히 펼쳐지지 않은 경우</li>
-                </ul>
-              </div>
-              <p className="import-help-footnote">
-                가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 펼쳐져 있는지 먼저 확인해 주세요.
-              </p>
-              <ol className="import-help-list">
-                <li>처음 한 번은 크롬 확장프로그램을 불러와야 합니다.</li>
-                <li>네이버에서 실제 매물 하나를 클릭합니다.</li>
-                <li>상세 정보나 사진 탭이 보이게 둡니다.</li>
-                <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
-                <li>우리 앱에서 채워진 값만 검토하고 저장합니다.</li>
-              </ol>
-              <p>
-                크롬 확장프로그램을 아직 안 불러왔다면 네이버 화면에서 버튼이 보이지 않을 수 있습니다.
-                <br />
-                가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 펼쳐져 있는지 먼저 확인해
-                주세요.
-              </p>
             </div>
           )}
         </div>
@@ -527,10 +486,10 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       {snapshotStats && (
         <div className="import-debug-box">
           <strong>정제 수집 결과</strong>
-          <span>핵심값 {snapshotStats.parsed}개</span>
+          <span>필드 {snapshotStats.parsed}개</span>
           <span>표 후보 {snapshotStats.pairs}개</span>
-          <span>사진 후보 {snapshotStats.images}개</span>
-          <span>패널 텍스트 {snapshotStats.textLength.toLocaleString()}자</span>
+          <span>이미지 후보 {snapshotStats.images}개</span>
+          <span>화면 텍스트 {snapshotStats.textLength.toLocaleString()}자</span>
         </div>
       )}
 
@@ -540,10 +499,10 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
             <div
               key={item.key}
               className={`coverage-item ${item.ok ? "ok" : "missing"}`}
-              title={item.value || "비어 있음"}
+              title={item.value || "鍮꾩뼱 ?덉쓬"}
             >
               <span>{item.label}</span>
-              <strong>{item.ok ? "읽음" : "비어 있음"}</strong>
+              <strong>{item.ok ? "?쎌쓬" : "鍮꾩뼱 ?덉쓬"}</strong>
             </div>
           ))}
         </div>
@@ -552,17 +511,17 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       {status && <div className="import-alert success">{status}</div>}
 
       <details className="url-fallback-box">
-        <summary>URL로 가져오기 예비 기능</summary>
+        <summary>URL濡?媛?몄삤湲??덈퉬 湲곕뒫</summary>
         <p>
-          URL 방식은 서버가 네이버를 다시 열어야 해서 timeout이 날 수 있습니다. 실제 서비스 흐름은
-          네이버 화면의 업무툴 버튼입니다.
+          URL 諛⑹떇? ?쒕쾭媛 ?ㅼ씠踰꾨? ?ㅼ떆 ?댁뼱???댁꽌 timeout???????덉뒿?덈떎. ?ㅼ젣 ?쒕퉬???먮쫫?
+          ?ㅼ씠踰??붾㈃???낅Т??踰꾪듉?낅땲??
         </p>
         <div className="import-quick-actions">
           <button type="button" className="secondary-btn" onClick={openNaverLand}>
-            네이버 부동산 열기
+            ?ㅼ씠踰?遺?숈궛 ?닿린
           </button>
           <button type="button" className="secondary-btn" onClick={pasteFromClipboard}>
-            복사한 URL 붙여넣기
+            蹂듭궗??URL 遺숈뿬?ｊ린
           </button>
         </div>
         <div className="import-row">
@@ -578,7 +537,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
             onClick={handleUrlImport}
             disabled={loading}
           >
-            {loading ? "분석 중..." : "URL로 가져오기"}
+            {loading ? "불러오는 중..." : "URL로 가져오기"}
           </button>
         </div>
       </details>
@@ -590,14 +549,14 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           <div className="import-result-top">
             <div>
               <strong>{activeDraft.brochure_title}</strong>
-              <p>{activeDraft.summary_points?.join(" · ") || "읽은 값을 바탕으로 초안을 만들었습니다."}</p>
+              <p>{activeDraft.summary_points?.join(" 쨌 ") || "?쎌? 媛믪쓣 諛뷀깢?쇰줈 珥덉븞??留뚮뱾?덉뒿?덈떎."}</p>
             </div>
             <button
               type="button"
               className="secondary-btn"
               onClick={() => onApplyDraft?.(activeDraft)}
             >
-              다시 반영
+              ?ㅼ떆 諛섏쁺
             </button>
           </div>
 
@@ -619,7 +578,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
                   rel="noreferrer"
                   className="import-image-item"
                 >
-                  <span>{image.category || `이미지 ${index + 1}`}</span>
+                  <span>{image.category || `?대?吏 ${index + 1}`}</span>
                 </a>
               ))}
             </div>
@@ -631,3 +590,6 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
 }
 
 export default NaverImportPanel;
+
+
+
