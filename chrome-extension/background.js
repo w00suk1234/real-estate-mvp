@@ -8,31 +8,46 @@ function makeCompactSnapshot(snapshot) {
     pairs: (snapshot?.pairs || []).slice(0, 80),
     images: (snapshot?.images || []).slice(0, 12),
     visible_text: String(snapshot?.visible_text || "").slice(0, 6000),
-    focused_text: String(snapshot?.focused_text || snapshot?.visible_text || "").slice(0, 6000),
+    focused_text: String(
+      snapshot?.focused_text || snapshot?.visible_text || ""
+    ).slice(0, 6000),
     panel_texts: (snapshot?.panel_texts || []).slice(0, 4),
     parsed_fields: snapshot?.parsed_fields || {},
   };
 }
 
-function encodePayload(payload) {
-  const json = JSON.stringify(payload);
-  const bytes = new TextEncoder().encode(json);
-  let binary = "";
-  const chunkSize = 0x8000;
+async function waitForTabComplete(tabId) {
+  return new Promise((resolve) => {
+    const timeoutId = setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }, 12000);
 
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.slice(index, index + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
+    function listener(updatedTabId, changeInfo) {
+      if (updatedTabId !== tabId || changeInfo.status !== "complete") return;
+      clearTimeout(timeoutId);
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }
 
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    chrome.tabs.onUpdated.addListener(listener);
+  });
 }
 
 async function sendSnapshotToApp(snapshot) {
   const compactSnapshot = makeCompactSnapshot(snapshot);
-  const payload = encodePayload(compactSnapshot);
-  const targetUrl = `${APP_URL}/?extension_import=1#snapshot=${payload}`;
-  await chrome.tabs.create({ url: targetUrl });
+  const targetUrl = `${APP_URL}/?extension_import=1`;
+  const appTab = await chrome.tabs.create({ url: targetUrl });
+  await waitForTabComplete(appTab.id);
+
+  await chrome.scripting.executeScript({
+    target: { tabId: appTab.id },
+    args: [compactSnapshot],
+    func: (payload) => {
+      sessionStorage.setItem("naver_import_snapshot", JSON.stringify(payload));
+      window.location.replace("/?extension_import=1");
+    },
+  });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
