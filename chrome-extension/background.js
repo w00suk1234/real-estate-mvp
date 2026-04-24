@@ -6,7 +6,16 @@ function makeCompactSnapshot(snapshot) {
     title: snapshot?.title || "",
     page_title: snapshot?.page_title || "",
     pairs: (snapshot?.pairs || []).slice(0, 80),
-    images: (snapshot?.images || []).slice(0, 12),
+    images: (snapshot?.images || [])
+      .slice(0, 6)
+      .map((image) => ({
+        url: image?.url || "",
+        alt: image?.alt || "",
+        source: image?.source || "extension",
+        width: Number.isFinite(Number(image?.width)) ? Math.round(Number(image.width)) : 0,
+        height: Number.isFinite(Number(image?.height)) ? Math.round(Number(image.height)) : 0,
+      }))
+      .filter((image) => image.url),
     visible_text: String(snapshot?.visible_text || "").slice(0, 6000),
     focused_text: String(
       snapshot?.focused_text || snapshot?.visible_text || ""

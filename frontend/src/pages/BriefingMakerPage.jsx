@@ -95,6 +95,18 @@ function isUsableImportedImage(image) {
   ].some((token) => haystack.includes(token));
 }
 
+function normalizeImportedImages(images) {
+  return (Array.isArray(images) ? images : [])
+    .filter(isUsableImportedImage)
+    .map((image, index) => ({
+      url: String(image?.url || ""),
+      name: String(image?.category || `naver-image-${index + 1}`),
+      imported: true,
+    }))
+    .filter((image) => image.url)
+    .slice(0, 4);
+}
+
 function createInitialForm() {
   if (typeof localStorage === "undefined") {
     return defaultForm;
@@ -157,18 +169,11 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
       ...fieldMapping,
     }));
 
-    const importedImages = (draft?.recommended_images || [])
-      .filter(isUsableImportedImage)
-      .map((image, index) => ({
-        url: image.url,
-        name: image.category || `naver-image-${index + 1}`,
-        imported: true,
-      }))
-      .filter((image) => image.url);
+    const importedImages = normalizeImportedImages(draft?.recommended_images);
 
     if (importedImages.length > 0) {
       setMainImage(importedImages[0]);
-      setExtraImages(importedImages.slice(1, 11));
+      setExtraImages(importedImages.slice(1));
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });

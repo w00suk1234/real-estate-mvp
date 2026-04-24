@@ -10,7 +10,8 @@ import {
 function imageSrc(image) {
   if (!image) return null;
   if (image.url) return image.url;
-  return URL.createObjectURL(image);
+  if (image instanceof Blob) return URL.createObjectURL(image);
+  return null;
 }
 
 function imageKey(image, idx) {
@@ -168,4 +169,3 @@ function PreviewCard({ form, mainImage, extraImages }) {
 }
 
 export default PreviewCard;
-

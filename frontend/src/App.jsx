@@ -30,11 +30,11 @@ function sanitizeSnapshot(snapshot) {
           url: String(image?.url || ""),
           alt: String(image?.alt || ""),
           source: String(image?.source || "extension"),
-          width: Number.isFinite(Number(image?.width)) ? Number(image.width) : 0,
-          height: Number.isFinite(Number(image?.height)) ? Number(image.height) : 0,
+          width: Number.isFinite(Number(image?.width)) ? Math.round(Number(image.width)) : 0,
+          height: Number.isFinite(Number(image?.height)) ? Math.round(Number(image.height)) : 0,
         }))
         .filter((image) => image.url)
-        .slice(0, 20)
+        .slice(0, 6)
     : [];
 
   const parsedFields =

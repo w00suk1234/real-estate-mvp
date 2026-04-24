@@ -256,7 +256,8 @@ export function resolveImageSource(image) {
   if (!image) return "";
   if (typeof image === "string") return image;
   if (image.url) return image.url;
-  return URL.createObjectURL(image);
+  if (image instanceof Blob) return URL.createObjectURL(image);
+  return "";
 }
 
 export function sanitizeFileName(text) {

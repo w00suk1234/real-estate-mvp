@@ -264,7 +264,7 @@ function buildLocalDraftFromSnapshot(snapshot) {
 
   const images = (Array.isArray(snapshot?.images) ? snapshot.images : [])
     .filter((image) => !isBadImageCandidate(image))
-    .slice(0, 10)
+    .slice(0, 4)
     .map((image, index) => ({
       ...image,
       alt: "",
@@ -431,7 +431,12 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     setResult(null);
     setError("");
     setStatus("현재 네이버 화면에서 읽은 값을 정제해서 반영했습니다. 서버가 다시 긁어오는 방식은 자동으로 덮어쓰지 않습니다.");
-    onApplyDraft?.(fallbackDraft);
+    try {
+      onApplyDraft?.(fallbackDraft);
+    } catch (applyError) {
+      console.error(applyError);
+      setError("가져온 값을 폼에 반영하는 중 오류가 발생했습니다. 세부 사진 패널을 닫고 다시 시도해 주세요.");
+    }
   }, [initialSnapshot, handledSnapshotKey, onApplyDraft]);
 
   const openNaverLand = () => {
@@ -472,7 +477,14 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       const data = await importNaverListing(normalizedUrl);
       setResult(data);
       setLocalDraft(null);
-      if (data?.brochure_draft) onApplyDraft?.(data.brochure_draft);
+      if (data?.brochure_draft) {
+        try {
+          onApplyDraft?.(data.brochure_draft);
+        } catch (applyError) {
+          console.error(applyError);
+          setError("가져온 값을 폼에 반영하는 중 오류가 발생했습니다. 사진 패널을 닫고 다시 시도해 주세요.");
+        }
+      }
     } catch (err) {
       console.error(err);
       setError(
