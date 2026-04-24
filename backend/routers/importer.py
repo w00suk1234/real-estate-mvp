@@ -1,3 +1,6 @@
+from time import time
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from agents.brochure_agent import build_brochure_draft
@@ -16,6 +19,19 @@ from services.vision_service import analyze_listing
 
 
 router = APIRouter(prefix="/import", tags=["importer"])
+_extension_handoffs: dict[str, dict] = {}
+_EXTENSION_HANDOFF_TTL_SECONDS = 60 * 10
+
+
+def _cleanup_extension_handoffs():
+    now = time()
+    expired_keys = [
+        key
+        for key, item in _extension_handoffs.items()
+        if now - item.get("created_at", now) > _EXTENSION_HANDOFF_TTL_SECONDS
+    ]
+    for key in expired_keys:
+        _extension_handoffs.pop(key, None)
 
 
 def _build_raw_listing_from_snapshot(payload: ExtensionSnapshotRequest) -> RawListing:
@@ -99,3 +115,24 @@ async def import_naver_snapshot(
             status_code=500,
             detail=f"Failed to process extension snapshot: {exc}",
         ) from exc
+
+
+@router.post("/extension-handoff")
+async def create_extension_handoff(payload: ExtensionSnapshotRequest):
+    _cleanup_extension_handoffs()
+    handoff_id = uuid4().hex
+    _extension_handoffs[handoff_id] = {
+        "created_at": time(),
+        "snapshot": payload.model_dump(),
+    }
+    return {"success": True, "handoff_id": handoff_id}
+
+
+@router.get("/extension-handoff/{handoff_id}")
+async def get_extension_handoff(handoff_id: str):
+    _cleanup_extension_handoffs()
+    item = _extension_handoffs.pop(handoff_id, None)
+    if not item:
+        raise HTTPException(status_code=404, detail="확장 전달 데이터를 찾을 수 없습니다.")
+
+    return {"success": True, "snapshot": item["snapshot"]}

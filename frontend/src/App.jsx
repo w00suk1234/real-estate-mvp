@@ -6,6 +6,7 @@ import CalculatorsPage from "./pages/CalculatorsPage";
 import PhotoEditorPage from "./pages/PhotoEditorPage";
 import AddressHubPage from "./pages/AddressHubPage";
 import LoginPage from "./pages/LoginPage";
+import { apiFetch } from "./api";
 import "./styles/theme.css";
 
 const NAVER_IMPORT_SNAPSHOT_KEY = "naver_import_snapshot";
@@ -31,23 +32,41 @@ function readHashSnapshot() {
   return decodeSnapshotPayload(match?.[1] || "");
 }
 
+async function fetchHandoffSnapshot(handoffId) {
+  if (!handoffId) return null;
+
+  try {
+    const data = await apiFetch(`/import/extension-handoff/${handoffId}`, {
+      auth: false,
+    });
+    return data?.snapshot || null;
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
 function App() {
   const [page, setPage] = useState("briefing");
   const [importUrl, setImportUrl] = useState("");
   const [importSnapshot, setImportSnapshot] = useState(null);
 
   useEffect(() => {
-    const readImportSnapshot = () => {
+    const readImportSnapshot = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const handoffId = params.get("handoff_id");
+      const handoffSnapshot = await fetchHandoffSnapshot(handoffId);
       const hashSnapshot = readHashSnapshot();
       const snapshotRaw =
         sessionStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY) ||
         localStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY);
 
-      if (!hashSnapshot && !snapshotRaw) return false;
+      if (!handoffSnapshot && !hashSnapshot && !snapshotRaw) return false;
 
       try {
+        const storedSnapshot = snapshotRaw ? JSON.parse(snapshotRaw) : null;
         setImportSnapshot({
-          ...(hashSnapshot || JSON.parse(snapshotRaw)),
+          ...(handoffSnapshot || hashSnapshot || storedSnapshot),
           received_at: Date.now(),
         });
         setPage("briefing");
@@ -61,19 +80,30 @@ function App() {
       }
     };
 
-    const params = new URLSearchParams(window.location.search);
-    const url = params.get("import_url");
-    const hasExtensionImport = params.get("extension_import") === "1";
-    readImportSnapshot();
+    const bootstrap = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get("import_url");
+      const hasExtensionImport = params.get("extension_import") === "1";
+      const hasHandoffId = Boolean(params.get("handoff_id"));
 
-    if (url) {
-      setImportUrl(url);
-      setPage("briefing");
-    }
+      await readImportSnapshot();
 
-    if (url || hasExtensionImport || window.location.hash.includes("snapshot=")) {
-      window.history.replaceState({}, "", window.location.pathname);
-    }
+      if (url) {
+        setImportUrl(url);
+        setPage("briefing");
+      }
+
+      if (
+        url ||
+        hasExtensionImport ||
+        hasHandoffId ||
+        window.location.hash.includes("snapshot=")
+      ) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    };
+
+    bootstrap();
 
     window.addEventListener("naver-import-snapshot", readImportSnapshot);
     window.addEventListener("storage", readImportSnapshot);

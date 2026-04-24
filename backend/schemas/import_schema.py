@@ -25,6 +25,9 @@ class ExtensionSnapshotRequest(BaseModel):
     pairs: list[SnapshotPair] = Field(default_factory=list)
     images: list[ExtensionSnapshotImage] = Field(default_factory=list)
     visible_text: str = ""
+    focused_text: str = ""
+    panel_texts: list[str] = Field(default_factory=list)
+    parsed_fields: dict[str, str] = Field(default_factory=dict)
 
 
 class ImageCandidate(BaseModel):

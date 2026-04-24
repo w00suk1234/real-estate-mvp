@@ -16,38 +16,30 @@ function makeCompactSnapshot(snapshot) {
   };
 }
 
-async function waitForTabComplete(tabId) {
-  return new Promise((resolve) => {
-    const timeoutId = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve();
-    }, 12000);
-
-    function listener(updatedTabId, changeInfo) {
-      if (updatedTabId !== tabId || changeInfo.status !== "complete") return;
-      clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve();
-    }
-
-    chrome.tabs.onUpdated.addListener(listener);
-  });
-}
-
 async function sendSnapshotToApp(snapshot) {
   const compactSnapshot = makeCompactSnapshot(snapshot);
-  const targetUrl = `${APP_URL}/?extension_import=1`;
-  const appTab = await chrome.tabs.create({ url: targetUrl });
-  await waitForTabComplete(appTab.id);
-
-  await chrome.scripting.executeScript({
-    target: { tabId: appTab.id },
-    args: [compactSnapshot],
-    func: (payload) => {
-      sessionStorage.setItem("naver_import_snapshot", JSON.stringify(payload));
-      window.location.replace("/?extension_import=1");
+  const response = await fetch(`${APP_URL}/import/extension-handoff`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify(compactSnapshot),
   });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "확장 전달 데이터를 서버에 저장하지 못했습니다.");
+  }
+
+  const data = await response.json();
+  if (!data?.handoff_id) {
+    throw new Error("확장 전달 ID를 만들지 못했습니다.");
+  }
+
+  const targetUrl = `${APP_URL}/?extension_import=1&handoff_id=${encodeURIComponent(
+    data.handoff_id
+  )}`;
+  await chrome.tabs.create({ url: targetUrl });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
