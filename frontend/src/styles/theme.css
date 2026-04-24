@@ -1529,3 +1529,189 @@ h4 {
     grid-template-columns: 1fr;
   }
 }
+
+.pdf-stage {
+  position: fixed;
+  left: -200vw;
+  top: 0;
+  width: 794px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: -1;
+}
+
+.briefing-pdf {
+  width: 794px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: "Inter", "Noto Sans KR", sans-serif;
+}
+
+.briefing-pdf__hero {
+  padding: 28px 28px 12px;
+}
+
+.briefing-pdf__hero-image {
+  height: 290px;
+  border-radius: 24px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.briefing-pdf__hero-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+
+.briefing-pdf__hero-body {
+  padding-top: 18px;
+}
+
+.briefing-pdf__deal-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #e8f1ff;
+  color: #0b5dd7;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.briefing-pdf__hero-body h1 {
+  margin: 14px 0 10px;
+  font-size: 28px;
+  line-height: 1.3;
+}
+
+.briefing-pdf__address {
+  margin: 0 0 10px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.briefing-pdf__price {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.briefing-pdf__content {
+  padding: 6px 28px 30px;
+}
+
+.briefing-pdf__section {
+  margin-bottom: 22px;
+}
+
+.briefing-pdf__section h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.briefing-pdf__section p,
+.briefing-pdf__section li {
+  color: #334155;
+  line-height: 1.7;
+  font-size: 13px;
+}
+
+.briefing-pdf__paragraph {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.briefing-pdf__badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.briefing-pdf__badge {
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.briefing-pdf__info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.briefing-pdf__info-card {
+  min-height: 76px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.briefing-pdf__info-card span {
+  display: block;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.briefing-pdf__info-card strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.briefing-pdf__section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.briefing-pdf__warning-list li {
+  color: #9a3412;
+}
+
+.briefing-pdf__photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.briefing-pdf__photo-card {
+  margin: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.briefing-pdf__photo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+
+.briefing-pdf__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid #e5e7eb;
+  color: #475569;
+  font-size: 13px;
+}

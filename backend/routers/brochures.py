@@ -622,7 +622,7 @@ async def create_brochure(
         "message": "소개서를 생성했습니다. 최종 소개서와 전달용 액션을 확인해 주세요.",
         "brochure_id": brochure_id,
         "image_url": main_image_file.url,
+        "extra_image_urls": [file.url for file in used_extra],
         "brochure_url": brochure_file.url,
         "share_text": share_text,
     }
-

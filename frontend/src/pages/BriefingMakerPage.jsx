@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import PageShell from "../components/layout/PageShell";
 import PropertyForm from "../form/PropertyForm";
 import PreviewCard from "../cards/PreviewCard";
 import ResultCard from "../cards/ResultCard";
 import RecentBrochureList from "../cards/RecentBrochureList";
 import NaverImportPanel from "../components/importer/NaverImportPanel";
+import BriefingPdfView from "../components/pdf/BriefingPdfView";
+import { buildPdfFileName } from "../utils/brochure";
+import { downloadElementAsPdf } from "../utils/pdf";
 
 const defaultForm = {
   title: "",
@@ -135,6 +138,8 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
   const [extraImages, setExtraImages] = useState([]);
   const [result, setResult] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const pdfRef = useRef(null);
 
   const resetWork = useCallback(() => {
     setForm(createInitialForm());
@@ -221,6 +226,20 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
   }, [form, mainImage, extraImages, result]);
 
+  const handleDownloadPdf = useCallback(async () => {
+    if (!result?.success) return;
+
+    try {
+      setPdfLoading(true);
+      await downloadElementAsPdf(pdfRef.current, buildPdfFileName(form));
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "PDF 다운로드 중 오류가 발생했습니다.");
+    } finally {
+      setPdfLoading(false);
+    }
+  }, [form, result]);
+
   return (
     <PageShell page="briefing" setPage={setPage}>
       <div className="page-header">
@@ -254,12 +273,24 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         </div>
 
         <div className="grid-card result-card-wrap">
-          <ResultCard result={result} form={form} />
+          <ResultCard
+            result={result}
+            form={form}
+            onDownloadPdf={handleDownloadPdf}
+            pdfLoading={pdfLoading}
+          />
         </div>
       </div>
+
+      <BriefingPdfView
+        ref={pdfRef}
+        form={form}
+        result={result}
+        mainImage={mainImage}
+        extraImages={extraImages}
+      />
     </PageShell>
   );
 }
 
 export default BriefingMakerPage;
-
