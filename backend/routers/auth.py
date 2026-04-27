@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -23,7 +23,7 @@ class SignupRequest(BaseModel):
     office_name: str = ""
     manager_name: str = ""
     phone: str = ""
-    email: EmailStr | str = ""
+    email: str = ""
     privacy_agreed: bool = False
 
 
@@ -31,7 +31,7 @@ class ProfileUpdateRequest(BaseModel):
     office_name: str = ""
     manager_name: str = ""
     phone: str = ""
-    email: EmailStr | str = ""
+    email: str = ""
 
 
 def _public_user(user: dict):
