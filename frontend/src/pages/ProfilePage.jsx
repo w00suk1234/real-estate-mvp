@@ -48,7 +48,7 @@ function ProfilePage() {
     setError("");
     try {
       await updateProfile(form);
-      setMessage("내 정보가 저장되었습니다. 이후 생성하는 소개서 하단에 자동으로 반영됩니다.");
+      setMessage("내 정보가 저장되었습니다. 이후 생성하는 소개서 하단에도 자동으로 반영됩니다.");
     } catch (submitError) {
       setError(submitError.message || "내 정보 저장 중 오류가 발생했습니다.");
     } finally {
@@ -144,7 +144,7 @@ function ProfilePage() {
                 </div>
               ))
             ) : (
-              <div className="empty-hint">입력한 정보가 아직 없습니다.</div>
+              <div className="empty-hint">입력된 정보가 아직 없습니다.</div>
             )}
           </div>
 

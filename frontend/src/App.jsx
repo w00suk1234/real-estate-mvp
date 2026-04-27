@@ -7,6 +7,7 @@ import PhotoEditorPage from "./pages/PhotoEditorPage";
 import AddressHubPage from "./pages/AddressHubPage";
 import LoginPage from "./pages/LoginPage";
 import ProfilePage from "./pages/ProfilePage";
+import PageShell from "./components/layout/PageShell";
 import { apiFetch } from "./api";
 import "./styles/theme.css";
 
@@ -44,7 +45,7 @@ function sanitizeSnapshot(snapshot) {
           Object.entries(snapshot.parsed_fields).map(([key, value]) => [
             String(key || ""),
             String(value || ""),
-          ])
+          ]),
         )
       : {};
 
@@ -117,9 +118,7 @@ function App() {
 
       try {
         const storedSnapshot = snapshotRaw ? JSON.parse(snapshotRaw) : null;
-        const safeSnapshot = sanitizeSnapshot(
-          handoffSnapshot || hashSnapshot || storedSnapshot
-        );
+        const safeSnapshot = sanitizeSnapshot(handoffSnapshot || hashSnapshot || storedSnapshot);
         if (!safeSnapshot) return false;
 
         setImportSnapshot({
@@ -171,6 +170,10 @@ function App() {
     };
   }, []);
 
+  if (page === "auth" || page === "login") {
+    return <LoginPage setPage={setPage} />;
+  }
+
   let currentPage = (
     <BriefingMakerPage
       setPage={setPage}
@@ -185,11 +188,12 @@ function App() {
   if (page === "photo-editor") currentPage = <PhotoEditorPage setPage={setPage} />;
   if (page === "address-hub") currentPage = <AddressHubPage setPage={setPage} />;
   if (page === "profile") currentPage = <ProfilePage setPage={setPage} />;
-  if (page === "auth" || page === "login") {
-    currentPage = <LoginPage setPage={setPage} />;
-  }
 
-  return currentPage;
+  return (
+    <PageShell page={page} setPage={setPage}>
+      {currentPage}
+    </PageShell>
+  );
 }
 
 export default App;
