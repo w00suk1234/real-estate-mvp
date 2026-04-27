@@ -11,6 +11,8 @@ const emptyForm = {
   priority: "보통",
   meeting_status: "미팅 전",
   memo: "",
+  source: "",
+  inflow_date: "",
 };
 
 function CustomersPage({ setPage }) {
@@ -18,7 +20,6 @@ function CustomersPage({ setPage }) {
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
-
   const [search, setSearch] = useState("");
   const [contractFilter, setContractFilter] = useState("전체");
   const [priorityFilter, setPriorityFilter] = useState("전체");
@@ -29,13 +30,8 @@ function CustomersPage({ setPage }) {
       setCustomers([]);
       return;
     }
-
-    try {
-      const data = await apiFetch("/customers");
-      setCustomers(data.items || []);
-    } catch (error) {
-      console.error(error);
-    }
+    const data = await apiFetch("/customers");
+    setCustomers(data.items || []);
   };
 
   useEffect(() => {
@@ -44,23 +40,12 @@ function CustomersPage({ setPage }) {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((item) => {
-      const text =
-        `${item.name || ""} ${item.phone || ""} ${item.wanted_condition || ""} ${item.memo || ""}`.toLowerCase();
-
+      const text = `${item.name || ""} ${item.phone || ""} ${item.wanted_condition || ""} ${item.memo || ""} ${item.source || ""}`.toLowerCase();
       const matchesSearch = text.includes(search.toLowerCase());
-      const matchesContract =
-        contractFilter === "전체" || item.contract_status === contractFilter;
-      const matchesPriority =
-        priorityFilter === "전체" || item.priority === priorityFilter;
-      const matchesMeeting =
-        meetingFilter === "전체" || item.meeting_status === meetingFilter;
-
-      return (
-        matchesSearch &&
-        matchesContract &&
-        matchesPriority &&
-        matchesMeeting
-      );
+      const matchesContract = contractFilter === "전체" || item.contract_status === contractFilter;
+      const matchesPriority = priorityFilter === "전체" || item.priority === priorityFilter;
+      const matchesMeeting = meetingFilter === "전체" || item.meeting_status === meetingFilter;
+      return matchesSearch && matchesContract && matchesPriority && matchesMeeting;
     });
   }, [customers, search, contractFilter, priorityFilter, meetingFilter]);
 
@@ -73,38 +58,30 @@ function CustomersPage({ setPage }) {
     setEditingId(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     if (!isAuthenticated) {
-      alert("고객 정보를 저장하려면 로그인 또는 회원가입이 필요합니다.");
-      setPage?.("auth");
+      alert("고객 정보를 저장하려면 먼저 로그인해 주세요.");
+      setPage?.("login");
       return;
     }
 
-    const url = editingId
-      ? `/customers/${editingId}`
-      : "/customers";
-
+    const url = editingId ? `/customers/${editingId}` : "/customers";
     const method = editingId ? "PUT" : "POST";
 
-    try {
-      const data = await apiFetch(url, {
-        method,
-        body: JSON.stringify(form),
-      });
+    const data = await apiFetch(url, {
+      method,
+      body: JSON.stringify(form),
+    });
 
-      if (!data.success) {
-        alert(data.message || "저장에 실패했습니다.");
-        return;
-      }
-
-      resetForm();
-      fetchCustomers();
-    } catch (error) {
-      console.error(error);
-      alert(error.message || "고객 저장 중 오류가 발생했습니다.");
+    if (!data.success) {
+      alert(data.message || "고객 저장에 실패했습니다.");
+      return;
     }
+
+    resetForm();
+    fetchCustomers();
   };
 
   const handleEdit = (item) => {
@@ -117,256 +94,236 @@ function CustomersPage({ setPage }) {
       priority: item.priority || "보통",
       meeting_status: item.meeting_status || "미팅 전",
       memo: item.memo || "",
+      source: item.source || "",
+      inflow_date: item.inflow_date || "",
     });
   };
 
   const handleDelete = async (id) => {
-    if (!isAuthenticated) {
-      alert("삭제하려면 로그인 또는 회원가입이 필요합니다.");
-      setPage?.("auth");
+    if (!window.confirm("고객 정보를 삭제할까요?")) return;
+    const data = await apiFetch(`/customers/${id}`, { method: "DELETE" });
+    if (!data.success) {
+      alert(data.message || "고객 삭제에 실패했습니다.");
       return;
     }
-
-    if (!window.confirm("정말 삭제하시겠습니까?")) return;
-
-    try {
-      const data = await apiFetch(`/customers/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!data.success) {
-        alert(data.message || "삭제에 실패했습니다.");
-        return;
-      }
-
-      fetchCustomers();
-      if (editingId === id) resetForm();
-    } catch (error) {
-      console.error(error);
-      alert(error.message || "삭제 중 오류가 발생했습니다.");
-    }
+    await fetchCustomers();
+    if (editingId === id) resetForm();
   };
 
   return (
     <PageShell page="customers" setPage={setPage}>
-      <div className="page-header">
-        <p className="page-badge">고객 관리</p>
-        <h1>고객 관리</h1>
-        <p className="page-desc">
-          고객 정보를 등록하고 검색하고 수정할 수 있습니다.
-        </p>
-      </div>
+      <div className="page-stack">
+        <section className="surface-card">
+          <div className="section-kicker">고객관리</div>
+          <h1 className="section-title">고객 인입부터 후속 메모까지 한 화면에서 관리</h1>
+          <p className="section-copy">
+            일정관리에서 고객인입으로 저장한 일정도 여기로 자동 연결됩니다. 직접 등록한 고객과 함께 한 흐름에서 관리해 주세요.
+          </p>
+        </section>
 
-      <div className="customer-grid">
-        <section className="panel">
-          <div className="panel-head">
-            <h3>{editingId ? "고객 정보 수정" : "고객 등록"}</h3>
-            <p>연락처, 찾는 조건, 계약 여부, 중요도를 기록합니다.</p>
-          </div>
-
-          <form className="form-box" onSubmit={handleSubmit}>
-            <div className="field-grid two">
-              <div className="field">
-                <label>고객명</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  placeholder="예: 김은수"
-                  required
-                />
-              </div>
-
-              <div className="field">
-                <label>연락처</label>
-                <input
-                  value={form.phone}
-                  onChange={(e) => updateField("phone", e.target.value)}
-                  placeholder="예: 010-1234-5678"
-                />
+        <div className="customer-grid">
+          <section className="surface-card">
+            <div className="card-header-row">
+              <div>
+                <h2 className="card-title">{editingId ? "고객 정보 수정" : "고객 등록"}</h2>
+                <p className="card-copy">기본 정보와 원하는 조건, 유입 경로를 함께 남겨두세요.</p>
               </div>
             </div>
 
-            <div className="field">
-              <label>찾는 조건</label>
-              <textarea
-                rows="4"
-                value={form.wanted_condition}
-                onChange={(e) =>
-                  updateField("wanted_condition", e.target.value)
-                }
-                placeholder="예: 강남, 오피스텔, 월세 1000/80 이하"
-              />
+            <form className="profile-form" onSubmit={handleSubmit}>
+              <div className="field-grid two">
+                <label className="field">
+                  <span>고객명</span>
+                  <input
+                    value={form.name}
+                    onChange={(event) => updateField("name", event.target.value)}
+                    placeholder="예: 김의뢰"
+                    required
+                  />
+                </label>
+
+                <label className="field">
+                  <span>연락처</span>
+                  <input
+                    value={form.phone}
+                    onChange={(event) => updateField("phone", event.target.value)}
+                    placeholder="예: 010-1234-5678"
+                  />
+                </label>
+              </div>
+
+              <label className="field">
+                <span>찾는 조건</span>
+                <textarea
+                  rows="4"
+                  value={form.wanted_condition}
+                  onChange={(event) => updateField("wanted_condition", event.target.value)}
+                  placeholder="예: 강남권 소형 사무실 / 엘리베이터 / 주차 1대 이상"
+                />
+              </label>
+
+              <div className="field-grid three">
+                <label className="field">
+                  <span>계약 상태</span>
+                  <select value={form.contract_status} onChange={(event) => updateField("contract_status", event.target.value)}>
+                    <option value="미계약">미계약</option>
+                    <option value="진행중">진행중</option>
+                    <option value="계약완료">계약완료</option>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>중요도</span>
+                  <select value={form.priority} onChange={(event) => updateField("priority", event.target.value)}>
+                    <option value="낮음">낮음</option>
+                    <option value="보통">보통</option>
+                    <option value="높음">높음</option>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>미팅 상태</span>
+                  <select value={form.meeting_status} onChange={(event) => updateField("meeting_status", event.target.value)}>
+                    <option value="미팅 전">미팅 전</option>
+                    <option value="미팅 예정">미팅 예정</option>
+                    <option value="미팅 완료">미팅 완료</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="field-grid two">
+                <label className="field">
+                  <span>유입 경로</span>
+                  <input
+                    value={form.source}
+                    onChange={(event) => updateField("source", event.target.value)}
+                    placeholder="예: 고객인입 일정 / 직접 등록"
+                  />
+                </label>
+
+                <label className="field">
+                  <span>유입일</span>
+                  <input
+                    type="date"
+                    value={form.inflow_date}
+                    onChange={(event) => updateField("inflow_date", event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <label className="field">
+                <span>메모 / 비고</span>
+                <textarea
+                  rows="5"
+                  value={form.memo}
+                  onChange={(event) => updateField("memo", event.target.value)}
+                  placeholder="상담 선호 시간, 후속 연락 예정일, 계약 주의사항 등을 남겨두세요."
+                />
+              </label>
+
+              <div className="form-actions">
+                <button type="submit" className="primary-btn">
+                  {editingId ? "고객 정보 저장" : "고객 등록"}
+                </button>
+                <button type="button" className="secondary-btn" onClick={resetForm}>
+                  초기화
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="surface-card">
+            <div className="card-header-row">
+              <div>
+                <h2 className="card-title">고객 목록</h2>
+                <p className="card-copy">검색과 상태 필터로 현재 진행 중인 고객을 빠르게 찾을 수 있습니다.</p>
+              </div>
             </div>
 
-            <div className="field-grid three">
-              <div className="field">
-                <label>계약 여부</label>
-                <select
-                  value={form.contract_status}
-                  onChange={(e) =>
-                    updateField("contract_status", e.target.value)
-                  }
-                >
+            <div className="field-grid two filter-grid">
+              <label className="field">
+                <span>검색</span>
+                <input
+                  placeholder="이름, 연락처, 조건, 메모"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+
+              <label className="field">
+                <span>계약 상태</span>
+                <select value={contractFilter} onChange={(event) => setContractFilter(event.target.value)}>
+                  <option value="전체">전체</option>
                   <option value="미계약">미계약</option>
                   <option value="진행중">진행중</option>
                   <option value="계약완료">계약완료</option>
                 </select>
-              </div>
+              </label>
 
-              <div className="field">
-                <label>중요도</label>
-                <select
-                  value={form.priority}
-                  onChange={(e) => updateField("priority", e.target.value)}
-                >
+              <label className="field">
+                <span>중요도</span>
+                <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+                  <option value="전체">전체</option>
                   <option value="낮음">낮음</option>
                   <option value="보통">보통</option>
                   <option value="높음">높음</option>
                 </select>
-              </div>
+              </label>
 
-              <div className="field">
-                <label>미팅 여부</label>
-                <select
-                  value={form.meeting_status}
-                  onChange={(e) =>
-                    updateField("meeting_status", e.target.value)
-                  }
-                >
+              <label className="field">
+                <span>미팅 상태</span>
+                <select value={meetingFilter} onChange={(event) => setMeetingFilter(event.target.value)}>
+                  <option value="전체">전체</option>
                   <option value="미팅 전">미팅 전</option>
                   <option value="미팅 예정">미팅 예정</option>
                   <option value="미팅 완료">미팅 완료</option>
                 </select>
-              </div>
+              </label>
             </div>
 
-            <div className="field">
-              <label>메모</label>
-              <textarea
-                rows="5"
-                value={form.memo}
-                onChange={(e) => updateField("memo", e.target.value)}
-                placeholder="예: 반려동물 가능 여부 중요, 역세권 선호"
-              />
-            </div>
-
-            <div className="result-action-row">
-              <button className="cta-btn" type="submit">
-                {editingId ? "수정 저장" : "고객 등록"}
-              </button>
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={resetForm}
-              >
-                초기화
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section className="panel">
-          <div className="panel-head">
-            <h3>고객 목록</h3>
-            <p>검색과 필터로 고객을 빠르게 찾을 수 있습니다.</p>
-          </div>
-
-          <div className="field-grid two filter-grid">
-            <div className="field">
-              <label>검색</label>
-              <input
-                placeholder="이름, 연락처, 조건, 메모"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            <div className="field">
-              <label>계약 여부</label>
-              <select
-                value={contractFilter}
-                onChange={(e) => setContractFilter(e.target.value)}
-              >
-                <option value="전체">전체</option>
-                <option value="미계약">미계약</option>
-                <option value="진행중">진행중</option>
-                <option value="계약완료">계약완료</option>
-              </select>
-            </div>
-
-            <div className="field">
-              <label>중요도</label>
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-              >
-                <option value="전체">전체</option>
-                <option value="낮음">낮음</option>
-                <option value="보통">보통</option>
-                <option value="높음">높음</option>
-              </select>
-            </div>
-
-            <div className="field">
-              <label>미팅 여부</label>
-              <select
-                value={meetingFilter}
-                onChange={(e) => setMeetingFilter(e.target.value)}
-              >
-                <option value="전체">전체</option>
-                <option value="미팅 전">미팅 전</option>
-                <option value="미팅 예정">미팅 예정</option>
-                <option value="미팅 완료">미팅 완료</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="customer-list">
-            {filteredCustomers.length === 0 ? (
-              <div className="empty-box">조건에 맞는 고객이 없습니다.</div>
-            ) : (
-              filteredCustomers.map((item) => (
-                <div className="customer-item" key={item.id}>
-                  <div className="customer-main">
-                    <div className="customer-top">
-                      <strong>{item.name}</strong>
-                      <div className="mini-badges">
-                        <span>{item.contract_status}</span>
-                        <span>{item.priority}</span>
-                        <span>{item.meeting_status}</span>
+            <div className="customer-list">
+              {filteredCustomers.length === 0 ? (
+                <div className="empty-hint">조건에 맞는 고객이 아직 없습니다.</div>
+              ) : (
+                filteredCustomers.map((item) => (
+                  <article className="customer-item" key={item.id}>
+                    <div className="customer-main">
+                      <div className="customer-top">
+                        <strong>{item.name}</strong>
+                        <div className="mini-badges">
+                          <span>{item.contract_status}</span>
+                          <span>{item.priority}</span>
+                          <span>{item.meeting_status}</span>
+                        </div>
                       </div>
+
+                      <div className="customer-sub">{item.phone || "연락처 없음"}</div>
+
+                      {item.source || item.inflow_date ? (
+                        <div className="customer-source">
+                          {item.source ? <span>{item.source}</span> : null}
+                          {item.inflow_date ? <span>{item.inflow_date}</span> : null}
+                        </div>
+                      ) : null}
+
+                      {item.wanted_condition ? <div className="customer-desc">{item.wanted_condition}</div> : null}
+                      {item.memo ? <div className="customer-note">{item.memo}</div> : null}
                     </div>
 
-                    <div className="customer-sub">
-                      {item.phone || "연락처 없음"}
+                    <div className="customer-actions">
+                      <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(item)}>
+                        수정
+                      </button>
+                      <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(item.id)}>
+                        삭제
+                      </button>
                     </div>
-                    <div className="customer-desc">
-                      {item.wanted_condition || "조건 없음"}
-                    </div>
-                    <small>{item.created_at}</small>
-                  </div>
-
-                  <div className="customer-actions">
-                    <button
-                      type="button"
-                      className="secondary-btn"
-                      onClick={() => handleEdit(item)}
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      className="danger-btn"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </PageShell>
   );

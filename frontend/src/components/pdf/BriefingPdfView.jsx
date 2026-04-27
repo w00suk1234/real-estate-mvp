@@ -16,11 +16,7 @@ const BriefingPdfView = forwardRef(function BriefingPdfView(
         <header className="briefing-pdf__hero">
           {briefing.mainPhoto ? (
             <div className="briefing-pdf__hero-image">
-              <img
-                src={briefing.mainPhoto.src}
-                alt={briefing.mainPhoto.alt}
-                style={{ objectFit: briefing.mainPhoto.fit }}
-              />
+              <img src={briefing.mainPhoto.src} alt={briefing.mainPhoto.alt} style={{ objectFit: briefing.mainPhoto.fit }} />
             </div>
           ) : null}
 
@@ -117,10 +113,14 @@ const BriefingPdfView = forwardRef(function BriefingPdfView(
             </section>
           ) : null}
 
-          {briefing.contactName || briefing.contactPhone ? (
-            <footer className="briefing-pdf__footer">
-              {briefing.contactName ? <strong>{briefing.contactName}</strong> : null}
-              {briefing.contactPhone ? <span>{briefing.contactPhone}</span> : null}
+          {briefing.footerItems.length > 0 ? (
+            <footer className="briefing-pdf__footer briefing-pdf__footer-column">
+              {briefing.footerItems.map((item) => (
+                <div key={item.label} className="briefing-pdf__footer-row">
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+              ))}
             </footer>
           ) : null}
         </div>

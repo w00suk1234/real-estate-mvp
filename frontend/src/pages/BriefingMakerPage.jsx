@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import PageShell from "../components/layout/PageShell";
 import PropertyForm from "../form/PropertyForm";
 import PreviewCard from "../cards/PreviewCard";
@@ -6,7 +7,7 @@ import ResultCard from "../cards/ResultCard";
 import RecentBrochureList from "../cards/RecentBrochureList";
 import NaverImportPanel from "../components/importer/NaverImportPanel";
 import BriefingPdfView from "../components/pdf/BriefingPdfView";
-import { buildPdfFileName, normalizeBriefingData, resolveImageSource } from "../utils/brochure";
+import { buildPdfFileName, normalizeBriefingData } from "../utils/brochure";
 import { downloadElementAsPdf, preparePdfAssets } from "../utils/pdf";
 
 const defaultForm = {
@@ -26,25 +27,25 @@ const defaultForm = {
   exclusive_area_unit: "㎡",
   floor: "",
   elevator: "",
-  rooms: "0",
-  restroom_type: "직접입력",
   restroom_detail: "",
   parking_count: "",
   parking_type: "무료",
-  parking_fee: "",
-  recommended_industry: "",
+  recommended_use: "",
   hvac: "",
   sign_allowed: "",
-  available_from: "",
-  maintenance_includes: "",
-  caution_notes: "",
+  move_in_date: "",
+  admin_fee_includes: "",
+  special_notes: "",
   description: "",
+  office_name: "",
   contact_name: "",
   contact_phone: "",
+  contact_email: "",
 };
 
 const BRIEFING_RESET_FLAG = "briefing_reset_pending";
 const BRIEFING_HAS_WORK_FLAG = "briefing_has_work";
+
 const WORK_FIELDS = [
   "title",
   "deposit",
@@ -55,19 +56,19 @@ const WORK_FIELDS = [
   "supply_area",
   "exclusive_area",
   "floor",
-  "rooms",
   "restroom_detail",
   "parking_count",
-  "parking_fee",
-  "recommended_industry",
+  "recommended_use",
   "hvac",
   "sign_allowed",
-  "available_from",
-  "maintenance_includes",
-  "caution_notes",
+  "move_in_date",
+  "admin_fee_includes",
+  "special_notes",
   "description",
+  "office_name",
   "contact_name",
   "contact_phone",
+  "contact_email",
 ];
 
 function isUsableImportedImage(image) {
@@ -75,24 +76,9 @@ function isUsableImportedImage(image) {
   const alt = String(image?.alt || "").toLowerCase();
   const haystack = `${url} ${alt}`;
   if (!url.startsWith("http")) return false;
-  return ![
-    "sprite",
-    "sp_",
-    "favicon",
-    "logo",
-    "profile",
-    "avatar",
-    "default",
-    "blank",
-    "icon",
-    "marker",
-    "map",
-    "npay",
-    "pay",
-    "banner",
-    "gnb",
-    "talk",
-  ].some((token) => haystack.includes(token));
+  return !["sprite", "favicon", "logo", "profile", "avatar", "default", "blank", "icon", "marker", "map", "npay", "pay", "banner", "gnb", "talk"].some((token) =>
+    haystack.includes(token),
+  );
 }
 
 function normalizeImportedImages(images) {
@@ -107,36 +93,26 @@ function normalizeImportedImages(images) {
     .slice(0, 4);
 }
 
-function createInitialForm() {
-  if (typeof localStorage === "undefined") {
-    return defaultForm;
-  }
+function createInitialForm(user) {
+  const saved = typeof localStorage !== "undefined" ? localStorage.getItem("briefing_default_settings") : null;
+  const defaults = saved ? JSON.parse(saved) : {};
 
-  const saved = localStorage.getItem("briefing_default_settings");
-  if (!saved) {
-    return defaultForm;
-  }
-
-  try {
-    const parsed = JSON.parse(saved);
-    return {
-      ...defaultForm,
-      deal_type: parsed.deal_type ?? defaultForm.deal_type,
-      template_type: parsed.template_type ?? defaultForm.template_type,
-      price_unit: parsed.price_unit ?? defaultForm.price_unit,
-      supply_area_unit: parsed.supply_area_unit ?? defaultForm.supply_area_unit,
-      exclusive_area_unit: parsed.exclusive_area_unit ?? defaultForm.exclusive_area_unit,
-      elevator: parsed.elevator ?? defaultForm.elevator,
-      parking_type: parsed.parking_type ?? defaultForm.parking_type,
-      hvac: parsed.hvac ?? defaultForm.hvac,
-      sign_allowed: parsed.sign_allowed ?? defaultForm.sign_allowed,
-      contact_name: parsed.contact_name ?? defaultForm.contact_name,
-      contact_phone: parsed.contact_phone ?? defaultForm.contact_phone,
-    };
-  } catch (err) {
-    console.error(err);
-    return defaultForm;
-  }
+  return {
+    ...defaultForm,
+    deal_type: defaults.deal_type ?? defaultForm.deal_type,
+    template_type: defaults.template_type ?? defaultForm.template_type,
+    price_unit: defaults.price_unit ?? defaultForm.price_unit,
+    supply_area_unit: defaults.supply_area_unit ?? defaultForm.supply_area_unit,
+    exclusive_area_unit: defaults.exclusive_area_unit ?? defaultForm.exclusive_area_unit,
+    elevator: defaults.elevator ?? defaultForm.elevator,
+    parking_type: defaults.parking_type ?? defaultForm.parking_type,
+    hvac: defaults.hvac ?? defaultForm.hvac,
+    sign_allowed: defaults.sign_allowed ?? defaultForm.sign_allowed,
+    office_name: user?.office_name || defaults.office_name || defaultForm.office_name,
+    contact_name: user?.manager_name || defaults.contact_name || defaultForm.contact_name,
+    contact_phone: user?.phone || defaults.contact_phone || defaultForm.contact_phone,
+    contact_email: user?.email || defaults.contact_email || defaultForm.contact_email,
+  };
 }
 
 function hasBriefingWork(form, mainImage, extraImages, result) {
@@ -145,7 +121,8 @@ function hasBriefingWork(form, mainImage, extraImages, result) {
 }
 
 function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
-  const [form, setForm] = useState(() => createInitialForm());
+  const { user } = useAuth();
+  const [form, setForm] = useState(() => createInitialForm(user));
   const [mainImage, setMainImage] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
   const [result, setResult] = useState(null);
@@ -155,13 +132,13 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
   const pdfRef = useRef(null);
 
   const resetWork = useCallback(() => {
-    setForm(createInitialForm());
+    setForm(createInitialForm(user));
     setMainImage(null);
     setExtraImages([]);
     setResult(null);
     setPdfAssets({ mainImageSrc: "", extraImageSources: [] });
     sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
-  }, []);
+  }, [user]);
 
   const applyImportedDraft = useCallback((draft) => {
     const fieldMapping = draft?.field_mapping || {};
@@ -169,68 +146,50 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     setForm((prev) => ({
       ...prev,
       ...fieldMapping,
+      office_name: prev.office_name || user?.office_name || "",
+      contact_name: prev.contact_name || user?.manager_name || "",
+      contact_phone: prev.contact_phone || user?.phone || "",
+      contact_email: prev.contact_email || user?.email || "",
     }));
 
     const importedImages = normalizeImportedImages(draft?.recommended_images);
-
     if (importedImages.length > 0) {
       setMainImage(importedImages[0]);
       setExtraImages(importedImages.slice(1));
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("briefing_default_settings");
-    if (!saved) return;
-
-    try {
-      const parsed = JSON.parse(saved);
-      setForm((prev) => ({
-        ...prev,
-        deal_type: parsed.deal_type ?? prev.deal_type,
-        template_type: parsed.template_type ?? prev.template_type,
-        price_unit: parsed.price_unit ?? prev.price_unit,
-        supply_area_unit: parsed.supply_area_unit ?? prev.supply_area_unit,
-        exclusive_area_unit: parsed.exclusive_area_unit ?? prev.exclusive_area_unit,
-        elevator: parsed.elevator ?? prev.elevator,
-        parking_type: parsed.parking_type ?? prev.parking_type,
-        hvac: parsed.hvac ?? prev.hvac,
-        sign_allowed: parsed.sign_allowed ?? prev.sign_allowed,
-        contact_name: parsed.contact_name ?? prev.contact_name,
-        contact_phone: parsed.contact_phone ?? prev.contact_phone,
-      }));
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+    setForm((prev) => ({
+      ...prev,
+      office_name: prev.office_name || user?.office_name || "",
+      contact_name: prev.contact_name || user?.manager_name || "",
+      contact_phone: prev.contact_phone || user?.phone || "",
+      contact_email: prev.contact_email || user?.email || "",
+    }));
+  }, [user]);
 
   useEffect(() => {
-    const handleNewWork = () => {
+    const handleReset = () => {
       sessionStorage.removeItem(BRIEFING_RESET_FLAG);
       resetWork();
     };
-
-    window.addEventListener("briefing:new", handleNewWork);
-
+    window.addEventListener("briefing:reset", handleReset);
     if (sessionStorage.getItem(BRIEFING_RESET_FLAG) === "1") {
-      handleNewWork();
+      handleReset();
     }
-
-    return () => {
-      window.removeEventListener("briefing:new", handleNewWork);
-    };
+    return () => window.removeEventListener("briefing:reset", handleReset);
   }, [resetWork]);
 
   useEffect(() => {
     const hasWork = hasBriefingWork(form, mainImage, extraImages, result);
     if (hasWork) {
       sessionStorage.setItem(BRIEFING_HAS_WORK_FLAG, "1");
-      return;
+    } else {
+      sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
     }
-
-    sessionStorage.removeItem(BRIEFING_HAS_WORK_FLAG);
   }, [form, mainImage, extraImages, result]);
 
   const handleDownloadPdf = useCallback(async () => {
@@ -238,7 +197,6 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 
     try {
       setPdfLoading(true);
-
       const preview = normalizeBriefingData(form, { result, mainImage, extraImages });
       const preparedAssets = await preparePdfAssets({
         mainImageSrc: preview.mainPhoto?.src,
@@ -251,62 +209,57 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 
       await downloadElementAsPdf(pdfRef.current, buildPdfFileName(form));
     } catch (error) {
-      console.error(error);
       alert(error.message || "PDF 다운로드 중 오류가 발생했습니다.");
     } finally {
       setPdfLoading(false);
     }
   }, [extraImages, form, mainImage, result]);
 
-  const handleOpenFinal = useCallback(() => {
-    if (!result?.brochure_url) return;
-    window.open(result.brochure_url, "_blank", "noreferrer");
-  }, [result]);
-
   return (
     <PageShell page="briefing" setPage={setPage}>
-      <div className="page-header">
-        <p className="page-badge">중개 업무</p>
-        <h1>소개서 작성</h1>
-        <p className="page-desc">
-          사무실과 상가 매물 정보를 정리하고, 고객에게 바로 보낼 수 있는 소개서로 다듬습니다.
-        </p>
-      </div>
+      <div className="page-stack">
+        <section className="surface-card">
+          <div className="section-kicker">중개 업무</div>
+          <h1 className="section-title">소개서 작성</h1>
+          <p className="section-copy">
+            네이버 매물 정보를 정리하고, 담당자 정보까지 포함된 고객용 소개서를 빠르게 완성해 보세요.
+          </p>
+        </section>
 
-      <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
+        <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
 
-      <div className="briefing-grid-v2">
-        <div className="grid-card property-card">
-          <PropertyForm
-            form={form}
-            setForm={setForm}
-            mainImage={mainImage}
-            setMainImage={setMainImage}
-            extraImages={extraImages}
-            setExtraImages={setExtraImages}
-            setResult={setResult}
-            onCreated={() => setRefreshKey((prev) => prev + 1)}
-          />
-        </div>
+        <div className="briefing-grid-v2">
+          <div className="grid-card property-card">
+            <PropertyForm
+              form={form}
+              setForm={setForm}
+              mainImage={mainImage}
+              setMainImage={setMainImage}
+              extraImages={extraImages}
+              setExtraImages={setExtraImages}
+              setResult={setResult}
+              onCreated={() => setRefreshKey((prev) => prev + 1)}
+            />
+          </div>
 
-        <div className="grid-card preview-card-wrap">
-          <PreviewCard
-            form={form}
-            result={result}
-            mainImage={mainImage}
-            extraImages={extraImages}
-            onDownloadPdf={handleDownloadPdf}
-            pdfLoading={pdfLoading}
-            onOpenFinal={handleOpenFinal}
-          />
-        </div>
+          <div className="grid-card preview-card-wrap">
+            <PreviewCard
+              form={form}
+              result={result}
+              mainImage={mainImage}
+              extraImages={extraImages}
+              onDownloadPdf={handleDownloadPdf}
+              pdfLoading={pdfLoading}
+            />
+          </div>
 
-        <div className="grid-card brochure-list-card">
-          <RecentBrochureList refreshKey={refreshKey} />
-        </div>
+          <div className="grid-card brochure-list-card">
+            <RecentBrochureList refreshKey={refreshKey} />
+          </div>
 
-        <div className="grid-card result-card-wrap">
-          <ResultCard result={result} form={form} onDownloadPdf={handleDownloadPdf} pdfLoading={pdfLoading} />
+          <div className="grid-card result-card-wrap">
+            <ResultCard result={result} onDownloadPdf={handleDownloadPdf} pdfLoading={pdfLoading} />
+          </div>
         </div>
       </div>
 

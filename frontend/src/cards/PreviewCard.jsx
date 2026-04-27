@@ -11,13 +11,11 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
 
   const handlePrint = () => {
     if (!result?.brochure_url) return;
-
     const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
     if (!printWindow) {
       alert("팝업이 차단되어 있습니다. 새 창에서 소개서를 연 뒤 Ctrl + P로 인쇄해 주세요.");
       return;
     }
-
     printWindow.onload = () => {
       printWindow.focus();
       printWindow.print();
@@ -25,12 +23,12 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
   };
 
   return (
-    <section className="panel preview-panel">
+    <section className="surface-card preview-panel">
       <div className="panel-head panel-head-with-actions">
         <div>
-          <p className="preview-mode-label">{canDownloadPdf ? "최종 소개서 기준 미리보기" : "편집 중 미리보기"}</p>
+          <p className="preview-mode-label">{canDownloadPdf ? "최종 소개서 미리보기" : "편집 중 미리보기"}</p>
           <h3>고객용 소개서 미리보기</h3>
-          <p>입력값을 기준으로 고객에게 보여줄 소개서 느낌을 바로 확인할 수 있습니다.</p>
+          <p>입력한 내용을 기준으로 실제 전달될 소개서 톤과 구성을 미리 확인할 수 있습니다.</p>
         </div>
 
         <div className="preview-action-row">
@@ -42,20 +40,10 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
           >
             {pdfLoading ? "PDF 생성 중..." : "PDF 다운로드"}
           </button>
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={handlePrint}
-            disabled={!canDownloadPdf}
-          >
+          <button type="button" className="secondary-btn" onClick={handlePrint} disabled={!canDownloadPdf}>
             인쇄
           </button>
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={handleOpenNewTab}
-            disabled={!canDownloadPdf}
-          >
+          <button type="button" className="secondary-btn" onClick={handleOpenNewTab} disabled={!canDownloadPdf}>
             새 창에서 보기
           </button>
         </div>
@@ -63,18 +51,14 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
 
       {!canDownloadPdf ? (
         <div className="preview-helper-box">
-          미리보기를 확인한 뒤 소개서 생성 버튼을 누르면 PDF로 저장할 수 있습니다.
+          미리보기를 확인한 뒤 소개서 생성 버튼을 누르면 PDF로 저장하고 최종 소개서로 열어볼 수 있습니다.
         </div>
       ) : null}
 
       <div className="brochure-preview office-preview brochure-preview-v3">
         <div className={`brochure-cover brochure-cover-v3 ${!preview.mainPhoto ? "is-empty" : ""}`}>
           {preview.mainPhoto ? (
-            <img
-              src={preview.mainPhoto.src}
-              alt={preview.mainPhoto.alt}
-              style={{ objectFit: preview.mainPhoto.fit }}
-            />
+            <img src={preview.mainPhoto.src} alt={preview.mainPhoto.alt} style={{ objectFit: preview.mainPhoto.fit }} />
           ) : (
             <div className="preview-empty compact">대표 사진 미리보기</div>
           )}
@@ -172,23 +156,23 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
               <div className="extra-photo-grid extra-photo-grid-v3">
                 {preview.extraPhotos.map((image, index) => (
                   <figure key={`${image.src}-${index}`} className="preview-photo-card">
-                    <img
-                      src={image.src}
-                      alt={image.alt}
-                      className="extra-thumb"
-                      style={{ objectFit: image.fit }}
-                    />
+                    <img src={image.src} alt={image.alt} className="extra-thumb" style={{ objectFit: image.fit }} />
                   </figure>
                 ))}
               </div>
             </div>
           ) : null}
 
-          {preview.contactName || preview.contactPhone ? (
+          {preview.footerItems.length > 0 ? (
             <div className="brochure-contact preview-contact-small">
-              <div className="contact-card">
-                {preview.contactName ? <strong>{preview.contactName}</strong> : null}
-                {preview.contactPhone ? <span>{preview.contactPhone}</span> : null}
+              <div className="brochure-label">담당자 정보</div>
+              <div className="contact-card contact-card-column">
+                {preview.footerItems.map((item) => (
+                  <div key={item.label} className="contact-row">
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
               </div>
             </div>
           ) : null}

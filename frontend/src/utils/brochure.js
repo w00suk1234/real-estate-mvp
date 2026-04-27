@@ -9,6 +9,7 @@ const HIDDEN_VALUES = new Set([
   "nan",
   "n/a",
   "예:",
+  "확인 필요",
 ]);
 
 const CONTAIN_IMAGE_TOKENS = [
@@ -60,6 +61,10 @@ export function getPriceStatus(form) {
   const maintenanceFee = cleanNumber(form.maintenance_fee);
   const premium = cleanNumber(form.premium);
 
+  if (compactDisplayValue(form.price_status)) {
+    return form.price_status;
+  }
+
   if (form.deal_type === "월세") {
     if (deposit && monthlyRent) return "ok";
     if (!deposit && !monthlyRent && (maintenanceFee || premium)) return "manual_required";
@@ -76,20 +81,20 @@ export function buildPriceParts(form) {
   return [
     isMeaningfulText(form.deposit) && {
       label: form.deal_type === "월세" ? "보증금" : compactDisplayValue(form.deal_type) || "금액",
-      value: formatAmount(form.deposit, form.price_unit),
+      value: formatAmount(form.deposit, form.price_unit || "만원"),
     },
     form.deal_type === "월세" &&
       isMeaningfulText(form.monthly_rent) && {
         label: "월차임",
-        value: formatAmount(form.monthly_rent, form.price_unit),
+        value: formatAmount(form.monthly_rent, form.price_unit || "만원"),
       },
     isMeaningfulText(form.maintenance_fee) && {
       label: "관리비",
-      value: formatAmount(form.maintenance_fee, form.price_unit),
+      value: formatAmount(form.maintenance_fee, form.price_unit || "만원"),
     },
     isMeaningfulText(form.premium) && {
       label: "권리금",
-      value: formatAmount(form.premium, form.price_unit),
+      value: formatAmount(form.premium, form.price_unit || "만원"),
     },
   ].filter(Boolean);
 }
@@ -117,7 +122,7 @@ export function buildPriceWarning(form) {
   const status = form.price_status || getPriceStatus(form);
   if (status === "ok") return "";
   if (status === "partial") {
-    return "보증금 또는 월차임 일부만 확인되어 있습니다. 실제 계약 금액은 다시 확인해 주세요.";
+    return "보증금 또는 월차임이 일부만 확인되었습니다. 실제 계약 조건은 다시 확인해 주세요.";
   }
   if (status === "manual_required") {
     return "금액 정보가 일부만 확인되었습니다. 보증금, 월차임, 권리금을 직접 확인해 주세요.";
@@ -141,7 +146,7 @@ export function buildParkingText(form) {
   if (isMeaningfulText(form.parking_count)) parts.push(`${normalizeText(form.parking_count)}대`);
   if (isMeaningfulText(form.parking_type)) parts.push(normalizeText(form.parking_type));
   if (isMeaningfulText(form.parking_fee) && normalizeText(form.parking_type) === "유료") {
-    parts.push(formatAmount(form.parking_fee, form.price_unit));
+    parts.push(formatAmount(form.parking_fee, form.price_unit || "만원"));
   }
   return parts.join(" / ");
 }
@@ -161,6 +166,12 @@ function buildAreaForSummary(form) {
   return "";
 }
 
+function uniquePush(target, value) {
+  if (value && !target.includes(value)) {
+    target.push(value);
+  }
+}
+
 export function buildOneLineSummary(form) {
   const address = compactDisplayValue(form.address);
   const area = buildAreaForSummary(form);
@@ -168,17 +179,17 @@ export function buildOneLineSummary(form) {
   const availableFrom = compactDisplayValue(form.available_from);
   const recommendedIndustry = compactDisplayValue(form.recommended_industry);
 
-  const subject = [address, area, floor && `${floor} 사무실`].filter(Boolean).join(" ");
+  const subject = [address, area, floor && `${floor} 규모`].filter(Boolean).join(" ");
   const target = recommendedIndustry
-    ? `${recommendedIndustry} 업종이나 소규모 업무공간으로 검토하기 좋은 매물입니다.`
+    ? `${recommendedIndustry} 업종이나 소규모 사무공간으로 검토하기 좋은 매물입니다.`
     : "소규모 사무공간이나 실무형 업무 공간으로 검토하기 좋은 매물입니다.";
 
   if (subject && availableFrom) {
-    return `${subject}로, ${availableFrom} 협의가 가능하며 ${target}`;
+    return `${subject} 조건으로, ${availableFrom} 협의가 가능하며 ${target}`;
   }
 
   if (subject) {
-    return `${subject}로, ${target}`;
+    return `${subject} 조건으로 ${target}`;
   }
 
   if (availableFrom) {
@@ -199,18 +210,18 @@ export function buildKeyStrengths(form) {
   const recommendedIndustry = compactDisplayValue(form.recommended_industry);
   const maintenanceIncludes = compactDisplayValue(form.maintenance_includes);
 
-  if (address) strengths.push("입지 확인 완료");
-  if (/즉시|바로/.test(availableFrom)) strengths.push("즉시 입주 협의");
-  if (parkingText) strengths.push("주차 조건 확보");
-  if (elevator === "유") strengths.push("엘리베이터 있음");
-  if (signAllowed && !/불가/.test(signAllowed)) strengths.push("간판 협의 가능");
-  if (hvac) strengths.push(`${hvac} 확보`);
-  if (recommendedIndustry) strengths.push("추천 업종 명확");
-  if (maintenanceIncludes) strengths.push("관리비 포함 항목 확인");
+  if (address) uniquePush(strengths, "입지 확인 완료");
+  if (/즉시|바로/.test(availableFrom)) uniquePush(strengths, "즉시 입주 가능");
+  if (parkingText) uniquePush(strengths, "주차 조건 확인");
+  if (elevator === "유") uniquePush(strengths, "엘리베이터 있음");
+  if (signAllowed && !/불가/.test(signAllowed)) uniquePush(strengths, "간판 협의 가능");
+  if (hvac) uniquePush(strengths, `${hvac} 정보`);
+  if (recommendedIndustry) uniquePush(strengths, "추천 업종 명확");
+  if (maintenanceIncludes) uniquePush(strengths, "관리비 포함 항목 확인");
 
   const description = normalizeText(form.description);
-  ["역세권", "가시성 우수", "대로변", "채광 우수", "테라스", "내부화장실"].forEach((token) => {
-    if (description.includes(token) && !strengths.includes(token)) strengths.push(token);
+  ["역세권", "가시성 우수", "대로변", "채광 우수", "테라스", "인테리어 우수"].forEach((token) => {
+    if (description.includes(token)) uniquePush(strengths, token);
   });
 
   return strengths.slice(0, 4);
@@ -223,19 +234,18 @@ export function buildRecommendedTargets(form) {
   const signAllowed = compactDisplayValue(form.sign_allowed);
 
   if (recommendedIndustry) {
-    targets.push(
-      ...recommendedIndustry
-        .split(/[,\n/]/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    );
+    recommendedIndustry
+      .split(/[,\n/]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => uniquePush(targets, item));
   }
 
-  if (exclusiveArea && exclusiveArea <= 40) targets.push("1~3인 소규모 사무실");
-  if (exclusiveArea > 40 && exclusiveArea <= 100) targets.push("예약제 업종 또는 팀형 사무실");
-  if (signAllowed && !/불가/.test(signAllowed)) targets.push("노출형 업종 검토 가능");
+  if (exclusiveArea && exclusiveArea <= 40) uniquePush(targets, "1~3인 소규모 사무실");
+  if (exclusiveArea > 40 && exclusiveArea <= 100) uniquePush(targets, "예약제 업종 또는 소형 사무실");
+  if (signAllowed && !/불가/.test(signAllowed)) uniquePush(targets, "노출형 업종 검토 가능");
 
-  return [...new Set(targets)].slice(0, 4);
+  return targets.slice(0, 4);
 }
 
 export function buildConsultPoints(form) {
@@ -250,7 +260,7 @@ export function buildConsultPoints(form) {
   if (availableFrom) points.push(`입주 가능일: ${availableFrom}`);
   if (maintenanceIncludes) points.push(`관리비 포함 항목: ${maintenanceIncludes}`);
   if (parkingText) points.push(`주차 조건: ${parkingText}`);
-  if (restroomText) points.push(`화장실: ${restroomText}`);
+  if (restroomText) points.push(`화장실 정보: ${restroomText}`);
   if (hvac) points.push(`냉난방: ${hvac}`);
   if (signAllowed) points.push(`간판 가능 여부: ${signAllowed}`);
   return points.slice(0, 4);
@@ -267,15 +277,14 @@ export function buildCheckItems(form) {
   if (!isMeaningfulText(form.recommended_industry)) items.push("추천 업종 또는 업종 제한 여부");
 
   if (isMeaningfulText(form.caution_notes)) {
-    items.push(
-      ...normalizeText(form.caution_notes)
-        .split(/[,\n]/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    );
+    normalizeText(form.caution_notes)
+      .split(/[,\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => uniquePush(items, item));
   }
 
-  return [...new Set(items)].slice(0, 5);
+  return items.slice(0, 5);
 }
 
 export function buildBriefing(form) {
@@ -306,7 +315,7 @@ export function resolveImageSource(image) {
   if (!image) return "";
   if (typeof image === "string") return image;
   if (image.url) return image.url;
-  if (image instanceof Blob) return URL.createObjectURL(image);
+  if (image instanceof Blob || image instanceof File) return URL.createObjectURL(image);
   return "";
 }
 
@@ -314,6 +323,7 @@ function inferImageFit(image) {
   const haystack = normalizeText(
     [image?.name, image?.label, image?.alt, image?.src || image?.url].filter(Boolean).join(" "),
   ).toLowerCase();
+
   return CONTAIN_IMAGE_TOKENS.some((token) => haystack.includes(token.toLowerCase()))
     ? "contain"
     : "cover";
@@ -371,11 +381,11 @@ export function normalizeBriefingData(form, options = {}) {
     buildParkingText(form) && { label: "주차", value: buildParkingText(form) },
     isMeaningfulText(form.maintenance_fee) && {
       label: "관리비",
-      value: formatAmount(form.maintenance_fee, form.price_unit),
+      value: formatAmount(form.maintenance_fee, form.price_unit || "만원"),
     },
     isMeaningfulText(form.premium) && {
       label: "권리금",
-      value: formatAmount(form.premium, form.price_unit),
+      value: formatAmount(form.premium, form.price_unit || "만원"),
     },
     isMeaningfulText(form.recommended_industry) && {
       label: "추천 업종",
@@ -406,6 +416,18 @@ export function normalizeBriefingData(form, options = {}) {
     .filter(Boolean)
     .slice(0, 4);
 
+  const officeName = compactDisplayValue(form.office_name);
+  const contactName = compactDisplayValue(form.contact_name);
+  const contactPhone = compactDisplayValue(form.contact_phone);
+  const contactEmail = compactDisplayValue(form.contact_email);
+
+  const footerItems = [
+    officeName && { label: "부동산", value: officeName },
+    contactName && { label: "담당자", value: contactName },
+    contactPhone && { label: "연락처", value: contactPhone },
+    contactEmail && { label: "이메일", value: contactEmail },
+  ].filter(Boolean);
+
   return {
     title,
     address,
@@ -418,8 +440,11 @@ export function normalizeBriefingData(form, options = {}) {
     recommendedTargets: briefing.recommendedTargets,
     consultPoints: briefing.consultPoints,
     checkItems: briefing.checkItems,
-    contactName: compactDisplayValue(form.contact_name),
-    contactPhone: compactDisplayValue(form.contact_phone),
+    officeName,
+    contactName,
+    contactPhone,
+    contactEmail,
+    footerItems,
     mainPhoto,
     extraPhotos,
     extraPhotoOverflow: Math.max(0, (result?.extra_image_urls?.length || extraImages.length || 0) - extraPhotos.length),

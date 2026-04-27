@@ -266,8 +266,10 @@ async def create_brochure(
     maintenance_includes: str = Form(""),
     caution_notes: str = Form(""),
     description: str = Form(""),
+    office_name: str = Form(""),
     contact_name: str = Form(""),
     contact_phone: str = Form(""),
+    contact_email: str = Form(""),
     main_image_url: str = Form(""),
     extra_image_urls: str = Form("[]"),
     main_image: UploadFile | None = File(None),
@@ -275,6 +277,10 @@ async def create_brochure(
     current_user: dict = Depends(get_current_user),
 ):
     base_url = str(request.base_url).rstrip("/")
+    office_name = office_name or current_user.get("office_name", "")
+    contact_name = contact_name or current_user.get("manager_name", "")
+    contact_phone = contact_phone or current_user.get("phone", "")
+    contact_email = contact_email or current_user.get("email", "")
 
     try:
         main_image_file = None
@@ -379,13 +385,21 @@ async def create_brochure(
     )
 
     contact_box_html = ""
-    if _has_value(contact_name) or _has_value(contact_phone):
-        contact_parts = []
-        if _has_value(contact_name):
-            contact_parts.append(f"담당자 {escape(contact_name)}")
-        if _has_value(contact_phone):
-            contact_parts.append(f"연락처 {escape(contact_phone)}")
-        contact_box_html = f"<div class='contact-box'>{' / '.join(contact_parts)}</div>"
+    contact_rows = []
+    if _has_value(office_name):
+        contact_rows.append(("부동산", office_name))
+    if _has_value(contact_name):
+        contact_rows.append(("담당자", contact_name))
+    if _has_value(contact_phone):
+        contact_rows.append(("연락처", contact_phone))
+    if _has_value(contact_email):
+        contact_rows.append(("이메일", contact_email))
+    if contact_rows:
+        contact_items = "".join(
+            f"<div class='contact-line'><span>{escape(label)}</span><strong>{escape(value)}</strong></div>"
+            for label, value in contact_rows
+        )
+        contact_box_html = f"<div class='contact-box'>{contact_items}</div>"
 
     description_text = description or one_line_summary
     share_text = "\n".join(
@@ -537,8 +551,27 @@ async def create_brochure(
       margin-top: 28px;
       padding-top: 14px;
       border-top: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
       font-size: 13px;
       color: #64748b;
+    }}
+    .contact-line {{
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: baseline;
+    }}
+    .contact-line span {{
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 700;
+    }}
+    .contact-line strong {{
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
       text-align: right;
     }}
     .page-break {{ page-break-before: always; }}

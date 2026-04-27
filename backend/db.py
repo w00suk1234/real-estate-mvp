@@ -54,8 +54,14 @@ users = Table(
     Column("username", String(80), nullable=False, unique=True),
     Column("password_hash", Text, nullable=False),
     Column("role", String(20), nullable=False),
+    Column("office_name", Text),
+    Column("manager_name", Text),
+    Column("phone", Text),
+    Column("email", Text),
+    Column("privacy_agreed", Boolean, nullable=False, server_default=text("false")),
     Column("is_active", Boolean, nullable=False, server_default=text("true")),
     Column("created_at", String(30), nullable=False),
+    Column("updated_at", String(30)),
     CheckConstraint("role IN ('admin', 'user', 'viewer')", name="ck_users_role"),
 )
 
@@ -113,6 +119,9 @@ customers = Table(
     Column("contract_status", String(80)),
     Column("priority", String(80)),
     Column("meeting_status", String(80)),
+    Column("source", String(80)),
+    Column("source_schedule_id", Integer),
+    Column("inflow_date", String(30)),
     Column("memo", Text),
     Column("owner_id", Integer),
     Column("created_at", String(30), nullable=False),
@@ -125,8 +134,10 @@ schedules = Table(
     Column("title", Text, nullable=False),
     Column("schedule_type", String(80)),
     Column("schedule_date", String(30)),
+    Column("schedule_time", String(20)),
     Column("customer_name", Text),
     Column("note", Text),
+    Column("linked_customer_id", Integer),
     Column("owner_id", Integer),
     Column("created_at", String(30), nullable=False),
 )
@@ -149,6 +160,14 @@ def _add_missing_columns():
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())
     needed_by_table = {
+        "users": {
+            "office_name": "TEXT",
+            "manager_name": "TEXT",
+            "phone": "TEXT",
+            "email": "TEXT",
+            "privacy_agreed": "BOOLEAN DEFAULT false",
+            "updated_at": "TEXT",
+        },
         "brochures": {
             "image_url": "TEXT",
             "brochure_url": "TEXT",
@@ -157,8 +176,17 @@ def _add_missing_columns():
             "owner_id": "INTEGER",
         },
         "properties": {"owner_id": "INTEGER"},
-        "customers": {"owner_id": "INTEGER"},
-        "schedules": {"owner_id": "INTEGER"},
+        "customers": {
+            "owner_id": "INTEGER",
+            "source": "TEXT",
+            "source_schedule_id": "INTEGER",
+            "inflow_date": "TEXT",
+        },
+        "schedules": {
+            "owner_id": "INTEGER",
+            "schedule_time": "TEXT",
+            "linked_customer_id": "INTEGER",
+        },
     }
 
     with engine.begin() as conn:

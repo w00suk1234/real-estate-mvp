@@ -13,7 +13,6 @@ function RecentBrochureList({ refreshKey = 0 }) {
       setItems([]);
       return;
     }
-
     try {
       const data = await apiFetch("/brochures");
       setItems(data.items || []);
@@ -24,21 +23,16 @@ function RecentBrochureList({ refreshKey = 0 }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("이 소개서를 삭제하시겠어요?")) return;
+    if (!window.confirm("이 소개서를 삭제할까요?")) return;
 
     try {
-      const data = await apiFetch(`/brochures/${id}`, {
-        method: "DELETE",
-      });
-
+      const data = await apiFetch(`/brochures/${id}`, { method: "DELETE" });
       if (!data.success) {
         alert(data.message || "삭제에 실패했습니다.");
         return;
       }
-
       fetchBrochures();
     } catch (error) {
-      console.error(error);
       alert(error.message || "소개서 삭제 중 오류가 발생했습니다.");
     }
   };
@@ -48,17 +42,16 @@ function RecentBrochureList({ refreshKey = 0 }) {
   }, [refreshKey, isAuthenticated]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-
   const pagedItems = useMemo(() => {
     const start = (page - 1) * pageSize;
     return items.slice(start, start + pageSize);
   }, [items, page]);
 
   return (
-    <section className="panel fill-panel">
+    <section className="surface-card fill-panel">
       <div className="panel-head">
         <h3>최근 생성 소개서</h3>
-        <p>로그인한 계정으로 저장한 소개서를 다시 열고 관리할 수 있습니다.</p>
+        <p>저장한 소개서를 다시 열고 정리할 수 있습니다.</p>
       </div>
 
       <div className="recent-list recent-list-fixed">
@@ -73,7 +66,9 @@ function RecentBrochureList({ refreshKey = 0 }) {
                 <strong className="recent-title" title={item.title}>
                   {item.title}
                 </strong>
-                <span className="recent-address">{item.address}</span>
+                <span className="recent-address" title={item.address}>
+                  {item.address}
+                </span>
                 <small>
                   {item.deal_type} · {item.price} · {item.created_at}
                 </small>
@@ -108,12 +103,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
           {page} / {totalPages}
         </div>
 
-        <button
-          type="button"
-          className="secondary-btn"
-          onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-          disabled={page === totalPages}
-        >
+        <button type="button" className="secondary-btn" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={page === totalPages}>
           다음
         </button>
       </div>

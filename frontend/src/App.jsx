@@ -6,6 +6,7 @@ import CalculatorsPage from "./pages/CalculatorsPage";
 import PhotoEditorPage from "./pages/PhotoEditorPage";
 import AddressHubPage from "./pages/AddressHubPage";
 import LoginPage from "./pages/LoginPage";
+import ProfilePage from "./pages/ProfilePage";
 import { apiFetch } from "./api";
 import "./styles/theme.css";
 
@@ -183,7 +184,10 @@ function App() {
   if (page === "calculators") currentPage = <CalculatorsPage setPage={setPage} />;
   if (page === "photo-editor") currentPage = <PhotoEditorPage setPage={setPage} />;
   if (page === "address-hub") currentPage = <AddressHubPage setPage={setPage} />;
-  if (page === "auth") currentPage = <LoginPage setPage={setPage} />;
+  if (page === "profile") currentPage = <ProfilePage setPage={setPage} />;
+  if (page === "auth" || page === "login") {
+    currentPage = <LoginPage setPage={setPage} />;
+  }
 
   return currentPage;
 }

@@ -26,8 +26,14 @@ def get_current_user(authorization: str | None = Header(default=None)):
                 users.c.id,
                 users.c.username,
                 users.c.role,
+                users.c.office_name,
+                users.c.manager_name,
+                users.c.phone,
+                users.c.email,
+                users.c.privacy_agreed,
                 users.c.is_active,
                 users.c.created_at,
+                users.c.updated_at,
             ).where(users.c.id == int(payload["sub"]))
         ).first()
 

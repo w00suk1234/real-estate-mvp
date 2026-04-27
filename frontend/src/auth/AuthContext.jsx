@@ -59,15 +59,26 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
-  const signup = async ({ username, password }) => {
+  const signup = async (payload) => {
     const data = await apiFetch("/auth/signup", {
       auth: false,
       method: "POST",
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(payload),
     });
 
     setAuthSession(data.access_token, data.user);
     setToken(data.access_token);
+    setUser(data.user);
+    return data.user;
+  };
+
+  const updateProfile = async (payload) => {
+    const data = await apiFetch("/auth/me", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+
+    setAuthSession(token, data.user);
     setUser(data.user);
     return data.user;
   };
@@ -81,6 +92,7 @@ export function AuthProvider({ children }) {
       isAdmin: user?.role === "admin",
       login,
       signup,
+      updateProfile,
       logout,
     }),
     [user, token, loading],
