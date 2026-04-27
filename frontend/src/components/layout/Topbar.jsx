@@ -20,25 +20,23 @@ function Topbar({ onNavigate }) {
 
   return (
     <header className="topbar">
-      <div className="topbar-search">
-        <input type="search" placeholder="검색..." disabled />
-      </div>
+      <div className="topbar-title">부동산 업무툴</div>
 
-      <div className="topbar-actions">
+      <div className="topbar-right">
         {user ? (
           <>
-            <span className="role-chip">{roleLabel}</span>
+            <span className="role-pill">{roleLabel}</span>
             <button type="button" className="topbar-link-btn" onClick={() => onNavigate("profile")}>
               내 정보
             </button>
-            <div className="avatar-badge">{getInitials(user)}</div>
+            <div className="avatar">{getInitials(user)}</div>
             <span className="topbar-user-name">{nameLabel}</span>
-            <button type="button" className="ghost-btn" onClick={logout}>
+            <button type="button" className="logout-btn" onClick={logout}>
               로그아웃
             </button>
           </>
         ) : (
-          <button type="button" className="ghost-btn" onClick={() => onNavigate("login")}>
+          <button type="button" className="logout-btn" onClick={() => onNavigate("login")}>
             로그인 / 회원가입
           </button>
         )}

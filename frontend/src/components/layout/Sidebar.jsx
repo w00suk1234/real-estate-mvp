@@ -1,3 +1,5 @@
+import brandIcon from "../../assets/icon1.png";
+
 const primaryItems = [
   { key: "schedules", label: "일정관리" },
   { key: "customers", label: "고객관리" },
@@ -15,8 +17,10 @@ function Sidebar({ page, onNavigate, onResetBriefing }) {
   return (
     <aside className="sidebar">
       <div className="brand-card">
-        <div className="brand-icon">CP</div>
-        <div>
+        <div className="brand-logo-box">
+          <img src={brandIcon} alt="부동산 업무툴 로고" />
+        </div>
+        <div className="brand-copy">
           <div className="brand-name">부동산 업무툴</div>
           <div className="brand-subtitle">중개 실무 보조 도구</div>
         </div>
@@ -48,7 +52,7 @@ function Sidebar({ page, onNavigate, onResetBriefing }) {
         ))}
       </nav>
 
-      <button type="button" className="sidebar-cta" onClick={onResetBriefing}>
+      <button type="button" className="primary-side-btn sidebar-cta" onClick={onResetBriefing}>
         새 업무 시작
       </button>
     </aside>
