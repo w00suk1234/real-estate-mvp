@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import PageShell from "../components/layout/PageShell";
 import PropertyForm from "../form/PropertyForm";
 import PreviewCard from "../cards/PreviewCard";
 import ResultCard from "../cards/ResultCard";
@@ -209,20 +208,21 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 
       await downloadElementAsPdf(pdfRef.current, buildPdfFileName(form));
     } catch (error) {
-      alert(error.message || "PDF 다운로드 중 오류가 발생했습니다.");
+      alert(error.message || "PDF ?ㅼ슫濡쒕뱶 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.");
     } finally {
       setPdfLoading(false);
     }
   }, [extraImages, form, mainImage, result]);
 
   return (
-    <PageShell page="briefing" setPage={setPage}>
+    <>
       <div className="page-stack">
-        <section className="surface-card">
-          <div className="section-kicker">중개 업무</div>
-          <h1 className="section-title">소개서 작성</h1>
-          <p className="section-copy">
-            네이버 매물 정보를 정리하고, 담당자 정보까지 포함된 고객용 소개서를 빠르게 완성해 보세요.
+        <section className="page-header-card">
+          <span className="section-eyebrow">중개 업무</span>
+          <h1>소개서 작성</h1>
+          <p>
+            네이버 매물 정보를 정리하고, 담당자 정보까지 포함한 고객용 소개서를
+            빠르게 완성해 보세요.
           </p>
         </section>
 
@@ -271,8 +271,9 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         extraImages={extraImages}
         pdfAssets={pdfAssets}
       />
-    </PageShell>
+    </>
   );
 }
 
 export default BriefingMakerPage;
+

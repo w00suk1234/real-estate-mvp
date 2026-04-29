@@ -1,154 +1,157 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
-const initialForm = {
+const defaultProfile = {
   office_name: "",
-  manager_name: "",
-  phone: "",
+  agent_name: "",
+  contact_phone: "",
   email: "",
 };
 
 function ProfilePage() {
   const { user, updateProfile } = useAuth();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(defaultProfile);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!user) return;
     setForm({
-      office_name: user.office_name || "",
-      manager_name: user.manager_name || "",
-      phone: user.phone || "",
-      email: user.email || "",
+      office_name: user?.office_name || "",
+      agent_name: user?.agent_name || "",
+      contact_phone: user?.contact_phone || "",
+      email: user?.email || "",
     });
   }, [user]);
 
-  const footerItems = useMemo(
-    () =>
-      [
-        { label: "부동산 이름", value: form.office_name },
-        { label: "담당자명", value: form.manager_name },
-        { label: "연락처", value: form.phone },
-        { label: "이메일", value: form.email },
-      ].filter((item) => item.value?.trim()),
-    [form],
-  );
+  const footerItems = [
+    { label: "부동산 이름", value: form.office_name.trim() },
+    { label: "담당자명", value: form.agent_name.trim() },
+    { label: "연락처", value: form.contact_phone.trim() },
+    { label: "이메일", value: form.email.trim() },
+  ].filter((item) => item.value);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
+  function updateField(field, value) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
 
-  const handleSubmit = async (event) => {
+  async function handleSubmit(event) {
     event.preventDefault();
     setSaving(true);
     setMessage("");
     setError("");
+
     try {
-      await updateProfile(form);
-      setMessage("내 정보가 저장되었습니다. 이후 생성하는 소개서 하단에도 자동으로 반영됩니다.");
+      await updateProfile({
+        office_name: form.office_name.trim(),
+        agent_name: form.agent_name.trim(),
+        contact_phone: form.contact_phone.trim(),
+        email: form.email.trim(),
+      });
+      setMessage(
+        "내 정보가 저장되었습니다. 이후 생성하는 소개서 하단에도 자동으로 반영됩니다.",
+      );
     } catch (submitError) {
       setError(submitError.message || "내 정보 저장 중 오류가 발생했습니다.");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   return (
     <div className="page-stack">
-      <section className="surface-card">
-        <div className="section-kicker">회원정보</div>
-        <h1 className="section-title">내 정보 관리</h1>
-        <p className="section-copy">
-          부동산 이름, 담당자명, 연락처, 이메일은 소개서 하단 연락처 영역에 자동으로 표시됩니다.
+      <section className="page-header-card">
+        <span className="section-eyebrow">회원정보</span>
+        <h1>내 정보 관리</h1>
+        <p>
+          부동산 이름, 담당자명, 연락처, 이메일은 소개서 하단 연락처 영역에 자동으로
+          표기됩니다.
         </p>
       </section>
 
-      <div className="profile-grid">
-        <section className="surface-card">
-          <div className="card-header-row">
+      <section className="profile-grid profile-grid-balanced">
+        <form className="panel profile-edit-card" onSubmit={handleSubmit}>
+          <div className="section-heading">
             <div>
-              <h2 className="card-title">기본 정보 수정</h2>
-              <p className="card-copy">회원가입 이후에도 자유롭게 수정할 수 있습니다.</p>
+              <span className="section-eyebrow">기본 정보 수정</span>
+              <h2>소개서에 반영될 회원 정보</h2>
             </div>
           </div>
 
-          <form className="profile-form" onSubmit={handleSubmit}>
-            <label className="field">
+          <div className="form-grid">
+            <label className="field span-2">
               <span>부동산 이름</span>
               <input
-                name="office_name"
                 value={form.office_name}
-                onChange={handleChange}
+                onChange={(event) => updateField("office_name", event.target.value)}
                 placeholder="예: 역삼 프라임 공인중개사"
               />
             </label>
 
-            <label className="field">
+            <label className="field span-2">
               <span>담당자명</span>
               <input
-                name="manager_name"
-                value={form.manager_name}
-                onChange={handleChange}
+                value={form.agent_name}
+                onChange={(event) => updateField("agent_name", event.target.value)}
                 placeholder="예: 김중개"
               />
             </label>
 
-            <div className="field-grid two">
-              <label className="field">
-                <span>연락처</span>
-                <input
-                  name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                  placeholder="예: 010-1234-5678"
-                />
-              </label>
+            <label className="field">
+              <span>연락처</span>
+              <input
+                value={form.contact_phone}
+                onChange={(event) => updateField("contact_phone", event.target.value)}
+                placeholder="예: 010-1234-5678"
+              />
+            </label>
 
-              <label className="field">
-                <span>이메일</span>
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="예: broker@example.com"
-                />
-              </label>
+            <label className="field">
+              <span>이메일</span>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) => updateField("email", event.target.value)}
+                placeholder="예: broker@example.com"
+              />
+            </label>
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" className="primary-btn" disabled={saving}>
+              {saving ? "저장 중..." : "내 정보 저장"}
+            </button>
+          </div>
+
+          {message ? <p className="form-message">{message}</p> : null}
+          {error ? <p className="form-error-message">{error}</p> : null}
+        </form>
+
+        <div className="panel profile-preview-card">
+          <div className="section-heading">
+            <div>
+              <span className="section-eyebrow">소개서 반영 미리보기</span>
+              <h2>하단 연락처 표기</h2>
             </div>
+          </div>
 
-            {message ? <div className="inline-success">{message}</div> : null}
-            {error ? <div className="inline-error">{error}</div> : null}
-
-            <div className="form-actions">
-              <button type="submit" className="primary-btn" disabled={saving}>
-                {saving ? "저장 중..." : "내 정보 저장"}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <aside className="surface-card profile-summary-card">
-          <div className="section-kicker">소개서 반영 미리보기</div>
-          <h2 className="card-title">하단 연락처 표기</h2>
-          <p className="card-copy">비어 있는 항목은 자동으로 숨겨집니다.</p>
-
-          <div className="profile-contact-preview">
+          <div className="profile-preview-block">
             {footerItems.length ? (
               footerItems.map((item) => (
-                <div key={item.label} className="profile-contact-row">
+                <div key={item.label} className="profile-preview-row">
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                 </div>
               ))
             ) : (
-              <div className="empty-hint">입력된 정보가 아직 없습니다.</div>
+              <p className="empty-state">
+                아직 입력된 정보가 없습니다. 필요한 항목만 입력하면 소개서 하단에
+                자동으로 노출됩니다.
+              </p>
             )}
           </div>
 
-          <div className="profile-meta">
+          <div className="meta-list">
             <div>
               <span>가입 아이디</span>
               <strong>{user?.username || "-"}</strong>
@@ -158,8 +161,8 @@ function ProfilePage() {
               <strong>{user?.role === "admin" ? "관리자" : "일반회원"}</strong>
             </div>
           </div>
-        </aside>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

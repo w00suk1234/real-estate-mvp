@@ -1,59 +1,74 @@
-import brandIcon from "../../assets/icon1.png";
+import icon1 from "../../assets/icon1.png";
 
-const primaryItems = [
-  { key: "schedules", label: "일정관리" },
-  { key: "customers", label: "고객관리" },
-  { key: "briefing", label: "소개서 작성" },
+const primaryNavItems = [
+  { key: "schedules", label: "일정관리", shortLabel: "일정" },
+  { key: "customers", label: "고객관리", shortLabel: "고객" },
+  { key: "briefing", label: "소개서 작성", shortLabel: "소개서" },
 ];
 
-const secondaryItems = [
-  { key: "profile", label: "내 정보 관리" },
-  { key: "calculators", label: "계산기" },
-  { key: "photo-editor", label: "사진 편집기" },
-  { key: "address-hub", label: "주소 / 지번 허브" },
+const secondaryNavItems = [
+  { key: "profile", label: "내 정보 관리", shortLabel: "내정보" },
+  { key: "calculators", label: "계산기", shortLabel: "계산기" },
+  { key: "photo-editor", label: "사진 편집기", shortLabel: "사진" },
+  { key: "address-hub", label: "주소 / 지번 허브", shortLabel: "주소" },
 ];
 
 function Sidebar({ page, onNavigate, onResetBriefing }) {
   return (
     <aside className="sidebar">
-      <div className="brand-card">
-        <div className="brand-logo-box">
-          <img src={brandIcon} alt="부동산 업무툴 로고" />
-        </div>
-        <div className="brand-copy">
-          <div className="brand-name">부동산 업무툴</div>
-          <div className="brand-subtitle">중개 실무 보조 도구</div>
-        </div>
-      </div>
+      <button
+        type="button"
+        className="sidebar-brand"
+        onClick={() => onNavigate?.("schedules")}
+      >
+        <img src={icon1} alt="부동산 업무툴 로고" className="sidebar-logo" />
+        <span className="sidebar-brand-copy">
+          <strong>부동산 업무툴</strong>
+          <span>중개 실무 보조 도구</span>
+        </span>
+      </button>
 
-      <nav className="nav-menu nav-menu-primary">
-        {primaryItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={`nav-item ${page === item.key ? "active" : ""}`}
-            onClick={() => onNavigate(item.key)}
-          >
-            {item.label}
-          </button>
-        ))}
+      <nav className="sidebar-nav">
+        <div className="sidebar-nav-group">
+          {primaryNavItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`nav-item ${page === item.key ? "active" : ""}`}
+              onClick={() => onNavigate?.(item.key)}
+              title={item.label}
+            >
+              <span className="nav-item-text">{item.label}</span>
+              <span className="nav-item-short">{item.shortLabel}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="sidebar-divider" />
+
+        <div className="sidebar-nav-group sidebar-nav-secondary">
+          {secondaryNavItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`nav-item ${page === item.key ? "active" : ""}`}
+              onClick={() => onNavigate?.(item.key)}
+              title={item.label}
+            >
+              <span className="nav-item-text">{item.label}</span>
+              <span className="nav-item-short">{item.shortLabel}</span>
+            </button>
+          ))}
+        </div>
       </nav>
 
-      <nav className="nav-menu nav-menu-secondary">
-        {secondaryItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={`nav-item ${page === item.key ? "active" : ""}`}
-            onClick={() => onNavigate(item.key)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      <button type="button" className="primary-side-btn sidebar-cta" onClick={onResetBriefing}>
-        새 업무 시작
+      <button
+        type="button"
+        className="sidebar-cta"
+        onClick={() => onResetBriefing?.()}
+      >
+        <span className="nav-item-text">새 업무 시작</span>
+        <span className="nav-item-short">새 업무</span>
       </button>
     </aside>
   );

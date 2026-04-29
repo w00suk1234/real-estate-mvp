@@ -16,7 +16,7 @@ function PageShell({ children, page, setPage }) {
       <Sidebar page={page} onNavigate={handleNavigate} onResetBriefing={handleResetBriefing} />
 
       <main className="main-area">
-        <Topbar onNavigate={handleNavigate} />
+        <Topbar page={page} onNavigate={handleNavigate} />
         <div className="content-area">{children}</div>
       </main>
     </div>
