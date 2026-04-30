@@ -1,4 +1,4 @@
-const APP_URL = "https://real-estate-mvp-production.up.railway.app";
+const APP_URL = "https://real-estate-mvp.vercel.app";
 const NAVER_LAND_URL = "https://new.land.naver.com/";
 
 function isNaverLandUrl(url) {
@@ -117,37 +117,40 @@ function collectNaverSnapshot() {
   };
 }
 
-async function waitForTabComplete(tabId) {
-  return new Promise((resolve) => {
-    const timeoutId = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve();
-    }, 12000);
+function makeCompactSnapshot(snapshot) {
+  return {
+    listing_url: snapshot?.listing_url || "",
+    title: snapshot?.title || "",
+    page_title: snapshot?.page_title || "",
+    pairs: (snapshot?.pairs || []).slice(0, 80),
+    images: (snapshot?.images || [])
+      .slice(0, 8)
+      .map((image) => ({
+        url: image?.url || "",
+        alt: image?.alt || "",
+        source: image?.source || "extension",
+        width: Number.isFinite(Number(image?.width)) ? Math.round(Number(image.width)) : 0,
+        height: Number.isFinite(Number(image?.height)) ? Math.round(Number(image.height)) : 0,
+      }))
+      .filter((image) => image.url),
+    visible_text: String(snapshot?.visible_text || "").slice(0, 7000),
+  };
+}
 
-    function listener(updatedTabId, changeInfo) {
-      if (updatedTabId !== tabId || changeInfo.status !== "complete") return;
-      clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve();
-    }
-
-    chrome.tabs.onUpdated.addListener(listener);
+function encodeSnapshotPayload(snapshot) {
+  const bytes = new TextEncoder().encode(JSON.stringify(snapshot));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
   });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 async function sendSnapshotToApp(snapshot) {
-  const targetUrl = `${APP_URL}/?extension_import=1`;
-  const appTab = await chrome.tabs.create({ url: targetUrl });
-  await waitForTabComplete(appTab.id);
-
-  await chrome.scripting.executeScript({
-    target: { tabId: appTab.id },
-    args: [snapshot],
-    func: (payload) => {
-      sessionStorage.setItem("naver_import_snapshot", JSON.stringify(payload));
-      window.location.replace("/?extension_import=1");
-    },
-  });
+  const compactSnapshot = makeCompactSnapshot(snapshot);
+  const payload = encodeSnapshotPayload(compactSnapshot);
+  const targetUrl = `${APP_URL}/?extension_import=1#snapshot=${payload}`;
+  await chrome.tabs.create({ url: targetUrl });
 }
 
 async function renderCurrentUrl() {

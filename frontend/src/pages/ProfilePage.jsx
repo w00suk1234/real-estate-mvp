@@ -48,7 +48,7 @@ function ProfilePage() {
         phone: form.phone.trim(),
         email: form.email.trim(),
       });
-      setMessage("내 정보가 저장되었습니다. 이후 생성되는 소개서 하단에 자동 반영됩니다.");
+      setMessage("내 정보가 저장되었습니다. 이후 생성하는 소개서 하단에 자동 반영됩니다.");
     } catch (submitError) {
       setError(submitError.message || "내 정보 저장 중 오류가 발생했습니다.");
     } finally {
@@ -61,7 +61,7 @@ function ProfilePage() {
       <section className="page-header-card">
         <span className="section-eyebrow">회원정보</span>
         <h1>내 정보 관리</h1>
-        <p>부동산 이름, 담당자명, 연락처, 이메일은 소개서 하단 연락처 영역에 자동으로 표시됩니다.</p>
+        <p>부동산 이름, 담당자명, 연락처, 이메일은 소개서 하단 연락처 영역에 자동 표시됩니다.</p>
       </section>
 
       <section className="profile-grid profile-grid-balanced">
@@ -69,7 +69,7 @@ function ProfilePage() {
           <div className="section-heading">
             <div>
               <span className="section-eyebrow">기본 정보 수정</span>
-              <h2>소개서에 반영할 담당자 정보</h2>
+              <h2>소개서에 반영될 담당자 정보</h2>
             </div>
           </div>
 
@@ -140,7 +140,7 @@ function ProfilePage() {
               ))
             ) : (
               <p className="empty-state">
-                입력된 정보가 아직 없습니다. 필요한 항목만 입력하면 소개서 하단에 자동으로 표시됩니다.
+                입력된 정보가 아직 없습니다. 필요한 항목만 입력하면 소개서 하단에 자동 표시됩니다.
               </p>
             )}
           </div>

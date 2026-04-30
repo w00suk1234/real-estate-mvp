@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
-import { apiFetch } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { buildBriefing, buildPriceSummary, buildPriceWarning, getPriceStatus } from "../utils/brochure";
+import { savePropertyAndBrochure } from "../services/supabaseRepository";
+import {
+  buildBriefing,
+  buildPriceSummary,
+  buildPriceWarning,
+  getPriceStatus,
+} from "../utils/brochure";
 
 const QUICK_DESC_TAGS = [
   "역세권",
@@ -91,9 +96,15 @@ function PropertyForm({
   };
 
   const priceStatus = useMemo(() => getPriceStatus(form), [form]);
-  const pricePreview = useMemo(() => buildPriceSummary({ ...form, price_status: priceStatus }), [form, priceStatus]);
-  const priceWarning = useMemo(() => buildPriceWarning({ ...form, price_status: priceStatus }), [form, priceStatus]);
-  const briefing = useMemo(() => buildBriefing(form), [form]);
+  const pricePreview = useMemo(
+    () => buildPriceSummary({ ...form, price_status: priceStatus }),
+    [form, priceStatus],
+  );
+  const priceWarning = useMemo(
+    () => buildPriceWarning({ ...form, price_status: priceStatus }),
+    [form, priceStatus],
+  );
+  const briefing = useMemo(() => buildBriefing({ ...form, price_status: priceStatus }), [form, priceStatus]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -103,54 +114,28 @@ function PropertyForm({
       return;
     }
 
-    if (!mainImage) {
-      alert("대표 사진을 먼저 선택해 주세요.");
-      return;
-    }
-
-    const formData = new FormData();
-    const payload = { ...form, price_status: priceStatus };
-
-    Object.entries(payload).forEach(([key, value]) => {
-      formData.append(key, value ?? "");
-    });
-
-    if (isImportedImage(mainImage)) {
-      formData.append("main_image_url", mainImage.url);
-    } else {
-      formData.append("main_image", mainImage);
-    }
-
-    extraImages.forEach((image) => {
-      if (!isImportedImage(image)) {
-        formData.append("extra_images", image);
-      }
-    });
-
-    const importedExtraUrls = extraImages.filter(isImportedImage).map((image) => image.url);
-    if (importedExtraUrls.length > 0) {
-      formData.append("extra_image_urls", JSON.stringify(importedExtraUrls));
-    }
-
     try {
       setLoading(true);
-      const data = await apiFetch("/brochure/create", {
-        method: "POST",
-        body: formData,
+      const payload = { ...form, price_status: priceStatus };
+      const saved = await savePropertyAndBrochure({
+        form: payload,
+        mainImage,
+        extraImages,
+        briefing,
       });
 
-      if (!data.success) {
-        alert(data.message || "소개서 생성에 실패했습니다.");
-        return;
-      }
-
       setResult({
-        ...data,
+        success: true,
+        message: "소개서가 저장되었습니다.",
+        ...saved,
         briefing,
+        main_image_url: saved.main_image_url || "",
+        extra_image_urls: saved.extra_image_urls || [],
+        brochure_url: saved.brochure_url || "",
       });
       onCreated?.();
     } catch (error) {
-      alert(error.message || "소개서 생성 중 오류가 발생했습니다.");
+      alert(error.message || "소개서 저장 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -193,8 +178,9 @@ function PropertyForm({
         </div>
 
         <label className="field">
-          <span>대표 사진</span>
+          <span>대표사진</span>
           <input type="file" accept="image/*" onChange={(event) => setMainImage(event.target.files?.[0] || null)} />
+          {isImportedImage(mainImage) ? <small className="helper-text">네이버에서 가져온 대표사진을 사용 중입니다.</small> : null}
         </label>
 
         <label className="field">
@@ -226,7 +212,7 @@ function PropertyForm({
           <input
             value={form.title}
             onChange={(event) => updateField("title", event.target.value)}
-            placeholder="예: 역삼역 도보 5분 중소형 사무실"
+            placeholder="예: 역삼역 도보 5분 소형 사무실"
             required
           />
         </label>
@@ -257,21 +243,13 @@ function PropertyForm({
           {form.deal_type === "월세" ? (
             <label className="field">
               <span>월차임</span>
-              <input
-                value={form.monthly_rent}
-                onChange={(event) => updateField("monthly_rent", event.target.value)}
-                placeholder="예: 100"
-              />
+              <input value={form.monthly_rent} onChange={(event) => updateField("monthly_rent", event.target.value)} placeholder="예: 100" />
             </label>
           ) : null}
 
           <label className="field">
             <span>관리비</span>
-            <input
-              value={form.maintenance_fee}
-              onChange={(event) => updateField("maintenance_fee", event.target.value)}
-              placeholder="예: 10"
-            />
+            <input value={form.maintenance_fee} onChange={(event) => updateField("maintenance_fee", event.target.value)} placeholder="예: 10" />
           </label>
 
           <label className="field">
@@ -305,11 +283,7 @@ function PropertyForm({
           <label className="field">
             <span>전용면적</span>
             <div className="inline-field">
-              <input
-                value={form.exclusive_area}
-                onChange={(event) => updateField("exclusive_area", event.target.value)}
-                placeholder="예: 39.7"
-              />
+              <input value={form.exclusive_area} onChange={(event) => updateField("exclusive_area", event.target.value)} placeholder="예: 39.7" />
               <select value={form.exclusive_area_unit} onChange={(event) => updateField("exclusive_area_unit", event.target.value)}>
                 <option value="㎡">㎡</option>
                 <option value="평">평</option>
@@ -337,20 +311,12 @@ function PropertyForm({
         <div className="field-grid two">
           <label className="field">
             <span>화장실 위치 / 형태</span>
-            <input
-              value={form.restroom_detail}
-              onChange={(event) => updateField("restroom_detail", event.target.value)}
-              placeholder="예: 내부 남녀분리 / 공용"
-            />
+            <input value={form.restroom_detail} onChange={(event) => updateField("restroom_detail", event.target.value)} placeholder="예: 내부 남녀분리 / 공용" />
           </label>
 
           <label className="field">
             <span>주차 가능 대수 / 조건</span>
-            <input
-              value={form.parking_count}
-              onChange={(event) => updateField("parking_count", event.target.value)}
-              placeholder="예: 1대 가능 / 협의"
-            />
+            <input value={form.parking_count} onChange={(event) => updateField("parking_count", event.target.value)} placeholder="예: 1대 가능 / 협의" />
           </label>
         </div>
 
@@ -374,40 +340,24 @@ function PropertyForm({
         <div className="field-grid two">
           <label className="field">
             <span>입주 가능일</span>
-            <input
-              value={form.move_in_date}
-              onChange={(event) => updateField("move_in_date", event.target.value)}
-              placeholder="예: 즉시입주 / 협의 가능"
-            />
+            <input value={form.move_in_date} onChange={(event) => updateField("move_in_date", event.target.value)} placeholder="예: 즉시입주 / 협의 가능" />
           </label>
 
           <label className="field">
             <span>관리비 포함 항목</span>
-            <input
-              value={form.admin_fee_includes}
-              onChange={(event) => updateField("admin_fee_includes", event.target.value)}
-              placeholder="예: 전기, 수도 별도 / 인터넷 포함"
-            />
+            <input value={form.admin_fee_includes} onChange={(event) => updateField("admin_fee_includes", event.target.value)} placeholder="예: 전기, 수도 별도 / 인터넷 포함" />
           </label>
         </div>
 
         <div className="field-grid two">
           <label className="field">
             <span>추천 업종</span>
-            <input
-              value={form.recommended_use}
-              onChange={(event) => updateField("recommended_use", event.target.value)}
-              placeholder="예: 소형 사무실 / 예약제 업종"
-            />
+            <input value={form.recommended_use} onChange={(event) => updateField("recommended_use", event.target.value)} placeholder="예: 소형 사무실 / 예약제 업종" />
           </label>
 
           <label className="field">
             <span>특이사항 / 확인 필요</span>
-            <input
-              value={form.special_notes}
-              onChange={(event) => updateField("special_notes", event.target.value)}
-              placeholder="예: 권리금 협의 / 업종 제한 확인 필요"
-            />
+            <input value={form.special_notes} onChange={(event) => updateField("special_notes", event.target.value)} placeholder="예: 권리금 협의 / 업종 제한 확인 필요" />
           </label>
         </div>
 
@@ -437,11 +387,7 @@ function PropertyForm({
 
           <label className="field">
             <span>연락처</span>
-            <input
-              value={form.contact_phone}
-              onChange={(event) => updateField("contact_phone", event.target.value)}
-              placeholder="예: 010-1234-5678"
-            />
+            <input value={form.contact_phone} onChange={(event) => updateField("contact_phone", event.target.value)} placeholder="예: 010-1234-5678" />
           </label>
         </div>
 
@@ -451,7 +397,7 @@ function PropertyForm({
 
         <div className="form-actions">
           <button className="primary-btn" type="submit" disabled={loading}>
-            {loading ? "소개서 생성 중..." : "소개서 생성"}
+            {loading ? "소개서 저장 중..." : "소개서 생성"}
           </button>
         </div>
       </form>

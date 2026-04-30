@@ -3,23 +3,31 @@ import { normalizeBriefingData } from "../utils/brochure";
 function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfLoading }) {
   const preview = normalizeBriefingData(form, { result, mainImage, extraImages });
   const canDownloadPdf = Boolean(result?.success);
+  const hasBrochureUrl = Boolean(result?.brochure_url);
 
   const handleOpenNewTab = () => {
-    if (!result?.brochure_url) return;
-    window.open(result.brochure_url, "_blank", "noreferrer");
+    if (hasBrochureUrl) {
+      window.open(result.brochure_url, "_blank", "noreferrer");
+    }
   };
 
   const handlePrint = () => {
-    if (!result?.brochure_url) return;
-    const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
-    if (!printWindow) {
-      alert("팝업이 차단되어 있습니다. 새 창에서 소개서를 연 뒤 Ctrl + P로 인쇄해 주세요.");
+    if (hasBrochureUrl) {
+      const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
+      if (!printWindow) {
+        alert("팝업이 차단되었습니다. 새 창에서 소개서를 연 뒤 Ctrl + P로 인쇄해 주세요.");
+        return;
+      }
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
       return;
     }
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+
+    if (canDownloadPdf) {
+      window.print();
+    }
   };
 
   return (
@@ -28,7 +36,7 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
         <div>
           <p className="preview-mode-label">{canDownloadPdf ? "최종 소개서 미리보기" : "편집 중 미리보기"}</p>
           <h3>고객용 소개서 미리보기</h3>
-          <p>입력한 내용을 기준으로 실제 전달될 소개서 톤과 구성을 미리 확인할 수 있습니다.</p>
+          <p>입력한 내용을 기준으로 실제 전달용 소개서 구성과 문구를 미리 확인합니다.</p>
         </div>
 
         <div className="preview-action-row">
@@ -43,7 +51,7 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
           <button type="button" className="secondary-btn" onClick={handlePrint} disabled={!canDownloadPdf}>
             인쇄
           </button>
-          <button type="button" className="secondary-btn" onClick={handleOpenNewTab} disabled={!canDownloadPdf}>
+          <button type="button" className="secondary-btn" onClick={handleOpenNewTab} disabled={!hasBrochureUrl}>
             새 창에서 보기
           </button>
         </div>
@@ -51,7 +59,7 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
 
       {!canDownloadPdf ? (
         <div className="preview-helper-box">
-          미리보기를 확인한 뒤 소개서 생성 버튼을 누르면 PDF로 저장하고 최종 소개서로 열어볼 수 있습니다.
+          미리보기를 확인한 뒤 소개서 생성 버튼을 누르면 PDF로 저장할 수 있습니다.
         </div>
       ) : null}
 

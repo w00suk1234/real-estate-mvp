@@ -16,11 +16,7 @@ const secondaryNavItems = [
 function Sidebar({ page, onNavigate, onResetBriefing }) {
   return (
     <aside className="sidebar">
-      <button
-        type="button"
-        className="sidebar-brand"
-        onClick={() => onNavigate?.("schedules")}
-      >
+      <button type="button" className="sidebar-brand" onClick={() => onNavigate?.("schedules")}>
         <img src={icon1} alt="부동산 업무툴 로고" className="sidebar-logo" />
         <span className="sidebar-brand-copy">
           <strong>부동산 업무툴</strong>
@@ -62,11 +58,7 @@ function Sidebar({ page, onNavigate, onResetBriefing }) {
         </div>
       </nav>
 
-      <button
-        type="button"
-        className="sidebar-cta"
-        onClick={() => onResetBriefing?.()}
-      >
+      <button type="button" className="sidebar-cta" onClick={() => onResetBriefing?.()}>
         <span className="nav-item-text">새 업무 시작</span>
         <span className="nav-item-short">새 업무</span>
       </button>

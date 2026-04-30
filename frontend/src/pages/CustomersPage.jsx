@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../api";
+import { deleteCustomer, listCustomers, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 
-const contractStatuses = ["미계약", "계약금입금", "잔금완료", "삭제"];
-const priorityLevels = ["낮음", "보통", "높음"];
-const meetingStatuses = ["미팅 전", "미팅 예정", "미팅 완료"];
+const CONTRACT_STATUSES = ["미계약", "계약금입금", "잔금완료", "삭제"];
+const PRIORITY_LEVELS = ["낮음", "보통", "높음"];
+const MEETING_STATUSES = ["미팅 전", "미팅 예정", "미팅 완료"];
 const ALL = "전체";
 const PAGE_SIZE = 10;
 
 const defaultForm = {
   name: "",
   phone: "",
+  preferred_area: "",
+  property_type: "",
   wanted_condition: "",
   contract_status: "미계약",
   priority: "보통",
   meeting_status: "미팅 전",
-  source: "",
+  source: "직접 입력",
   inflow_date: "",
   memo: "",
 };
@@ -33,6 +35,11 @@ function getCustomerValue(item, key) {
   return item[key] || "";
 }
 
+function formatDate(dateString) {
+  if (!dateString) return "유입일 미입력";
+  return dateString;
+}
+
 function CustomersPage() {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
@@ -47,8 +54,8 @@ function CustomersPage() {
 
   async function fetchCustomers() {
     try {
-      const data = await apiFetch("/customers");
-      setItems(Array.isArray(data.items) ? data.items : []);
+      const data = await listCustomers();
+      setItems(Array.isArray(data) ? data : []);
     } catch (error) {
       setMessage(error.message || "고객 목록을 불러오지 못했습니다.");
     }
@@ -65,6 +72,8 @@ function CustomersPage() {
       const haystack = [
         getCustomerValue(item, "name"),
         getCustomerValue(item, "phone"),
+        getCustomerValue(item, "preferred_area"),
+        getCustomerValue(item, "property_type"),
         getCustomerValue(item, "wanted_condition"),
         getCustomerValue(item, "memo"),
         getCustomerValue(item, "source"),
@@ -74,217 +83,174 @@ function CustomersPage() {
         .toLowerCase();
 
       const matchesSearch = !keyword || haystack.includes(keyword);
-      const matchesStatus =
-        statusFilter === ALL || getCustomerValue(item, "contract_status") === statusFilter;
-      const matchesPriority =
-        priorityFilter === ALL || getCustomerValue(item, "priority") === priorityFilter;
-      const matchesMeeting =
-        meetingFilter === ALL || getCustomerValue(item, "meeting_status") === meetingFilter;
+      const matchesStatus = statusFilter === ALL || getCustomerValue(item, "contract_status") === statusFilter;
+      const matchesPriority = priorityFilter === ALL || getCustomerValue(item, "priority") === priorityFilter;
+      const matchesMeeting = meetingFilter === ALL || getCustomerValue(item, "meeting_status") === meetingFilter;
 
       return matchesSearch && matchesStatus && matchesPriority && matchesMeeting;
     });
-  }, [items, search, statusFilter, priorityFilter, meetingFilter]);
+  }, [items, meetingFilter, priorityFilter, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pagedItems = filteredItems.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageItems = filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
   }, [search, statusFilter, priorityFilter, meetingFilter]);
 
-  function updateField(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
-  function resetForm() {
+  const resetForm = () => {
     setForm(defaultForm);
     setEditingId(null);
-  }
+  };
 
-  async function createCustomerInflowSchedule(payload) {
-    if (!payload.inflow_date || !payload.name) return;
-
-    try {
-      await apiFetch("/schedules", {
-        method: "POST",
-        body: JSON.stringify({
-          title: `${payload.name} 고객인입`,
-          customer_name: payload.name,
-          schedule_date: payload.inflow_date,
-          schedule_time: "",
-          schedule_type: "고객인입",
-          note: [payload.phone, payload.source, payload.memo].filter(Boolean).join("\n"),
-        }),
-      });
-    } catch {
-      setMessage("고객은 저장됐지만 고객인입 일정 자동 등록은 실패했습니다.");
-    }
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-
-    const payload = {
-      ...form,
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      wanted_condition: form.wanted_condition.trim(),
-      source: form.source.trim(),
-      inflow_date: form.inflow_date || "",
-      memo: form.memo.trim(),
-    };
-
-    try {
-      if (editingId) {
-        await apiFetch(`/customers/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        setMessage("고객 정보를 수정했습니다.");
-      } else {
-        await apiFetch("/customers", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        await createCustomerInflowSchedule(payload);
-        setMessage("고객 정보를 등록했습니다.");
-      }
-
-      await fetchCustomers();
-      resetForm();
-    } catch (error) {
-      setMessage(error.message || "고객 정보를 저장하지 못했습니다.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function handleEdit(item) {
+  const handleEdit = (item) => {
     setEditingId(item.id);
     setForm({
-      name: getCustomerValue(item, "name"),
-      phone: getCustomerValue(item, "phone"),
+      ...defaultForm,
+      ...item,
       wanted_condition: getCustomerValue(item, "wanted_condition"),
-      contract_status: getCustomerValue(item, "contract_status") || "미계약",
-      priority: getCustomerValue(item, "priority") || "보통",
-      meeting_status: getCustomerValue(item, "meeting_status") || "미팅 전",
-      source: getCustomerValue(item, "source"),
-      inflow_date: getCustomerValue(item, "inflow_date"),
       memo: getCustomerValue(item, "memo"),
+      inflow_date: getCustomerValue(item, "inflow_date"),
     });
-    setMessage("");
-  }
+    setMessage("수정할 고객 정보를 불러왔습니다.");
+  };
 
-  async function handleDelete(id) {
-    if (!window.confirm("이 고객 정보를 삭제할까요?")) return;
-
+  const handleDelete = async (id) => {
+    if (!window.confirm("고객을 삭제할까요?")) return;
     try {
-      await apiFetch(`/customers/${id}`, { method: "DELETE" });
-      setMessage("고객 정보를 삭제했습니다.");
+      await deleteCustomer(id);
       await fetchCustomers();
       if (editingId === id) resetForm();
     } catch (error) {
-      setMessage(error.message || "고객 정보를 삭제하지 못했습니다.");
+      setMessage(error.message || "고객 삭제에 실패했습니다.");
     }
-  }
+  };
+
+  const createInflowSchedule = async (customer) => {
+    if (!customer.inflow_date || !customer.name) return;
+
+    await saveSchedule({
+      title: `${customer.name} 고객인입`,
+      customer_id: customer.id,
+      customer_name: customer.name,
+      schedule_date: customer.inflow_date,
+      schedule_time: "",
+      schedule_type: "고객인입",
+      note: [customer.phone, customer.preferred_area, customer.property_type, customer.wanted_condition, customer.memo]
+        .filter(Boolean)
+        .join("\n"),
+      source: "customer",
+    });
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!form.name.trim()) {
+      setMessage("고객명을 입력해 주세요.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const saved = await saveCustomer({ ...form, id: editingId || undefined });
+      await createInflowSchedule(saved);
+      await fetchCustomers();
+      resetForm();
+      setMessage(editingId ? "고객 정보를 수정했습니다." : "고객을 등록했습니다.");
+    } catch (error) {
+      setMessage(error.message || "고객 저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="page-stack">
-      <section className="page-header-card">
-        <span className="section-eyebrow">고객 관리</span>
-        <h1>고객관리</h1>
-        <p>고객 목록을 중심으로 확인하고, 오른쪽에서 빠르게 신규 고객을 등록합니다.</p>
+      <section className="page-header-card compact-page-header">
+        <div>
+          <span className="page-eyebrow">고객관리</span>
+          <h1>고객 목록 중심 관리</h1>
+          <p>고객 목록을 넓게 보고, 오른쪽에서 빠르게 등록합니다. 고객 유입일은 일정관리의 고객인입 일정으로 연결됩니다.</p>
+        </div>
       </section>
 
-      {message ? <div className="inline-message">{message}</div> : null}
-
       <section className="customer-layout">
-        <article className="panel customer-list-card">
-          <div className="section-heading">
+        <div className="customer-list-card">
+          <div className="section-heading-row">
             <div>
-              <span className="section-eyebrow">목록 / 필터</span>
               <h2>고객 목록</h2>
-              <p>총 {filteredItems.length}명의 고객이 표시됩니다.</p>
+              <p>총 {filteredItems.length}명의 고객을 표시합니다.</p>
             </div>
           </div>
 
           <div className="customer-filter-grid">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="고객명, 연락처, 희망 지역, 조건 검색"
-            />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="고객명, 연락처, 지역 검색" />
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              {[ALL, ...contractStatuses].map((status) => (
+              {[ALL, ...CONTRACT_STATUSES].map((status) => (
                 <option key={status} value={status}>
                   {status}
                 </option>
               ))}
             </select>
-            <select
-              value={priorityFilter}
-              onChange={(event) => setPriorityFilter(event.target.value)}
-            >
-              {[ALL, ...priorityLevels].map((priority) => (
+            <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+              {[ALL, ...PRIORITY_LEVELS].map((priority) => (
                 <option key={priority} value={priority}>
                   {priority}
                 </option>
               ))}
             </select>
-            <select
-              value={meetingFilter}
-              onChange={(event) => setMeetingFilter(event.target.value)}
-            >
-              {[ALL, ...meetingStatuses].map((status) => (
-                <option key={status} value={status}>
-                  {status}
+            <select value={meetingFilter} onChange={(event) => setMeetingFilter(event.target.value)}>
+              {[ALL, ...MEETING_STATUSES].map((meeting) => (
+                <option key={meeting} value={meeting}>
+                  {meeting}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="customer-card-list">
-            {pagedItems.length ? (
-              pagedItems.map((item) => {
+            {pageItems.length ? (
+              pageItems.map((item) => {
                 const status = getCustomerValue(item, "contract_status") || "미계약";
-                const statusClass = getStatusClass(status);
-
                 return (
-                  <article
-                    className={`customer-card-item contract-strip-${statusClass}`}
-                    key={item.id}
-                  >
+                  <article key={item.id} className={`customer-card-item contract-strip-${getStatusClass(status)}`}>
                     <div className="customer-card-head">
                       <div>
-                        <strong>{getCustomerValue(item, "name") || "이름 미입력"}</strong>
-                        <span>{getCustomerValue(item, "phone") || "연락처 없음"}</span>
+                        <strong>{getCustomerValue(item, "name") || "이름 없음"}</strong>
+                        <span>{getCustomerValue(item, "phone") || "연락처 미입력"}</span>
                       </div>
-                      <span className={`status-badge status-${statusClass}`}>{status}</span>
+                      <span className={`status-badge status-${getStatusClass(status)}`}>{status}</span>
                     </div>
 
                     <div className="customer-meta-grid">
-                      <span>조건</span>
-                      <p>{getCustomerValue(item, "wanted_condition") || "조건 미입력"}</p>
-                      <span>유입일</span>
-                      <p>{getCustomerValue(item, "inflow_date") || "미지정"}</p>
+                      <span>지역</span>
+                      <p>{getCustomerValue(item, "preferred_area") || "미입력"}</p>
+                      <span>매물</span>
+                      <p>{getCustomerValue(item, "property_type") || "미입력"}</p>
                       <span>중요도</span>
                       <p>{getCustomerValue(item, "priority") || "보통"}</p>
                       <span>미팅</span>
                       <p>{getCustomerValue(item, "meeting_status") || "미팅 전"}</p>
+                      <span>유입일</span>
+                      <p>{formatDate(getCustomerValue(item, "inflow_date"))}</p>
+                      <span>유입경로</span>
+                      <p>{getCustomerValue(item, "source") || "직접 입력"}</p>
                     </div>
 
-                    {getCustomerValue(item, "memo") ? (
-                      <p className="customer-note">{getCustomerValue(item, "memo")}</p>
+                    {getCustomerValue(item, "wanted_condition") ? (
+                      <p className="customer-note">{getCustomerValue(item, "wanted_condition")}</p>
                     ) : null}
+                    {getCustomerValue(item, "memo") ? <p className="customer-note muted">{getCustomerValue(item, "memo")}</p> : null}
 
-                    <div className="card-actions">
-                      <button type="button" className="outline-btn small" onClick={() => handleEdit(item)}>
+                    <div className="customer-actions">
+                      <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(item)}>
                         수정
                       </button>
-                      <button type="button" className="danger-btn small" onClick={() => handleDelete(item.id)}>
+                      <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(item.id)}>
                         삭제
                       </button>
                     </div>
@@ -292,128 +258,77 @@ function CustomersPage() {
                 );
               })
             ) : (
-              <div className="empty-state">조건에 맞는 고객이 없습니다.</div>
+              <div className="empty-state">등록된 고객이 없습니다.</div>
             )}
           </div>
 
           <div className="pagination-row">
-            <button
-              type="button"
-              className="outline-btn small"
-              disabled={safePage <= 1}
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            >
+            <button type="button" className="secondary-btn small-btn" disabled={page === 1} onClick={() => setPage((prev) => prev - 1)}>
               이전
             </button>
-            <div className="pagination-pages">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
-                const number = index + 1;
-                return (
-                  <button
-                    key={number}
-                    type="button"
-                    className={`pagination-page-btn ${number === safePage ? "active" : ""}`}
-                    onClick={() => setPage(number)}
-                  >
-                    {number}
-                  </button>
-                );
-              })}
-            </div>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => index + 1).map((pageNumber) => (
+              <button
+                key={pageNumber}
+                type="button"
+                className={`pagination-page-btn ${page === pageNumber ? "active" : ""}`}
+                onClick={() => setPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
             <button
               type="button"
-              className="outline-btn small"
-              disabled={safePage >= totalPages}
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              className="secondary-btn small-btn"
+              disabled={page === totalPages}
+              onClick={() => setPage((prev) => prev + 1)}
             >
               다음
             </button>
           </div>
-        </article>
+        </div>
 
-        <aside className="panel customer-form-card">
-          <div className="section-heading compact-heading">
+        <form className="customer-form-card" onSubmit={handleSubmit}>
+          <div className="section-heading-row">
             <div>
-              <span className="section-eyebrow">빠른 입력</span>
-              <h2>{editingId ? "고객 수정" : "고객 등록"}</h2>
+              <h2>{editingId ? "고객 수정" : "빠른 고객 등록"}</h2>
+              <p>고객 유입일을 넣으면 일정관리에도 고객인입 일정이 생성됩니다.</p>
             </div>
-            {editingId ? (
-              <button type="button" className="outline-btn small" onClick={resetForm}>
-                신규
-              </button>
-            ) : null}
           </div>
 
-          <form className="customer-compact-form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>고객명</span>
+            <input value={form.name} onChange={(event) => updateField("name", event.target.value)} placeholder="예: 김고객" />
+          </label>
+          <label className="field">
+            <span>연락처</span>
+            <input value={form.phone} onChange={(event) => updateField("phone", event.target.value)} placeholder="예: 010-1234-5678" />
+          </label>
+          <label className="field">
+            <span>희망 지역</span>
+            <input value={form.preferred_area} onChange={(event) => updateField("preferred_area", event.target.value)} placeholder="예: 역삼, 선릉" />
+          </label>
+          <label className="field">
+            <span>매물 종류</span>
+            <input value={form.property_type} onChange={(event) => updateField("property_type", event.target.value)} placeholder="예: 소형 사무실" />
+          </label>
+          <label className="field">
+            <span>찾는 조건</span>
+            <textarea
+              rows="3"
+              value={form.wanted_condition}
+              onChange={(event) => updateField("wanted_condition", event.target.value)}
+              placeholder="예: 주차 가능, 역세권, 전용 20평 이내"
+            />
+          </label>
+          <label className="field">
+            <span>고객 유입일</span>
+            <input type="date" value={form.inflow_date} onChange={(event) => updateField("inflow_date", event.target.value)} />
+          </label>
+          <div className="compact-select-grid">
             <label className="field">
-              <span>고객명</span>
-              <input
-                value={form.name}
-                onChange={(event) => updateField("name", event.target.value)}
-                placeholder="예: 김은수"
-                required
-              />
-            </label>
-            <label className="field">
-              <span>연락처</span>
-              <input
-                value={form.phone}
-                onChange={(event) => updateField("phone", event.target.value)}
-                placeholder="예: 010-1234-5678"
-              />
-            </label>
-            <label className="field">
-              <span>찾는 조건</span>
-              <textarea
-                rows={3}
-                value={form.wanted_condition}
-                onChange={(event) => updateField("wanted_condition", event.target.value)}
-                placeholder="예: 역삼동 소형 사무실, 주차 1대"
-              />
-            </label>
-            <label className="field">
-              <span>고객 유입일</span>
-              <input
-                type="date"
-                value={form.inflow_date}
-                onChange={(event) => updateField("inflow_date", event.target.value)}
-              />
-            </label>
-            <div className="compact-select-grid">
-              <label className="field">
-                <span>계약상태</span>
-                <select
-                  value={form.contract_status}
-                  onChange={(event) => updateField("contract_status", event.target.value)}
-                >
-                  {contractStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>중요도</span>
-                <select
-                  value={form.priority}
-                  onChange={(event) => updateField("priority", event.target.value)}
-                >
-                  {priorityLevels.map((priority) => (
-                    <option key={priority} value={priority}>
-                      {priority}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="field">
-              <span>미팅 여부</span>
-              <select
-                value={form.meeting_status}
-                onChange={(event) => updateField("meeting_status", event.target.value)}
-              >
-                {meetingStatuses.map((status) => (
+              <span>계약상태</span>
+              <select value={form.contract_status} onChange={(event) => updateField("contract_status", event.target.value)}>
+                {CONTRACT_STATUSES.map((status) => (
                   <option key={status} value={status}>
                     {status}
                   </option>
@@ -421,27 +336,44 @@ function CustomersPage() {
               </select>
             </label>
             <label className="field">
-              <span>유입 경로</span>
-              <input
-                value={form.source}
-                onChange={(event) => updateField("source", event.target.value)}
-                placeholder="예: 고객인입 일정, 소개, 광고"
-              />
+              <span>중요도</span>
+              <select value={form.priority} onChange={(event) => updateField("priority", event.target.value)}>
+                {PRIORITY_LEVELS.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
+                ))}
+              </select>
             </label>
-            <label className="field">
-              <span>메모</span>
-              <textarea
-                rows={4}
-                value={form.memo}
-                onChange={(event) => updateField("memo", event.target.value)}
-                placeholder="상담 내용과 다음 액션을 적어주세요."
-              />
-            </label>
-            <button type="submit" className="primary-btn full-width" disabled={saving}>
+          </div>
+          <label className="field">
+            <span>미팅 여부</span>
+            <select value={form.meeting_status} onChange={(event) => updateField("meeting_status", event.target.value)}>
+              {MEETING_STATUSES.map((meeting) => (
+                <option key={meeting} value={meeting}>
+                  {meeting}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>메모</span>
+            <textarea rows="3" value={form.memo} onChange={(event) => updateField("memo", event.target.value)} placeholder="상담 내용 메모" />
+          </label>
+
+          {message ? <div className="schedule-inline-alert">{message}</div> : null}
+
+          <div className="form-actions inline-actions">
+            <button type="submit" className="primary-btn" disabled={saving}>
               {saving ? "저장 중..." : editingId ? "수정 저장" : "고객 등록"}
             </button>
-          </form>
-        </aside>
+            {editingId ? (
+              <button type="button" className="secondary-btn" onClick={resetForm}>
+                취소
+              </button>
+            ) : null}
+          </div>
+        </form>
       </section>
     </div>
   );

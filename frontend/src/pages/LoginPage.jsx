@@ -22,15 +22,15 @@ function LoginPage({ setPage }) {
 
   const isSignup = mode === "signup";
 
-  const updateLoginField = (key, value) => {
+  function updateLoginField(key, value) {
     setLoginForm((prev) => ({ ...prev, [key]: value }));
-  };
+  }
 
-  const updateSignupField = (key, value) => {
+  function updateSignupField(key, value) {
     setSignupForm((prev) => ({ ...prev, [key]: value }));
-  };
+  }
 
-  const handleSubmit = async (event) => {
+  async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setLoading(true);
@@ -47,7 +47,7 @@ function LoginPage({ setPage }) {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <main className="auth-page">
@@ -55,7 +55,7 @@ function LoginPage({ setPage }) {
         <p className="auth-eyebrow">REAL ESTATE WORK APP</p>
         <h1>{isSignup ? "회원가입" : "로그인"}</h1>
         <p className="auth-copy">
-          일정, 고객, 소개서를 한 번에 관리할 수 있도록 로그인 정보를 먼저 설정해 주세요.
+          일정, 고객, 소개서를 한 화면에서 관리할 수 있도록 기본 계정 정보를 설정해 주세요.
         </p>
 
         <div className="auth-tabs">
@@ -77,7 +77,7 @@ function LoginPage({ setPage }) {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label>
-            아이디
+            아이디 또는 이메일
             <input
               value={isSignup ? signupForm.username : loginForm.username}
               onChange={(event) =>
@@ -89,6 +89,7 @@ function LoginPage({ setPage }) {
               autoFocus
               required
               minLength={3}
+              placeholder="예: broker01 또는 broker@example.com"
             />
           </label>
 
@@ -105,6 +106,7 @@ function LoginPage({ setPage }) {
               autoComplete={isSignup ? "new-password" : "current-password"}
               required
               minLength={8}
+              placeholder="8자 이상 입력"
             />
           </label>
 
@@ -116,7 +118,7 @@ function LoginPage({ setPage }) {
                   <input
                     value={signupForm.office_name}
                     onChange={(event) => updateSignupField("office_name", event.target.value)}
-                    placeholder="예: 역삼 베스트 공인중개사"
+                    placeholder="예: 역삼 프라임 공인중개사"
                   />
                 </label>
 
@@ -125,7 +127,7 @@ function LoginPage({ setPage }) {
                   <input
                     value={signupForm.manager_name}
                     onChange={(event) => updateSignupField("manager_name", event.target.value)}
-                    placeholder="예: 김도윤 실장"
+                    placeholder="예: 김중개"
                   />
                 </label>
               </div>
@@ -156,6 +158,7 @@ function LoginPage({ setPage }) {
                   type="checkbox"
                   checked={signupForm.privacy_agreed}
                   onChange={(event) => updateSignupField("privacy_agreed", event.target.checked)}
+                  required
                 />
                 <span>개인정보 수집 및 이용에 동의합니다.</span>
               </label>

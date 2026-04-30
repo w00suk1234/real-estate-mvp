@@ -8,7 +8,7 @@
     "https://fin.land.naver.com/*",
     "https://new.land.naver.com/*",
     "https://land.naver.com/*",
-    "https://real-estate-mvp-production.up.railway.app/*"
+    "https://*.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup.html",

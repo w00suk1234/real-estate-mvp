@@ -3626,3 +3626,521 @@ h4 {
     text-overflow: ellipsis;
   }
 }
+
+/* Schedule and customer polish */
+.schedule-page-compact {
+  gap: 16px;
+}
+
+.compact-page-header,
+.schedule-compact-header {
+  padding: 18px 22px;
+}
+
+.schedule-compact-header h1,
+.compact-page-header h1 {
+  margin-bottom: 6px;
+}
+
+.schedule-compact-header p,
+.compact-page-header p {
+  margin: 0;
+}
+
+.schedule-main-panel,
+.schedule-table-panel,
+.customer-list-card,
+.customer-form-card {
+  background: #ffffff;
+  border: 1px solid #dde8f5;
+  border-radius: 20px;
+  box-shadow: 0 16px 34px rgba(15, 38, 72, 0.07);
+  padding: 20px;
+}
+
+.schedule-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.schedule-toolbar h2,
+.section-heading-row h2 {
+  margin: 0 0 4px;
+}
+
+.schedule-toolbar p,
+.section-heading-row p {
+  margin: 0;
+  color: #64748b;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.month-input {
+  min-height: 38px;
+  border: 1px solid #d6e1ef;
+  border-radius: 12px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #0f2348;
+  font-weight: 800;
+}
+
+.calendar-cell {
+  min-height: 94px;
+}
+
+.calendar-weekdays .is-red-day,
+.calendar-cell.is-red-day .calendar-cell-top strong {
+  color: #dc2626;
+}
+
+.calendar-cell.is-muted {
+  opacity: 0.56;
+}
+
+.calendar-cell-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.calendar-cell-top strong {
+  font-size: 0.9rem;
+  color: #0f2348;
+}
+
+.calendar-cell-top em {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: #dc2626;
+  font-weight: 900;
+}
+
+.calendar-cell-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.calendar-more {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.schedule-lists-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.schedule-table-panel.is-highlight {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.schedule-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.schedule-modal {
+  width: min(960px, 96vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #dbe7f5;
+  border-radius: 22px;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+  padding: 24px;
+}
+
+.schedule-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.schedule-modal-head h2 {
+  margin: 4px 0 0;
+}
+
+.schedule-modal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.schedule-day-list,
+.schedule-edit-form,
+.customer-picker {
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+  background: #f8fbff;
+}
+
+.schedule-day-list h3,
+.schedule-edit-form h3 {
+  margin: 0 0 12px;
+}
+
+.schedule-edit-form {
+  display: grid;
+  gap: 14px;
+}
+
+.schedule-day-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 14px;
+  border: 1px solid #dbe7f5;
+  background: #ffffff;
+  padding: 12px;
+  margin-top: 10px;
+  border-left: 5px solid #94a3b8;
+}
+
+.schedule-day-item.meeting,
+.deal-schedule-item.meeting {
+  border-left-color: #2563eb;
+}
+
+.schedule-day-item.deposit,
+.deal-schedule-item.deposit {
+  border-left-color: #f59e0b;
+}
+
+.schedule-day-item.contract,
+.deal-schedule-item.contract {
+  border-left-color: #f97316;
+}
+
+.schedule-day-item.balance,
+.deal-schedule-item.balance {
+  border-left-color: #16a34a;
+}
+
+.schedule-day-item.inflow,
+.deal-schedule-item.inflow {
+  border-left-color: #7c3aed;
+}
+
+.schedule-day-item.etc,
+.deal-schedule-item.etc {
+  border-left-color: #64748b;
+}
+
+.schedule-day-item span,
+.schedule-day-item small {
+  display: block;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.schedule-day-item p {
+  white-space: pre-line;
+  margin: 8px 0 0;
+  color: #334155;
+}
+
+.customer-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-picker-list {
+  display: grid;
+  gap: 8px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.customer-picker-item {
+  text-align: left;
+  border: 1px solid #dbe7f5;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.customer-picker-item:hover {
+  border-color: #0b66d5;
+  background: #eef6ff;
+}
+
+.customer-picker-item span,
+.customer-picker-empty {
+  display: block;
+  color: #64748b;
+  font-size: 0.8rem;
+  margin-top: 3px;
+}
+
+.deal-schedule-list {
+  display: grid;
+  gap: 10px;
+}
+
+.deal-schedule-item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid #94a3b8;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.deal-schedule-item:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.deal-schedule-item small {
+  grid-column: 2 / -1;
+  color: #64748b;
+  white-space: pre-line;
+}
+
+.deal-schedule-item em {
+  font-style: normal;
+  font-weight: 800;
+  color: #475569;
+}
+
+.customer-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.34fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.customer-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(130px, 0.32fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.customer-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.customer-card-item {
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid #94a3b8;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.contract-strip-deposit {
+  border-left-color: #f59e0b;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.08), #ffffff 36%);
+}
+
+.contract-strip-complete {
+  border-left-color: #16a34a;
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.08), #ffffff 36%);
+}
+
+.contract-strip-deleted {
+  border-left-color: #ef4444;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), #ffffff 36%);
+}
+
+.customer-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.customer-card-head strong,
+.customer-card-head span {
+  display: block;
+}
+
+.customer-card-head span {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin-top: 3px;
+}
+
+.status-badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  background: #e2e8f0;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.status-deposit {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-complete {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-deleted {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.customer-meta-grid {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 72px minmax(0, 1fr);
+  gap: 7px 10px;
+}
+
+.customer-meta-grid span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.customer-meta-grid p {
+  margin: 0;
+  color: #0f2348;
+  font-weight: 700;
+}
+
+.customer-note {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #334155;
+  white-space: pre-line;
+}
+
+.customer-note.muted {
+  color: #64748b;
+}
+
+.customer-actions,
+.pagination-row,
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.customer-actions {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.pagination-row {
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.pagination-page-btn {
+  min-width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #d6e1ef;
+  background: #ffffff;
+  color: #0f2348;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pagination-page-btn.active {
+  background: #073b7a;
+  border-color: #073b7a;
+  color: #ffffff;
+}
+
+.customer-form-card {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .customer-layout,
+  .schedule-lists-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-form-card {
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .schedule-toolbar,
+  .schedule-modal-head {
+    flex-direction: column;
+  }
+
+  .schedule-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-modal {
+    padding: 18px;
+  }
+
+  .deal-schedule-item {
+    grid-template-columns: 1fr;
+  }
+
+  .deal-schedule-item small {
+    grid-column: auto;
+  }
+
+  .schedule-day-item {
+    flex-direction: column;
+  }
+
+  .customer-filter-grid,
+  .customer-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}

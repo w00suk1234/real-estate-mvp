@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../api";
+import { deleteSchedule, listCustomers, listSchedules, saveSchedule } from "../services/supabaseRepository";
 
-const scheduleTypes = ["일정", "고객인입", "미팅", "계약금입금", "계약서작성", "잔금날", "기타"];
-const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
-const holidayMap = {
+const SCHEDULE_TYPES = ["일정", "고객인입", "미팅", "계약금입금", "계약서작성", "잔금날", "기타"];
+const CUSTOMER_PICKER_TYPES = new Set(["미팅", "계약금입금", "계약서작성", "잔금날"]);
+const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+const HOLIDAY_MAP = {
   "01-01": "신정",
   "03-01": "삼일절",
   "05-05": "어린이날",
@@ -14,6 +15,9 @@ const holidayMap = {
   "12-25": "성탄절",
 };
 
+const today = new Date();
+const todayString = toDateInputValue(today);
+
 function toDateInputValue(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -21,21 +25,23 @@ function toDateInputValue(date) {
   return `${year}-${month}-${day}`;
 }
 
-const today = new Date();
-const todayString = toDateInputValue(today);
-
 function toMonthInputValue(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMonthLabel(date) {
-  return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
+function parseDateString(dateString) {
+  const [year, month, day] = String(dateString).split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
 }
 
 function formatDateLabel(dateString) {
   if (!dateString) return "";
   const [year, month, day] = dateString.split("-");
   return `${Number(year)}년 ${Number(month)}월 ${Number(day)}일`;
+}
+
+function formatMonthLabel(date) {
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
 }
 
 function buildCalendarCells(currentMonth) {
@@ -49,29 +55,31 @@ function buildCalendarCells(currentMonth) {
 
   const cells = [];
   const cursor = new Date(start);
-
   while (cursor <= end) {
+    const dateString = toDateInputValue(cursor);
     cells.push({
-      key: toDateInputValue(cursor),
-      dateString: toDateInputValue(cursor),
+      key: dateString,
+      dateString,
       day: cursor.getDate(),
       dayOfWeek: cursor.getDay(),
       isCurrentMonth: cursor.getMonth() === month,
+      holiday: HOLIDAY_MAP[dateString.slice(5)],
     });
     cursor.setDate(cursor.getDate() + 1);
   }
-
   return cells;
 }
 
 function emptyForm(date = todayString) {
   return {
+    id: undefined,
     title: "",
+    customer_id: "",
     customer_name: "",
     schedule_date: date,
     schedule_time: "",
-    note: "",
     schedule_type: "일정",
+    note: "",
   };
 }
 
@@ -85,410 +93,380 @@ function getTypeClass(type) {
   return "default";
 }
 
-function getNote(item) {
-  return item.note || item.notes || "";
+function isSameMonth(dateString, monthDate) {
+  const date = parseDateString(dateString);
+  return date.getFullYear() === monthDate.getFullYear() && date.getMonth() === monthDate.getMonth();
 }
 
 function SchedulesPage() {
-  const [items, setItems] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(todayString);
+  const [items, setItems] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState(() => emptyForm(todayString));
-  const [editingId, setEditingId] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState("");
-  const [panelOpen, setPanelOpen] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1),
-  );
+  const [saving, setSaving] = useState(false);
 
-  async function fetchSchedules() {
+  async function refresh() {
     try {
-      const data = await apiFetch("/schedules");
-      setItems(Array.isArray(data.items) ? data.items : []);
+      const [scheduleRows, customerRows] = await Promise.all([listSchedules(), listCustomers()]);
+      setItems(Array.isArray(scheduleRows) ? scheduleRows : []);
+      setCustomers(Array.isArray(customerRows) ? customerRows : []);
     } catch (error) {
-      setMessage(error.message || "일정 목록을 불러오지 못했습니다.");
+      setMessage(error.message || "일정 정보를 불러오지 못했습니다.");
     }
   }
 
   useEffect(() => {
-    fetchSchedules();
+    refresh();
   }, []);
-
-  const schedulesByDate = useMemo(() => {
-    return items.reduce((accumulator, item) => {
-      const key = item.schedule_date;
-      if (!key) return accumulator;
-      if (!accumulator[key]) accumulator[key] = [];
-      accumulator[key].push(item);
-      return accumulator;
-    }, {});
-  }, [items]);
 
   const calendarCells = useMemo(() => buildCalendarCells(currentMonth), [currentMonth]);
 
-  const monthlyItems = useMemo(() => {
-    const monthPrefix = toMonthInputValue(currentMonth);
-    return items
-      .filter((item) => (item.schedule_date || "").startsWith(monthPrefix))
-      .sort((left, right) => {
-        const leftKey = `${left.schedule_date || ""} ${left.schedule_time || ""}`;
-        const rightKey = `${right.schedule_date || ""} ${right.schedule_time || ""}`;
-        return leftKey.localeCompare(rightKey);
-      });
-  }, [items, currentMonth]);
+  const schedulesByDate = useMemo(() => {
+    return items.reduce((acc, item) => {
+      const key = item.schedule_date;
+      if (!key) return acc;
+      acc[key] = acc[key] || [];
+      acc[key].push(item);
+      return acc;
+    }, {});
+  }, [items]);
 
-  const contractWritingItems = monthlyItems.filter((item) => item.schedule_type === "계약서작성");
-  const balanceItems = monthlyItems.filter((item) => item.schedule_type === "잔금날");
-  const selectedDateItems = schedulesByDate[selectedDate] || [];
+  const selectedItems = schedulesByDate[selectedDate] || [];
+  const monthItems = useMemo(
+    () => items.filter((item) => item.schedule_date && isSameMonth(item.schedule_date, currentMonth)),
+    [currentMonth, items],
+  );
+  const contractAndBalanceItems = monthItems.filter((item) => ["계약서작성", "잔금날"].includes(item.schedule_type));
 
-  function updateField(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
+  const filteredCustomers = useMemo(() => {
+    const keyword = customerSearch.trim().toLowerCase();
+    return customers
+      .filter((customer) => {
+        if (!keyword) return true;
+        return [customer.name, customer.phone, customer.preferred_area, customer.property_type, customer.wanted_condition]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(keyword);
+      })
+      .slice(0, 8);
+  }, [customerSearch, customers]);
 
-  function resetForm(date = selectedDate) {
-    setForm(emptyForm(date));
-    setEditingId(null);
-  }
+  const openDateModal = (dateString) => {
+    setSelectedDate(dateString);
+    setForm(emptyForm(dateString));
+    setCustomerSearch("");
+    setIsModalOpen(true);
+  };
 
-  function handleDateSelect(cell) {
-    setSelectedDate(cell.dateString);
-    setForm((prev) => ({ ...prev, schedule_date: cell.dateString }));
-    setPanelOpen(true);
-    setMessage("");
+  const editSchedule = (item) => {
+    setForm({ ...emptyForm(item.schedule_date || selectedDate), ...item });
+    setCustomerSearch(item.customer_name || "");
+  };
 
-    if (!cell.isCurrentMonth) {
-      const [year, month] = cell.dateString.split("-");
-      setCurrentMonth(new Date(Number(year), Number(month) - 1, 1));
-    }
-  }
+  const updateForm = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
-  function handleMonthChange(value) {
-    if (!value) return;
-    const [year, month] = value.split("-");
-    setCurrentMonth(new Date(Number(year), Number(month) - 1, 1));
-  }
+  const pickCustomer = (customer) => {
+    setForm((prev) => ({
+      ...prev,
+      customer_id: customer.id,
+      customer_name: customer.name || "",
+      title: prev.title || `${customer.name || "고객"} ${prev.schedule_type}`,
+      note:
+        prev.note ||
+        [customer.phone, customer.preferred_area, customer.property_type, customer.wanted_condition].filter(Boolean).join("\n"),
+    }));
+    setCustomerSearch(customer.name || "");
+  };
 
-  async function handleSubmit(event) {
+  const handleMonthChange = (value) => {
+    const [year, month] = value.split("-").map(Number);
+    if (!year || !month) return;
+    setCurrentMonth(new Date(year, month - 1, 1));
+  };
+
+  const moveMonth = (delta) => {
+    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+
+  const moveToday = () => {
+    setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    setSelectedDate(todayString);
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setSaving(true);
-    setMessage("");
-
-    const payload = {
-      title: form.title.trim(),
-      customer_name: form.customer_name.trim(),
-      schedule_date: form.schedule_date,
-      schedule_time: form.schedule_time,
-      note: form.note.trim(),
-      schedule_type: form.schedule_type,
-    };
+    if (!form.title.trim()) {
+      setMessage("일정명을 입력해 주세요.");
+      return;
+    }
 
     try {
-      if (editingId) {
-        await apiFetch(`/schedules/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        setMessage("일정을 수정했습니다.");
-      } else {
-        await apiFetch("/schedules", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        setMessage("일정을 등록했습니다.");
-      }
-
-      await fetchSchedules();
-      resetForm(payload.schedule_date || selectedDate);
+      setSaving(true);
+      await saveSchedule(form);
+      await refresh();
+      setForm(emptyForm(selectedDate));
+      setCustomerSearch("");
+      setMessage("일정을 저장했습니다.");
     } catch (error) {
-      setMessage(error.message || "일정을 저장하지 못했습니다.");
+      setMessage(error.message || "일정 저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }
-  }
+  };
 
-  function handleEdit(item) {
-    setEditingId(item.id);
-    setForm({
-      title: item.title || "",
-      customer_name: item.customer_name || "",
-      schedule_date: item.schedule_date || selectedDate,
-      schedule_time: item.schedule_time || "",
-      note: getNote(item),
-      schedule_type: scheduleTypes.includes(item.schedule_type) ? item.schedule_type : "일정",
-    });
-    setSelectedDate(item.schedule_date || selectedDate);
-    setPanelOpen(true);
-    setMessage("");
-  }
-
-  async function handleDelete(itemId) {
-    if (!window.confirm("이 일정을 삭제할까요?")) return;
-
+  const handleDelete = async (id) => {
+    if (!window.confirm("일정을 삭제할까요?")) return;
     try {
-      await apiFetch(`/schedules/${itemId}`, { method: "DELETE" });
-      setMessage("일정을 삭제했습니다.");
-      await fetchSchedules();
-      if (editingId === itemId) resetForm();
+      await deleteSchedule(id);
+      await refresh();
+      setForm(emptyForm(selectedDate));
     } catch (error) {
-      setMessage(error.message || "일정을 삭제하지 못했습니다.");
+      setMessage(error.message || "일정 삭제에 실패했습니다.");
     }
-  }
+  };
 
-  function renderScheduleList(list, emptyText) {
-    if (!list.length) return <div className="empty-state compact-empty">{emptyText}</div>;
-
-    return (
-      <div className="mini-schedule-list">
-        {list.map((item) => (
-          <article key={item.id} className={`mini-schedule-item type-line-${getTypeClass(item.schedule_type)}`}>
-            <div>
-              <strong>{item.title || item.customer_name || "제목 없음"}</strong>
-              <span>
-                {item.schedule_date} {item.schedule_time || ""}
-              </span>
-            </div>
-            <span className={`schedule-type-badge type-${getTypeClass(item.schedule_type)}`}>
-              {item.schedule_type || "일정"}
-            </span>
-          </article>
-        ))}
-      </div>
-    );
-  }
+  const renderScheduleMini = (item) => (
+    <span key={item.id} className={`schedule-type-badge type-${getTypeClass(item.schedule_type)}`}>
+      {item.schedule_type}
+    </span>
+  );
 
   return (
-    <div className="page-stack">
-      <section className="page-header-card">
-        <span className="section-eyebrow">월간 캘린더</span>
-        <h1>일정관리</h1>
-        <p>계약, 잔금, 미팅, 고객인입 일정을 달력 중심으로 확인하고 바로 수정합니다.</p>
+    <div className="page-stack schedule-page-compact">
+      <section className="page-header-card compact-page-header schedule-compact-header">
+        <div>
+          <span className="page-eyebrow">일정관리</span>
+          <h1>월간 일정</h1>
+          <p>날짜를 누르면 팝업에서 일정 확인, 등록, 수정까지 한 번에 처리합니다.</p>
+        </div>
       </section>
 
-      {message ? <div className="inline-message">{message}</div> : null}
-
-      <section className="schedule-board">
-        <article className="panel schedule-main-panel">
-          <div className="schedule-toolbar">
-            <div>
-              <span className="section-eyebrow">이번 달 보기</span>
-              <h2>{formatMonthLabel(currentMonth)}</h2>
-            </div>
-            <div className="schedule-month-control">
-              <input
-                type="month"
-                value={toMonthInputValue(currentMonth)}
-                onChange={(event) => handleMonthChange(event.target.value)}
-              />
-              <button
-                type="button"
-                className="outline-btn small"
-                onClick={() =>
-                  setCurrentMonth(
-                    (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1),
-                  )
-                }
-              >
-                이전
-              </button>
-              <button
-                type="button"
-                className="secondary-btn small"
-                onClick={() => {
-                  setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-                  setSelectedDate(todayString);
-                  resetForm(todayString);
-                }}
-              >
-                오늘
-              </button>
-              <button
-                type="button"
-                className="outline-btn small"
-                onClick={() =>
-                  setCurrentMonth(
-                    (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1),
-                  )
-                }
-              >
-                다음
-              </button>
-            </div>
+      <section className="schedule-calendar-panel schedule-main-panel">
+        <div className="schedule-toolbar">
+          <div>
+            <h2>{formatMonthLabel(currentMonth)}</h2>
+            <p>계약서작성과 잔금날은 아래 묶음에서 따로 확인할 수 있습니다.</p>
           </div>
-
-          <div className="calendar-frame">
-            <div className="calendar-weekdays">
-              {weekdayLabels.map((label, index) => (
-                <span key={label} className={index === 0 || index === 6 ? "is-weekend" : ""}>
-                  {label}
-                </span>
-              ))}
-            </div>
-
-            <div className="calendar-grid">
-              {calendarCells.map((cell) => {
-                const monthDay = cell.dateString.slice(5);
-                const holiday = holidayMap[monthDay];
-                const schedules = schedulesByDate[cell.dateString] || [];
-                const isWeekend = cell.dayOfWeek === 0 || cell.dayOfWeek === 6;
-
-                return (
-                  <button
-                    key={cell.key}
-                    type="button"
-                    className={[
-                      "calendar-cell",
-                      !cell.isCurrentMonth ? "is-muted" : "",
-                      isWeekend ? "is-weekend" : "",
-                      holiday ? "is-holiday" : "",
-                      cell.dateString === todayString ? "is-today" : "",
-                      cell.dateString === selectedDate ? "is-selected" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => handleDateSelect(cell)}
-                  >
-                    <span className="calendar-day">{cell.day}</span>
-                    {holiday ? <span className="calendar-holiday-label">{holiday}</span> : null}
-                    <div className="calendar-events">
-                      {schedules.slice(0, 3).map((item) => (
-                        <span
-                          key={item.id}
-                          className={`schedule-type-badge type-${getTypeClass(item.schedule_type)}`}
-                        >
-                          {item.schedule_type || "일정"}
-                        </span>
-                      ))}
-                      {schedules.length > 3 ? (
-                        <span className="calendar-overflow">+{schedules.length - 3}</span>
-                      ) : null}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </article>
-
-        <aside className={`panel schedule-side-panel ${panelOpen ? "is-open" : ""}`}>
-          <div className="section-heading compact-heading">
-            <div>
-              <span className="section-eyebrow">선택 날짜</span>
-              <h2>{formatDateLabel(selectedDate)}</h2>
-            </div>
-            <button type="button" className="outline-btn small" onClick={() => resetForm(selectedDate)}>
-              새 일정
+          <div className="calendar-nav">
+            <button type="button" className="secondary-btn small-btn" onClick={() => moveMonth(-1)}>
+              이전
+            </button>
+            <input
+              className="month-input"
+              type="month"
+              value={toMonthInputValue(currentMonth)}
+              onChange={(event) => handleMonthChange(event.target.value)}
+            />
+            <button type="button" className="secondary-btn small-btn" onClick={() => moveMonth(1)}>
+              다음
+            </button>
+            <button type="button" className="primary-btn small-btn" onClick={moveToday}>
+              오늘
             </button>
           </div>
+        </div>
 
-          <div className="selected-day-list">
-            {selectedDateItems.length ? (
-              selectedDateItems.map((item) => (
-                <article key={item.id} className="selected-day-item">
-                  <div>
-                    <strong>{item.title || item.customer_name || "제목 없음"}</strong>
-                    <span>
-                      {item.schedule_time || "시간 미정"} · {item.customer_name || "고객명 없음"}
-                    </span>
-                    {getNote(item) ? <p>{getNote(item)}</p> : null}
-                  </div>
-                  <div className="card-actions">
-                    <button type="button" className="outline-btn small" onClick={() => handleEdit(item)}>
-                      수정
-                    </button>
-                    <button type="button" className="danger-btn small" onClick={() => handleDelete(item.id)}>
-                      삭제
-                    </button>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="empty-state compact-empty">이 날짜에 등록된 일정이 없습니다.</div>
-            )}
+        <div className="calendar-frame">
+          <div className="calendar-weekdays">
+            {WEEKDAY_LABELS.map((label, index) => (
+              <span key={label} className={index === 0 || index === 6 ? "is-red-day" : ""}>
+                {label}
+              </span>
+            ))}
           </div>
-
-          <form className="schedule-form" onSubmit={handleSubmit}>
-            <label className="field">
-              <span>일정명</span>
-              <input
-                value={form.title}
-                onChange={(event) => updateField("title", event.target.value)}
-                placeholder="예: 역삼동 사무실 미팅"
-                required
-              />
-            </label>
-            <div className="compact-select-grid">
-              <label className="field">
-                <span>날짜</span>
-                <input
-                  type="date"
-                  value={form.schedule_date}
-                  onChange={(event) => {
-                    updateField("schedule_date", event.target.value);
-                    setSelectedDate(event.target.value);
-                  }}
-                  required
-                />
-              </label>
-              <label className="field">
-                <span>시간</span>
-                <input
-                  type="time"
-                  value={form.schedule_time}
-                  onChange={(event) => updateField("schedule_time", event.target.value)}
-                />
-              </label>
-            </div>
-            <label className="field">
-              <span>일정 종류</span>
-              <select
-                value={form.schedule_type}
-                onChange={(event) => updateField("schedule_type", event.target.value)}
-              >
-                {scheduleTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>고객명</span>
-              <input
-                value={form.customer_name}
-                onChange={(event) => updateField("customer_name", event.target.value)}
-                placeholder="예: 김은수"
-              />
-            </label>
-            <label className="field">
-              <span>메모</span>
-              <textarea
-                rows={4}
-                value={form.note}
-                onChange={(event) => updateField("note", event.target.value)}
-                placeholder="상담 내용, 주소, 다음 액션을 적어주세요."
-              />
-            </label>
-            <button type="submit" className="primary-btn full-width" disabled={saving}>
-              {saving ? "저장 중..." : editingId ? "일정 수정" : "일정 등록"}
-            </button>
-          </form>
-        </aside>
+          <div className="calendar-grid">
+            {calendarCells.map((cell) => {
+              const dayItems = schedulesByDate[cell.dateString] || [];
+              const isSelected = cell.dateString === selectedDate;
+              const isToday = cell.dateString === todayString;
+              const isRedDay = cell.dayOfWeek === 0 || cell.dayOfWeek === 6 || cell.holiday;
+              return (
+                <button
+                  key={cell.key}
+                  type="button"
+                  className={[
+                    "calendar-cell",
+                    !cell.isCurrentMonth ? "is-muted" : "",
+                    isSelected ? "is-selected" : "",
+                    isToday ? "is-today" : "",
+                    isRedDay ? "is-red-day" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={() => openDateModal(cell.dateString)}
+                >
+                  <span className="calendar-cell-top">
+                    <strong>{cell.day}</strong>
+                    {cell.holiday ? <em>{cell.holiday}</em> : null}
+                  </span>
+                  <span className="calendar-cell-body">
+                    {dayItems.slice(0, 3).map(renderScheduleMini)}
+                    {dayItems.length > 3 ? <span className="calendar-more">+{dayItems.length - 3}</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       <section className="schedule-lists-grid">
-        <article className="panel schedule-list-card">
-          <h2>이번달 일정내역</h2>
-          {renderScheduleList(monthlyItems, "이번 달 등록된 일정이 없습니다.")}
-        </article>
-        <article className="panel schedule-list-card">
-          <h2>계약서작성 일정</h2>
-          {renderScheduleList(contractWritingItems, "계약서작성 일정이 없습니다.")}
-        </article>
-        <article className="panel schedule-list-card">
-          <h2>잔금날 일정</h2>
-          {renderScheduleList(balanceItems, "잔금날 일정이 없습니다.")}
-        </article>
+        <ScheduleListCard title="이번 달 일정내역" items={monthItems} onEdit={openDateModal} />
+        <ScheduleListCard title="계약서작성 · 잔금날 일정" items={contractAndBalanceItems} onEdit={openDateModal} highlight />
       </section>
+
+      {message ? <div className="schedule-inline-alert">{message}</div> : null}
+
+      {isModalOpen ? (
+        <div className="schedule-modal-backdrop" role="presentation" onMouseDown={() => setIsModalOpen(false)}>
+          <div className="schedule-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="schedule-modal-head">
+              <div>
+                <span className="page-eyebrow">선택 날짜</span>
+                <h2>{formatDateLabel(selectedDate)}</h2>
+              </div>
+              <button type="button" className="secondary-btn small-btn" onClick={() => setIsModalOpen(false)}>
+                닫기
+              </button>
+            </div>
+
+            <div className="schedule-modal-grid">
+              <div className="schedule-day-list">
+                <h3>등록된 일정</h3>
+                {selectedItems.length ? (
+                  selectedItems.map((item) => (
+                    <article key={item.id} className={`schedule-day-item ${getTypeClass(item.schedule_type)}`}>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <span>
+                          {item.schedule_time || "시간 미정"} · {item.schedule_type}
+                        </span>
+                        {item.customer_name ? <small>{item.customer_name}</small> : null}
+                        {item.note ? <p>{item.note}</p> : null}
+                      </div>
+                      <div className="inline-actions">
+                        <button type="button" className="secondary-btn small-btn" onClick={() => editSchedule(item)}>
+                          수정
+                        </button>
+                        <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(item.id)}>
+                          삭제
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="empty-state">이 날짜에 등록된 일정이 없습니다.</div>
+                )}
+              </div>
+
+              <form className="schedule-edit-form" onSubmit={handleSubmit}>
+                <h3>{form.id ? "일정 수정" : "새 일정 등록"}</h3>
+                <div className="field-grid two">
+                  <label className="field">
+                    <span>일정명</span>
+                    <input value={form.title} onChange={(event) => updateForm("title", event.target.value)} placeholder="예: 김고객 미팅" />
+                  </label>
+                  <label className="field">
+                    <span>일정종류</span>
+                    <select value={form.schedule_type} onChange={(event) => updateForm("schedule_type", event.target.value)}>
+                      {SCHEDULE_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="field-grid two">
+                  <label className="field">
+                    <span>날짜</span>
+                    <input type="date" value={form.schedule_date} onChange={(event) => updateForm("schedule_date", event.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span>시간</span>
+                    <input type="time" value={form.schedule_time || ""} onChange={(event) => updateForm("schedule_time", event.target.value)} />
+                  </label>
+                </div>
+
+                {CUSTOMER_PICKER_TYPES.has(form.schedule_type) ? (
+                  <div className="customer-picker">
+                    <label className="field">
+                      <span>고객 선택</span>
+                      <input
+                        value={customerSearch}
+                        onChange={(event) => setCustomerSearch(event.target.value)}
+                        placeholder="고객명 또는 연락처 검색"
+                      />
+                    </label>
+                    <div className="customer-picker-list">
+                      {filteredCustomers.length ? (
+                        filteredCustomers.map((customer) => (
+                          <button key={customer.id} type="button" className="customer-picker-item" onClick={() => pickCustomer(customer)}>
+                            <strong>{customer.name || "이름 없음"}</strong>
+                            <span>{customer.phone || "연락처 미입력"}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <span className="customer-picker-empty">선택할 고객이 없습니다.</span>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                <label className="field">
+                  <span>메모</span>
+                  <textarea rows="4" value={form.note || ""} onChange={(event) => updateForm("note", event.target.value)} />
+                </label>
+
+                <div className="form-actions inline-actions">
+                  <button type="submit" className="primary-btn" disabled={saving}>
+                    {saving ? "저장 중..." : form.id ? "수정 저장" : "일정 저장"}
+                  </button>
+                  {form.id ? (
+                    <button type="button" className="secondary-btn" onClick={() => setForm(emptyForm(selectedDate))}>
+                      새 일정
+                    </button>
+                  ) : null}
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ScheduleListCard({ title, items, onEdit, highlight = false }) {
+  return (
+    <div className={`schedule-table-panel ${highlight ? "is-highlight" : ""}`}>
+      <div className="section-heading-row">
+        <div>
+          <h2>{title}</h2>
+          <p>{items.length}건</p>
+        </div>
+      </div>
+      <div className="deal-schedule-list">
+        {items.length ? (
+          items.map((item) => (
+            <button key={item.id} type="button" className={`deal-schedule-item ${getTypeClass(item.schedule_type)}`} onClick={() => onEdit(item.schedule_date)}>
+              <span>{item.schedule_date}</span>
+              <strong>{item.title}</strong>
+              <em>{item.schedule_type}</em>
+              {item.note ? <small>{item.note}</small> : null}
+            </button>
+          ))
+        ) : (
+          <div className="empty-state">표시할 일정이 없습니다.</div>
+        )}
+      </div>
     </div>
   );
 }

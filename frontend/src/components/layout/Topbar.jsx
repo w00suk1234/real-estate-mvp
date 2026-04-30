@@ -55,17 +55,11 @@ function Topbar({ page, onNavigate }) {
       <div className="topbar-actions">
         {isAuthenticated ? (
           <>
-            <button
-              type="button"
-              className="topbar-link"
-              onClick={() => onNavigate?.("profile")}
-            >
+            <button type="button" className="topbar-link" onClick={() => onNavigate?.("profile")}>
               내 정보
             </button>
-            <span className="role-pill">
-              {user?.role === "admin" ? "admin" : "user"}
-            </span>
-            <span className="avatar" title={user?.username || "user"}>
+            <span className="role-pill">{user?.role === "admin" ? "admin" : "user"}</span>
+            <span className="avatar" title={user?.username || user?.email || "user"}>
               {getInitials(user)}
             </span>
             <button type="button" className="logout-btn" onClick={handleLogout}>
@@ -73,11 +67,7 @@ function Topbar({ page, onNavigate }) {
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className="login-btn"
-            onClick={() => onNavigate?.("login")}
-          >
+          <button type="button" className="login-btn" onClick={() => onNavigate?.("login")}>
             로그인 / 회원가입
           </button>
         )}
