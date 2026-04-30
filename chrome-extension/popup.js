@@ -1,4 +1,4 @@
-const APP_URL = "https://real-estate-mvp.vercel.app";
+const APP_URL = "https://agentnote.co.kr";
 const NAVER_LAND_URL = "https://new.land.naver.com/";
 
 function isNaverLandUrl(url) {

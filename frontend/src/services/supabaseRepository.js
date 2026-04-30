@@ -1,5 +1,6 @@
 ﻿import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import { buildPriceSummary as buildDisplayPriceSummary } from "../utils/brochure";
+import { isHttpImageUrl, resizeImageFile } from "../utils/imageCompression";
 
 const BUCKET_NAME = "property-images";
 const STORAGE_KEYS = {
@@ -227,49 +228,73 @@ export async function deleteBrochure(id) {
   if (error) throw error;
 }
 
-function sanitizeStorageName(name = "image") {
-  return String(name)
-    .normalize("NFKC")
-    .replace(/[^\w.\-\uAC00-\uD7A3]/g, "_")
-    .replace(/_+/g, "_")
-    .slice(0, 80);
+function getPersistedImageUrl(image) {
+  if (!image) return "";
+  const value = typeof image === "string" ? image : image.url || "";
+  return isHttpImageUrl(value) ? value : "";
 }
 
-function getImageUrl(image) {
-  if (!image) return "";
-  if (typeof image === "string") return image;
-  return image.url || image.preview || "";
+function getDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return String(year) + month + day;
 }
 
-export async function uploadPropertyImage(image, folder = "properties") {
+function createRandomToken() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+  }
+  return Math.random().toString(36).slice(2, 12);
+}
+
+function createImageStoragePath(userId, extension = "webp") {
+  return userId + "/" + getDateKey() + "/" + Date.now() + "_" + createRandomToken() + "." + extension;
+}
+
+export function getPublicImageUrl(path) {
+  if (!path) return "";
+  if (isHttpImageUrl(path)) return path;
+  if (!isSupabaseConfigured || !supabase) return path;
+  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+  return data?.publicUrl || "";
+}
+
+export async function uploadPropertyImage(image) {
   if (!image) return "";
 
-  const existingUrl = getImageUrl(image);
+  const existingUrl = getPersistedImageUrl(image);
   const file = image.file || image;
 
-  if (!isSupabaseConfigured || !hasBrowserFile(file)) return existingUrl;
+  if (!isSupabaseConfigured || !supabase) return existingUrl;
+  if (!hasBrowserFile(file)) return existingUrl;
 
   const userId = await getCurrentUserId();
-  if (!userId) throw new Error("이미지 업로드는 로그인이 필요합니다.");
+  if (!userId || userId === "local-user") {
+    throw new Error("??? ???? ???? ?????.");
+  }
 
-  const name = file.name || "image.jpg";
-  const path = `${userId}/${folder}/${Date.now()}-${sanitizeStorageName(name)}`;
-  const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, file, {
-    cacheControl: "3600",
+  const optimizedFile = await resizeImageFile(file);
+  const extension = optimizedFile.type.includes("webp") ? "webp" : "jpg";
+  const path = createImageStoragePath(userId, extension);
+
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, optimizedFile, {
+    cacheControl: "31536000",
+    contentType: optimizedFile.type,
     upsert: false,
   });
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
-  return data?.publicUrl || "";
+  return getPublicImageUrl(path);
 }
 
 export async function savePropertyAndBrochure({ form, mainImage, extraImages, briefing }) {
-  const mainImageUrl = await uploadPropertyImage(mainImage, "main");
+  const uploadedMainImageUrl = await uploadPropertyImage(mainImage);
+  const mainImageUrl = isHttpImageUrl(uploadedMainImageUrl) ? uploadedMainImageUrl : "";
   const extraImageUrls = (
-    await Promise.all((extraImages || []).slice(0, 10).map((image) => uploadPropertyImage(image, "extra")))
-  ).filter(Boolean);
+    await Promise.all((extraImages || []).slice(0, 10).map((image) => uploadPropertyImage(image)))
+  ).filter(isHttpImageUrl);
 
   const priceSummary = buildDisplayPriceSummary(form);
   const title = form.title || "무제 소개서";

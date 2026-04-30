@@ -2,6 +2,9 @@
 import { useAuth } from "../auth/AuthContext";
 import { savePropertyAndBrochure } from "../services/supabaseRepository";
 import { buildBriefing, buildPriceSummary, buildPriceWarning, getPriceStatus } from "../utils/brochure";
+import { IMAGE_UPLOAD_LIMITS, formatBytes, validateImageFile } from "../utils/imageCompression";
+
+const IMAGE_ACCEPT = IMAGE_UPLOAD_LIMITS.allowedTypes.join(",");
 
 const QUICK_DESC_TAGS = [
   "역세권",
@@ -27,14 +30,57 @@ function getImageName(image, index) {
 function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, setExtraImages, setResult, onCreated }) {
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [imageNotice, setImageNotice] = useState("");
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleMainImageChange = (files) => {
+    const selected = files?.[0] || null;
+    if (!selected) {
+      setMainImage(null);
+      setImageNotice("");
+      return;
+    }
+
+    const validation = validateImageFile(selected);
+    if (!validation.valid) {
+      setImageNotice(validation.message);
+      return;
+    }
+
+    setMainImage(selected);
+    setImageNotice("대표사진은 저장 시 " + IMAGE_UPLOAD_LIMITS.maxDimension + "px 기준으로 자동 압축됩니다.");
+  };
+
   const handleExtraImagesChange = (files) => {
-    const selected = Array.from(files || []).slice(0, 10);
-    setExtraImages((prev) => [...prev, ...selected].slice(0, 10));
+    const selected = Array.from(files || []);
+    if (!selected.length) return;
+
+    const availableSlots = Math.max(0, IMAGE_UPLOAD_LIMITS.maxExtraImages - extraImages.length);
+    if (availableSlots === 0) {
+      setImageNotice("추가사진은 최대 " + IMAGE_UPLOAD_LIMITS.maxExtraImages + "장까지만 등록할 수 있습니다.");
+      return;
+    }
+
+    const accepted = [];
+    const rejected = [];
+    selected.forEach((file) => {
+      const validation = validateImageFile(file);
+      if (!validation.valid) rejected.push(file.name + ": " + validation.message);
+      else if (accepted.length < availableSlots) accepted.push(file);
+    });
+
+    if (accepted.length) {
+      setExtraImages((prev) => [...prev, ...accepted].slice(0, IMAGE_UPLOAD_LIMITS.maxExtraImages));
+    }
+
+    const messages = [];
+    if (accepted.length) messages.push(accepted.length + "장을 추가했습니다. 저장 시 자동 압축됩니다.");
+    if (selected.length > availableSlots) messages.push("남은 " + availableSlots + "장만 추가했습니다.");
+    if (rejected.length) messages.push(rejected[0]);
+    setImageNotice(messages.join(" "));
   };
 
   const removeExtraImage = (index) => {
@@ -143,7 +189,7 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
 
         <div className="upload-grid">
           <label className="upload-box">
-            <input type="file" accept="image/*" onChange={(event) => setMainImage(event.target.files?.[0] || null)} />
+            <input type="file" accept={IMAGE_ACCEPT} onChange={(event) => handleMainImageChange(event.target.files)} />
             <span>
               <strong className="upload-title">대표사진</strong>
               <small>소개서 상단에 크게 표시됩니다.</small>
@@ -152,7 +198,7 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
           </label>
 
           <label className="upload-box">
-            <input type="file" accept="image/*" multiple onChange={(event) => handleExtraImagesChange(event.target.files)} />
+            <input type="file" accept={IMAGE_ACCEPT} multiple onChange={(event) => handleExtraImagesChange(event.target.files)} />
             <span>
               <strong className="upload-title">추가사진</strong>
               <small>최대 10장까지 정리합니다.</small>
@@ -160,6 +206,12 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
             <em className="upload-meta">현재 {extraImages.length}장</em>
           </label>
         </div>
+
+        <p className="image-upload-note">
+          대표사진 1장, 추가사진 최대 {IMAGE_UPLOAD_LIMITS.maxExtraImages}장까지 등록할 수 있습니다. 원본 1장당 {formatBytes(IMAGE_UPLOAD_LIMITS.maxOriginalBytes)} 이하 이미지만 가능하며,
+          저장 시 긴 변 {IMAGE_UPLOAD_LIMITS.maxDimension}px 기준으로 자동 압축됩니다. DB에는 이미지 본문이 아니라 Storage URL만 저장됩니다.
+        </p>
+        {imageNotice && <div className="warning-strip image-notice">{imageNotice}</div>}
 
         {extraImages.length > 0 && (
           <div className="extra-image-list">

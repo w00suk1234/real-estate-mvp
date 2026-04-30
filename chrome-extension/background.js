@@ -1,4 +1,4 @@
-const APP_URL = "https://real-estate-mvp.vercel.app";
+const APP_URL = "https://agentnote.co.kr";
 
 function makeCompactSnapshot(snapshot) {
   return {
@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.error(err);
       sendResponse({
         ok: false,
-        error: err?.message || "업무툴로 매물 정보를 보내지 못했습니다.",
+        error: err?.message || "???? ?? ??? ??? ?????.",
       });
     });
 
