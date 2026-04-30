@@ -208,7 +208,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 
       await downloadElementAsPdf(pdfRef.current, buildPdfFileName(form));
     } catch (error) {
-      alert(error.message || "PDF ?ㅼ슫濡쒕뱶 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.");
+      alert(error.message || "PDF 다운로드 중 오류가 발생했습니다.");
     } finally {
       setPdfLoading(false);
     }

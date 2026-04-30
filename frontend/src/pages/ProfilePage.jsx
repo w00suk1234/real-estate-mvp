@@ -3,8 +3,8 @@ import { useAuth } from "../auth/AuthContext";
 
 const defaultProfile = {
   office_name: "",
-  agent_name: "",
-  contact_phone: "",
+  manager_name: "",
+  phone: "",
   email: "",
 };
 
@@ -18,16 +18,16 @@ function ProfilePage() {
   useEffect(() => {
     setForm({
       office_name: user?.office_name || "",
-      agent_name: user?.agent_name || "",
-      contact_phone: user?.contact_phone || "",
+      manager_name: user?.manager_name || user?.agent_name || "",
+      phone: user?.phone || user?.contact_phone || "",
       email: user?.email || "",
     });
   }, [user]);
 
   const footerItems = [
     { label: "부동산 이름", value: form.office_name.trim() },
-    { label: "담당자명", value: form.agent_name.trim() },
-    { label: "연락처", value: form.contact_phone.trim() },
+    { label: "담당자명", value: form.manager_name.trim() },
+    { label: "연락처", value: form.phone.trim() },
     { label: "이메일", value: form.email.trim() },
   ].filter((item) => item.value);
 
@@ -44,13 +44,11 @@ function ProfilePage() {
     try {
       await updateProfile({
         office_name: form.office_name.trim(),
-        agent_name: form.agent_name.trim(),
-        contact_phone: form.contact_phone.trim(),
+        manager_name: form.manager_name.trim(),
+        phone: form.phone.trim(),
         email: form.email.trim(),
       });
-      setMessage(
-        "내 정보가 저장되었습니다. 이후 생성하는 소개서 하단에도 자동으로 반영됩니다.",
-      );
+      setMessage("내 정보가 저장되었습니다. 이후 생성되는 소개서 하단에 자동 반영됩니다.");
     } catch (submitError) {
       setError(submitError.message || "내 정보 저장 중 오류가 발생했습니다.");
     } finally {
@@ -63,10 +61,7 @@ function ProfilePage() {
       <section className="page-header-card">
         <span className="section-eyebrow">회원정보</span>
         <h1>내 정보 관리</h1>
-        <p>
-          부동산 이름, 담당자명, 연락처, 이메일은 소개서 하단 연락처 영역에 자동으로
-          표기됩니다.
-        </p>
+        <p>부동산 이름, 담당자명, 연락처, 이메일은 소개서 하단 연락처 영역에 자동으로 표시됩니다.</p>
       </section>
 
       <section className="profile-grid profile-grid-balanced">
@@ -74,7 +69,7 @@ function ProfilePage() {
           <div className="section-heading">
             <div>
               <span className="section-eyebrow">기본 정보 수정</span>
-              <h2>소개서에 반영될 회원 정보</h2>
+              <h2>소개서에 반영할 담당자 정보</h2>
             </div>
           </div>
 
@@ -91,8 +86,8 @@ function ProfilePage() {
             <label className="field span-2">
               <span>담당자명</span>
               <input
-                value={form.agent_name}
-                onChange={(event) => updateField("agent_name", event.target.value)}
+                value={form.manager_name}
+                onChange={(event) => updateField("manager_name", event.target.value)}
                 placeholder="예: 김중개"
               />
             </label>
@@ -100,8 +95,8 @@ function ProfilePage() {
             <label className="field">
               <span>연락처</span>
               <input
-                value={form.contact_phone}
-                onChange={(event) => updateField("contact_phone", event.target.value)}
+                value={form.phone}
+                onChange={(event) => updateField("phone", event.target.value)}
                 placeholder="예: 010-1234-5678"
               />
             </label>
@@ -145,8 +140,7 @@ function ProfilePage() {
               ))
             ) : (
               <p className="empty-state">
-                아직 입력된 정보가 없습니다. 필요한 항목만 입력하면 소개서 하단에
-                자동으로 노출됩니다.
+                입력된 정보가 아직 없습니다. 필요한 항목만 입력하면 소개서 하단에 자동으로 표시됩니다.
               </p>
             )}
           </div>

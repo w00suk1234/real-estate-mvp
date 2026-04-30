@@ -3,12 +3,12 @@ import icon1 from "../../assets/icon1.png";
 const primaryNavItems = [
   { key: "schedules", label: "일정관리", shortLabel: "일정" },
   { key: "customers", label: "고객관리", shortLabel: "고객" },
-  { key: "briefing", label: "소개서 작성", shortLabel: "소개서" },
+  { key: "briefing", label: "소개서 작성", shortLabel: "소개" },
 ];
 
 const secondaryNavItems = [
-  { key: "profile", label: "내 정보 관리", shortLabel: "내정보" },
-  { key: "calculators", label: "계산기", shortLabel: "계산기" },
+  { key: "profile", label: "내 정보 관리", shortLabel: "정보" },
+  { key: "calculators", label: "계산기", shortLabel: "계산" },
   { key: "photo-editor", label: "사진 편집기", shortLabel: "사진" },
   { key: "address-hub", label: "주소 / 지번 허브", shortLabel: "주소" },
 ];
@@ -28,7 +28,7 @@ function Sidebar({ page, onNavigate, onResetBriefing }) {
         </span>
       </button>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="주요 메뉴">
         <div className="sidebar-nav-group">
           {primaryNavItems.map((item) => (
             <button

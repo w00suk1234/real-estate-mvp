@@ -3008,3 +3008,621 @@ h4 {
     padding: 8px;
   }
 }
+
+/* Final UI polish */
+.page-stack {
+  width: min(100%, 1320px);
+  margin: 0 auto;
+}
+
+.page-narrow {
+  width: min(100%, 980px);
+}
+
+.page-header-card,
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 16px 42px rgba(15, 38, 72, 0.08);
+}
+
+.page-header-card {
+  padding: 24px 28px;
+}
+
+.page-header-card h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(1.8rem, 2.4vw, 2.7rem);
+  letter-spacing: 0;
+}
+
+.page-header-card p,
+.panel p,
+.section-heading p {
+  color: var(--muted);
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.compact-heading {
+  align-items: center;
+}
+
+.section-heading h2 {
+  margin: 4px 0 4px;
+}
+
+.inline-message {
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  padding: 12px 14px;
+  font-weight: 700;
+}
+
+.empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 18px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.compact-empty {
+  padding: 14px;
+  font-size: 0.9rem;
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.tool-card,
+.address-hub-card,
+.editor-preview-card {
+  min-height: 100%;
+}
+
+.primary-btn,
+.secondary-btn,
+.outline-btn,
+.danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border-radius: 13px;
+  border: 1px solid transparent;
+  padding: 0 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #073b7a, #075fc8);
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(7, 95, 200, 0.2);
+}
+
+.secondary-btn {
+  background: #eef5ff;
+  color: #07519f;
+  border-color: #cfe1ff;
+}
+
+.outline-btn {
+  background: #ffffff;
+  color: #0f2f5f;
+  border-color: #d6e1ef;
+}
+
+.danger-btn {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.small {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.86rem;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.field input,
+.field select,
+.field textarea,
+.customer-filter-grid input,
+.customer-filter-grid select,
+.schedule-month-control input {
+  width: 100%;
+  border: 1px solid #d6e1ef;
+  border-radius: 13px;
+  background: #f8fbff;
+  color: #051b3d;
+  font: inherit;
+  outline: none;
+}
+
+.field input,
+.field select,
+.customer-filter-grid input,
+.customer-filter-grid select,
+.schedule-month-control input {
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.field textarea {
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.customer-filter-grid input:focus,
+.customer-filter-grid select:focus,
+.schedule-month-control input:focus {
+  border-color: #0b66d5;
+  box-shadow: 0 0 0 4px rgba(11, 102, 213, 0.1);
+}
+
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.briefing-grid-v2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(380px, 0.82fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.briefing-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+@media (min-width: 1201px) {
+  .preview-card-wrap {
+    position: sticky;
+    top: 104px;
+  }
+}
+
+.customer-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.customer-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.4fr) repeat(3, minmax(120px, 0.7fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.customer-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.customer-card-item {
+  position: relative;
+  border: 1px solid #dde8f5;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 16px 16px 14px 20px;
+  overflow: hidden;
+}
+
+.customer-card-item::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: #cbd5e1;
+}
+
+.contract-strip-deposit::before {
+  background: #f59e0b;
+}
+
+.contract-strip-complete::before {
+  background: #16a34a;
+}
+
+.contract-strip-deleted::before {
+  background: #ef4444;
+}
+
+.customer-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.customer-card-head strong {
+  display: block;
+  font-size: 1.04rem;
+}
+
+.customer-card-head span:not(.status-badge) {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.status-badge,
+.schedule-type-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.status-default {
+  background: #eef2ff;
+  color: #334155;
+}
+
+.status-deposit {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-complete {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-deleted {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.customer-meta-grid {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 72px minmax(0, 1fr);
+  gap: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.customer-meta-grid span {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.customer-meta-grid p,
+.customer-note {
+  margin: 0;
+}
+
+.customer-note {
+  margin-top: 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 10px;
+  color: #475569;
+}
+
+.customer-compact-form,
+.schedule-form {
+  display: grid;
+  gap: 12px;
+}
+
+.compact-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 6px;
+}
+
+.pagination-page-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  border: 1px solid #d6e1ef;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.pagination-page-btn.active {
+  background: #073b7a;
+  color: #ffffff;
+  border-color: #073b7a;
+}
+
+.schedule-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.55fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.schedule-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.schedule-month-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.schedule-month-control input {
+  width: 150px;
+}
+
+.calendar-frame {
+  border: 1px solid #dce7f5;
+  border-radius: 18px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 8px;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 900;
+}
+
+.calendar-weekdays .is-weekend,
+.calendar-cell.is-weekend .calendar-day,
+.calendar-cell.is-holiday .calendar-day {
+  color: #dc2626;
+}
+
+.calendar-cell {
+  min-height: 112px;
+  border: 1px solid #dde8f5;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-cell.is-muted {
+  opacity: 0.5;
+  background: #f1f5f9;
+}
+
+.calendar-cell.is-today {
+  border-color: rgba(7, 59, 122, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(7, 59, 122, 0.25);
+}
+
+.calendar-cell.is-selected {
+  border-color: #0b66d5;
+  background: #eff6ff;
+}
+
+.calendar-day {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 900;
+}
+
+.calendar-holiday-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #dc2626;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.calendar-overflow {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.type-default {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.type-inflow {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.type-meeting {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.type-deposit {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.type-contract {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.type-balance {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.type-etc {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.selected-day-list,
+.mini-schedule-list {
+  display: grid;
+  gap: 10px;
+}
+
+.selected-day-item,
+.mini-schedule-item {
+  border: 1px solid #dde8f5;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.selected-day-item strong,
+.mini-schedule-item strong {
+  display: block;
+}
+
+.selected-day-item span,
+.mini-schedule-item span:not(.schedule-type-badge) {
+  display: block;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.selected-day-item p {
+  margin: 8px 0 0;
+  color: #475569;
+}
+
+.mini-schedule-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.schedule-lists-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.schedule-list-card h2 {
+  margin-top: 0;
+}
+
+@media (max-width: 1200px) {
+  .briefing-grid-v2,
+  .customer-layout,
+  .schedule-board,
+  .tool-grid,
+  .schedule-lists-grid,
+  .briefing-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-card-wrap {
+    position: static;
+  }
+}
+
+@media (max-width: 1024px) {
+  .page-stack {
+    width: 100%;
+  }
+
+  .customer-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calendar-cell {
+    min-height: 92px;
+  }
+}
+
+@media (max-width: 768px) {
+  .customer-filter-grid,
+  .customer-meta-grid,
+  .compact-select-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-month-control {
+    width: 100%;
+  }
+
+  .schedule-month-control input {
+    width: 100%;
+  }
+
+  .calendar-frame {
+    padding: 8px;
+  }
+
+  .calendar-weekdays,
+  .calendar-grid {
+    gap: 5px;
+  }
+
+  .calendar-cell {
+    min-height: 72px;
+    padding: 7px;
+  }
+
+  .schedule-type-badge {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

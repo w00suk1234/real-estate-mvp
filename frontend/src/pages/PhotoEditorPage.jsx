@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import PageShell from "../components/layout/PageShell";
 
-function PhotoEditorPage({ setPage }) {
+function PhotoEditorPage() {
   const canvasRef = useRef(null);
   const [imageSrc, setImageSrc] = useState(null);
   const [stampSrc, setStampSrc] = useState(null);
@@ -48,13 +47,7 @@ function PhotoEditorPage({ setPage }) {
       if (stampSrc) {
         const stampImage = new Image();
         stampImage.onload = () => {
-          ctx.drawImage(
-            stampImage,
-            canvas.width - 140,
-            canvas.height - 140,
-            100,
-            100
-          );
+          ctx.drawImage(stampImage, canvas.width - 140, canvas.height - 140, 100, 100);
         };
         stampImage.src = stampSrc;
       }
@@ -62,14 +55,14 @@ function PhotoEditorPage({ setPage }) {
     baseImage.src = imageSrc;
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
+  const handleImageUpload = (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
     setImageSrc(URL.createObjectURL(file));
   };
 
-  const handleStampUpload = (e) => {
-    const file = e.target.files?.[0];
+  const handleStampUpload = (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
     setStampSrc(URL.createObjectURL(file));
   };
@@ -85,83 +78,85 @@ function PhotoEditorPage({ setPage }) {
   };
 
   return (
-    <PageShell page="photo-editor" setPage={setPage}>
-      <div className="page-header">
-        <p className="page-badge">사진 편집기</p>
+    <div className="page-stack page-narrow">
+      <section className="page-header-card">
+        <span className="section-eyebrow">사진 편집기</span>
         <h1>사진 편집기</h1>
-        <p className="page-desc">밝기, 문구, 도장 합성 1차 버전</p>
-      </div>
+        <p>밝기, 문구, 도장 합성 1차 버전입니다.</p>
+      </section>
 
-      <div className="customer-grid">
-        <section className="panel">
+      <section className="tool-grid">
+        <div className="panel tool-card">
           <div className="panel-head">
             <h3>편집 옵션</h3>
-            <p>대표 이미지를 간단히 보정합니다.</p>
+            <p>대표 이미지를 간단히 보정하고 문구를 얹을 수 있습니다.</p>
           </div>
 
           <div className="form-box">
-            <div className="field">
-              <label>원본 이미지</label>
+            <label className="field">
+              <span>원본 이미지</span>
               <input type="file" accept="image/*" onChange={handleImageUpload} />
-            </div>
+            </label>
 
-            <div className="field">
-              <label>도장 이미지</label>
+            <label className="field">
+              <span>도장 이미지</span>
               <input type="file" accept="image/*" onChange={handleStampUpload} />
-            </div>
+            </label>
 
-            <div className="field">
-              <label>밝기 ({brightness}%)</label>
+            <label className="field">
+              <span>밝기 ({brightness}%)</span>
               <input
                 type="range"
                 min="50"
                 max="150"
                 value={brightness}
-                onChange={(e) => setBrightness(e.target.value)}
+                onChange={(event) => setBrightness(event.target.value)}
               />
-            </div>
+            </label>
 
-            <div className="field">
-              <label>문구</label>
+            <label className="field">
+              <span>문구</span>
               <input
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(event) => setText(event.target.value)}
                 placeholder="예: 추천 매물"
               />
-            </div>
+            </label>
 
-            <div className="field">
-              <label>문구 크기</label>
+            <label className="field">
+              <span>문구 크기</span>
               <input
                 type="range"
                 min="16"
                 max="48"
                 value={fontSize}
-                onChange={(e) => setFontSize(e.target.value)}
+                onChange={(event) => setFontSize(event.target.value)}
               />
-            </div>
+            </label>
 
-            <button className="cta-btn" type="button" onClick={handleDownload}>
+            <button className="primary-btn" type="button" onClick={handleDownload}>
               편집 이미지 저장
             </button>
           </div>
-        </section>
+        </div>
 
-        <section className="panel">
+        <div className="panel tool-card">
           <div className="panel-head">
             <h3>미리보기</h3>
             <p>간단한 편집 결과를 바로 확인합니다.</p>
           </div>
 
-          <canvas
-            ref={canvasRef}
-            width={700}
-            height={500}
-            className="editor-canvas"
-          />
-        </section>
-      </div>
-    </PageShell>
+          <div className="editor-preview-card">
+            <canvas
+              ref={canvasRef}
+              width={700}
+              height={500}
+              className="editor-canvas"
+            />
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
