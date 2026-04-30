@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import "../styles/auth.css";
 
@@ -52,10 +52,12 @@ function LoginPage({ setPage }) {
   return (
     <main className="auth-page">
       <section className="auth-card auth-card-wide">
-        <p className="auth-eyebrow">REAL ESTATE WORK APP</p>
+        <p className="auth-eyebrow">부동산 중개업무 통합툴</p>
         <h1>{isSignup ? "회원가입" : "로그인"}</h1>
         <p className="auth-copy">
-          일정, 고객, 소개서를 한 화면에서 관리할 수 있도록 기본 계정 정보를 설정해 주세요.
+          {isSignup
+            ? "기본 계정 정보를 입력하면 고객, 일정, 소개서 저장 기능을 사용할 수 있습니다."
+            : "계정으로 로그인하고 고객, 일정, 소개서 데이터를 관리하세요."}
         </p>
 
         <div className="auth-tabs">
@@ -168,12 +170,12 @@ function LoginPage({ setPage }) {
           {error ? <div className="auth-error">{error}</div> : null}
 
           <button className="auth-submit" type="submit" disabled={loading}>
-            {loading ? "처리 중..." : isSignup ? "가입하고 시작하기" : "로그인"}
+            {loading ? "처리 중..." : isSignup ? "가입하기" : "로그인"}
           </button>
         </form>
 
         <button className="auth-skip" type="button" onClick={() => setPage?.("calculators")}>
-          로그인 없이 계산기 먼저 둘러보기
+          로그인 없이 계산기 먼저 보기
         </button>
       </section>
     </main>

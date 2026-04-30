@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+﻿import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import { buildPriceSummary as buildDisplayPriceSummary } from "../utils/brochure";
 
 const BUCKET_NAME = "property-images";
@@ -43,6 +43,60 @@ function assertSupabase() {
   }
 }
 
+export async function getProfile() {
+  if (!isSupabaseConfigured) {
+    try {
+      return JSON.parse(localStorage.getItem("auth_user") || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function upsertProfile(profile) {
+  if (!isSupabaseConfigured) {
+    const saved = JSON.parse(localStorage.getItem("auth_user") || "{}");
+    const next = { ...saved, ...profile };
+    localStorage.setItem("auth_user", JSON.stringify(next));
+    return next;
+  }
+
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("로그인이 필요합니다.");
+
+  const payload = stripEmpty({
+    id: userId,
+    username: profile.username,
+    office_name: profile.office_name,
+    manager_name: profile.manager_name,
+    phone: profile.phone,
+    email: profile.email,
+    role: profile.role || "user",
+    privacy_agreed: profile.privacy_agreed,
+    updated_at: new Date().toISOString(),
+  });
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .upsert(payload, { onConflict: "id" })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
 export async function getCurrentUserId() {
   if (!isSupabaseConfigured || !supabase) return "local-user";
   const { data } = await supabase.auth.getUser();
@@ -274,3 +328,4 @@ export async function savePropertyAndBrochure({ form, mainImage, extraImages, br
   if (brochureError) throw brochureError;
   return { ...brochure, ...payload, property_id: property.id, price: priceSummary };
 }
+

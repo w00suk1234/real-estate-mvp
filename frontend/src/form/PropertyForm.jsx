@@ -1,12 +1,7 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { savePropertyAndBrochure } from "../services/supabaseRepository";
-import {
-  buildBriefing,
-  buildPriceSummary,
-  buildPriceWarning,
-  getPriceStatus,
-} from "../utils/brochure";
+import { buildBriefing, buildPriceSummary, buildPriceWarning, getPriceStatus } from "../utils/brochure";
 
 const QUICK_DESC_TAGS = [
   "역세권",
@@ -24,20 +19,12 @@ function isImportedImage(image) {
 }
 
 function getImageName(image, index) {
+  if (!image) return "";
   if (isImportedImage(image)) return image.name || `가져온 이미지 ${index + 1}`;
-  return image?.name || `추가 사진 ${index + 1}`;
+  return image.name || `추가 사진 ${index + 1}`;
 }
 
-function PropertyForm({
-  form,
-  setForm,
-  mainImage,
-  setMainImage,
-  extraImages,
-  setExtraImages,
-  setResult,
-  onCreated,
-}) {
+function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, setExtraImages, setResult, onCreated }) {
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -51,16 +38,17 @@ function PropertyForm({
   };
 
   const removeExtraImage = (index) => {
-    setExtraImages((prev) => prev.filter((_, idx) => idx !== index));
+    setExtraImages((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
   const moveExtraImageToMain = (index) => {
-    if (!extraImages[index]) return;
-    const nextMain = extraImages[index];
-    const nextExtras = extraImages.filter((_, idx) => idx !== index);
-    if (mainImage) nextExtras.unshift(mainImage);
-    setMainImage(nextMain);
-    setExtraImages(nextExtras.slice(0, 10));
+    setExtraImages((prev) => {
+      const next = [...prev];
+      const [selected] = next.splice(index, 1);
+      if (mainImage) next.unshift(mainImage);
+      setMainImage(selected);
+      return next.slice(0, 10);
+    });
   };
 
   const appendQuickTag = (tag) => {
@@ -71,22 +59,14 @@ function PropertyForm({
   };
 
   const saveDefaults = () => {
-    const payload = {
+    const defaults = {
+      template: form.template,
       deal_type: form.deal_type,
-      template_type: form.template_type,
-      price_unit: form.price_unit,
+      unit: form.unit,
       supply_area_unit: form.supply_area_unit,
       exclusive_area_unit: form.exclusive_area_unit,
-      elevator: form.elevator,
-      parking_type: form.parking_type,
-      hvac: form.hvac,
-      sign_allowed: form.sign_allowed,
-      contact_name: form.contact_name,
-      contact_phone: form.contact_phone,
-      office_name: form.office_name,
-      contact_email: form.contact_email,
     };
-    localStorage.setItem("briefing_default_settings", JSON.stringify(payload));
+    localStorage.setItem("briefing_default_settings", JSON.stringify(defaults));
     alert("기본 설정을 저장했습니다.");
   };
 
@@ -96,19 +76,12 @@ function PropertyForm({
   };
 
   const priceStatus = useMemo(() => getPriceStatus(form), [form]);
-  const pricePreview = useMemo(
-    () => buildPriceSummary({ ...form, price_status: priceStatus }),
-    [form, priceStatus],
-  );
-  const priceWarning = useMemo(
-    () => buildPriceWarning({ ...form, price_status: priceStatus }),
-    [form, priceStatus],
-  );
+  const pricePreview = useMemo(() => buildPriceSummary({ ...form, price_status: priceStatus }), [form, priceStatus]);
+  const priceWarning = useMemo(() => buildPriceWarning({ ...form, price_status: priceStatus }), [form, priceStatus]);
   const briefing = useMemo(() => buildBriefing({ ...form, price_status: priceStatus }), [form, priceStatus]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     if (!isAuthenticated) {
       alert("소개서를 저장하려면 먼저 로그인해 주세요.");
       return;
@@ -117,13 +90,7 @@ function PropertyForm({
     try {
       setLoading(true);
       const payload = { ...form, price_status: priceStatus };
-      const saved = await savePropertyAndBrochure({
-        form: payload,
-        mainImage,
-        extraImages,
-        briefing,
-      });
-
+      const saved = await savePropertyAndBrochure({ form: payload, mainImage, extraImages, briefing });
       setResult({
         success: true,
         message: "소개서가 저장되었습니다.",
@@ -142,19 +109,20 @@ function PropertyForm({
   };
 
   return (
-    <section className="surface-card">
+    <section className="surface-card property-form-card compact-form-card">
       <div className="panel-head">
+        <p className="section-eyebrow">매물 브리핑 입력</p>
         <h3>매물 정보 입력</h3>
-        <p>사무실 / 상가 소개서에 필요한 핵심 정보를 정리하고, 고객용 브리핑 형태로 저장합니다.</p>
+        <p>고객에게 전달할 사무실 / 상가 정보를 빠르게 정리합니다.</p>
       </div>
 
-      <form className="profile-form" onSubmit={handleSubmit}>
-        <div className="field-grid two">
+      <form className="profile-form property-form-density" onSubmit={handleSubmit}>
+        <div className="field-grid">
           <label className="field">
             <span>소개서 템플릿</span>
-            <select value={form.template_type} onChange={(event) => updateField("template_type", event.target.value)}>
+            <select value={form.template} onChange={(event) => updateField("template", event.target.value)}>
               <option value="1page">1페이지형</option>
-              <option value="2page">2페이지형</option>
+              <option value="detail">상세형</option>
             </select>
           </label>
 
@@ -168,61 +136,56 @@ function PropertyForm({
           </label>
         </div>
 
-        <div className="field-grid two">
-          <button type="button" className="secondary-btn" onClick={saveDefaults}>
-            기본 설정 저장
-          </button>
-          <button type="button" className="secondary-btn" onClick={resetDefaults}>
-            기본 설정 삭제
-          </button>
+        <div className="compact-action-grid">
+          <button type="button" className="secondary-btn" onClick={saveDefaults}>기본 설정 저장</button>
+          <button type="button" className="secondary-btn" onClick={resetDefaults}>기본 설정 삭제</button>
         </div>
 
-        <label className="field">
-          <span>대표사진</span>
-          <input type="file" accept="image/*" onChange={(event) => setMainImage(event.target.files?.[0] || null)} />
-          {isImportedImage(mainImage) ? <small className="helper-text">네이버에서 가져온 대표사진을 사용 중입니다.</small> : null}
-        </label>
+        <div className="upload-grid">
+          <label className="upload-box">
+            <input type="file" accept="image/*" onChange={(event) => setMainImage(event.target.files?.[0] || null)} />
+            <span>
+              <strong className="upload-title">대표사진</strong>
+              <small>소개서 상단에 크게 표시됩니다.</small>
+            </span>
+            <em className="upload-meta">{mainImage ? getImageName(mainImage, 0) : "이미지 선택"}</em>
+          </label>
 
-        <label className="field">
-          <span>추가 사진 (최대 10장)</span>
-          <input type="file" accept="image/*" multiple onChange={(event) => handleExtraImagesChange(event.target.files)} />
-          <small className="helper-text">현재 선택: {extraImages.length}장</small>
-        </label>
+          <label className="upload-box">
+            <input type="file" accept="image/*" multiple onChange={(event) => handleExtraImagesChange(event.target.files)} />
+            <span>
+              <strong className="upload-title">추가사진</strong>
+              <small>최대 10장까지 정리합니다.</small>
+            </span>
+            <em className="upload-meta">현재 {extraImages.length}장</em>
+          </label>
+        </div>
 
-        {extraImages.length > 0 ? (
-          <div className="extra-manage-box">
+        {extraImages.length > 0 && (
+          <div className="extra-image-list">
             {extraImages.map((image, index) => (
-              <div className="extra-manage-item" key={`${getImageName(image, index)}-${index}`}>
-                <span className="extra-manage-name">{getImageName(image, index)}</span>
-                <div className="extra-manage-actions">
-                  <button type="button" className="secondary-btn small-btn" onClick={() => moveExtraImageToMain(index)}>
-                    대표로 지정
-                  </button>
-                  <button type="button" className="danger-btn small-btn" onClick={() => removeExtraImage(index)}>
-                    삭제
-                  </button>
+              <div className="extra-image-row" key={`${getImageName(image, index)}-${index}`}>
+                <span>{getImageName(image, index)}</span>
+                <div>
+                  <button type="button" className="secondary-btn mini-btn" onClick={() => moveExtraImageToMain(index)}>대표로 지정</button>
+                  <button type="button" className="danger-btn mini-btn" onClick={() => removeExtraImage(index)}>삭제</button>
                 </div>
               </div>
             ))}
           </div>
-        ) : null}
+        )}
 
-        <label className="field">
+        <label className="field wide-field">
           <span>매물명</span>
-          <input
-            value={form.title}
-            onChange={(event) => updateField("title", event.target.value)}
-            placeholder="예: 역삼역 도보 5분 소형 사무실"
-            required
-          />
+          <input value={form.title} onChange={(event) => updateField("title", event.target.value)} placeholder="예: 역삼역 도보 5분 소형 사무실" />
         </label>
 
-        <div className="field-grid two">
+        <div className="field-grid">
           <label className="field">
             <span>금액 단위</span>
-            <select value={form.price_unit} onChange={(event) => updateField("price_unit", event.target.value)}>
+            <select value={form.unit} onChange={(event) => updateField("unit", event.target.value)}>
               <option value="만원">만원</option>
-              <option value="원">원</option>
+              <option value="억원">억원</option>
             </select>
           </label>
 
@@ -232,72 +195,62 @@ function PropertyForm({
           </label>
         </div>
 
-        {priceWarning ? <div className="import-alert">{priceWarning}</div> : null}
+        {priceWarning && <div className="warning-strip">{priceWarning}</div>}
 
-        <div className={`field-grid ${form.deal_type === "월세" ? "four" : "three"}`}>
+        <div className="field-grid four-col-fields">
           <label className="field">
             <span>보증금</span>
             <input value={form.deposit} onChange={(event) => updateField("deposit", event.target.value)} placeholder="예: 1500" />
           </label>
-
-          {form.deal_type === "월세" ? (
-            <label className="field">
-              <span>월차임</span>
-              <input value={form.monthly_rent} onChange={(event) => updateField("monthly_rent", event.target.value)} placeholder="예: 100" />
-            </label>
-          ) : null}
-
+          <label className="field">
+            <span>월차임</span>
+            <input value={form.monthly_rent} onChange={(event) => updateField("monthly_rent", event.target.value)} placeholder="예: 100" />
+          </label>
           <label className="field">
             <span>관리비</span>
             <input value={form.maintenance_fee} onChange={(event) => updateField("maintenance_fee", event.target.value)} placeholder="예: 10" />
           </label>
-
           <label className="field">
             <span>권리금</span>
             <input value={form.premium} onChange={(event) => updateField("premium", event.target.value)} placeholder="예: 협의" />
           </label>
         </div>
 
-        <label className="field">
+        <label className="field wide-field">
           <span>주소</span>
-          <input
-            value={form.address}
-            onChange={(event) => updateField("address", event.target.value)}
-            placeholder="예: 서울시 강남구 역삼동 ..."
-            required
-          />
+          <input value={form.address} onChange={(event) => updateField("address", event.target.value)} placeholder="예: 서울시 강남구 역삼동 ..." />
         </label>
 
-        <div className="field-grid two">
+        <div className="field-grid area-grid">
           <label className="field">
             <span>공급면적</span>
-            <div className="inline-field">
-              <input value={form.supply_area} onChange={(event) => updateField("supply_area", event.target.value)} placeholder="예: 52.9" />
-              <select value={form.supply_area_unit} onChange={(event) => updateField("supply_area_unit", event.target.value)}>
-                <option value="㎡">㎡</option>
-                <option value="평">평</option>
-              </select>
-            </div>
+            <input value={form.supply_area} onChange={(event) => updateField("supply_area", event.target.value)} placeholder="예: 52.9" />
           </label>
-
+          <label className="field small-select-field">
+            <span>단위</span>
+            <select value={form.supply_area_unit} onChange={(event) => updateField("supply_area_unit", event.target.value)}>
+              <option value="㎡">㎡</option>
+              <option value="평">평</option>
+            </select>
+          </label>
           <label className="field">
             <span>전용면적</span>
-            <div className="inline-field">
-              <input value={form.exclusive_area} onChange={(event) => updateField("exclusive_area", event.target.value)} placeholder="예: 39.7" />
-              <select value={form.exclusive_area_unit} onChange={(event) => updateField("exclusive_area_unit", event.target.value)}>
-                <option value="㎡">㎡</option>
-                <option value="평">평</option>
-              </select>
-            </div>
+            <input value={form.exclusive_area} onChange={(event) => updateField("exclusive_area", event.target.value)} placeholder="예: 39.7" />
+          </label>
+          <label className="field small-select-field">
+            <span>단위</span>
+            <select value={form.exclusive_area_unit} onChange={(event) => updateField("exclusive_area_unit", event.target.value)}>
+              <option value="㎡">㎡</option>
+              <option value="평">평</option>
+            </select>
           </label>
         </div>
 
-        <div className="field-grid two">
+        <div className="field-grid">
           <label className="field">
             <span>층수</span>
-            <input value={form.floor} onChange={(event) => updateField("floor", event.target.value)} placeholder="예: 3층 / 2/5층" />
+            <input value={form.floor} onChange={(event) => updateField("floor", event.target.value)} placeholder="예: 3층/10층" />
           </label>
-
           <label className="field">
             <span>엘리베이터</span>
             <select value={form.elevator} onChange={(event) => updateField("elevator", event.target.value)}>
@@ -306,99 +259,74 @@ function PropertyForm({
               <option value="없음">없음</option>
             </select>
           </label>
-        </div>
-
-        <div className="field-grid two">
           <label className="field">
             <span>화장실 위치 / 형태</span>
             <input value={form.restroom_detail} onChange={(event) => updateField("restroom_detail", event.target.value)} placeholder="예: 내부 남녀분리 / 공용" />
           </label>
-
           <label className="field">
             <span>주차 가능 대수 / 조건</span>
             <input value={form.parking_count} onChange={(event) => updateField("parking_count", event.target.value)} placeholder="예: 1대 가능 / 협의" />
           </label>
-        </div>
-
-        <div className="field-grid two">
           <label className="field">
             <span>냉난방</span>
             <input value={form.hvac} onChange={(event) => updateField("hvac", event.target.value)} placeholder="예: 개별냉난방" />
           </label>
-
           <label className="field">
             <span>간판 가능 여부</span>
             <select value={form.sign_allowed} onChange={(event) => updateField("sign_allowed", event.target.value)}>
               <option value="">선택</option>
               <option value="가능">가능</option>
-              <option value="불가">불가</option>
               <option value="협의">협의</option>
+              <option value="불가">불가</option>
             </select>
           </label>
-        </div>
-
-        <div className="field-grid two">
           <label className="field">
             <span>입주 가능일</span>
             <input value={form.move_in_date} onChange={(event) => updateField("move_in_date", event.target.value)} placeholder="예: 즉시입주 / 협의 가능" />
           </label>
-
           <label className="field">
             <span>관리비 포함 항목</span>
             <input value={form.admin_fee_includes} onChange={(event) => updateField("admin_fee_includes", event.target.value)} placeholder="예: 전기, 수도 별도 / 인터넷 포함" />
           </label>
         </div>
 
-        <div className="field-grid two">
+        <div className="field-grid">
           <label className="field">
             <span>추천 업종</span>
             <input value={form.recommended_use} onChange={(event) => updateField("recommended_use", event.target.value)} placeholder="예: 소형 사무실 / 예약제 업종" />
           </label>
-
           <label className="field">
             <span>특이사항 / 확인 필요</span>
             <input value={form.special_notes} onChange={(event) => updateField("special_notes", event.target.value)} placeholder="예: 권리금 협의 / 업종 제한 확인 필요" />
           </label>
         </div>
 
-        <label className="field">
+        <label className="field wide-field">
           <span>상세 설명</span>
-          <textarea
-            rows="5"
-            value={form.description}
-            onChange={(event) => updateField("description", event.target.value)}
-            placeholder="매물 특징, 입지, 내부 상태, 추천 포인트를 적어주세요."
-          />
+          <textarea value={form.description} onChange={(event) => updateField("description", event.target.value)} placeholder="매물 특징, 입지, 내부 상태, 추천 포인트를 적어주세요." />
         </label>
 
-        <div className="chip-row">
+        <div className="tag-row compact-tags">
           {QUICK_DESC_TAGS.map((tag) => (
-            <button key={tag} type="button" className="chip-btn" onClick={() => appendQuickTag(tag)}>
-              {tag}
-            </button>
+            <button type="button" key={tag} onClick={() => appendQuickTag(tag)}>{tag}</button>
           ))}
         </div>
 
-        <div className="field-grid two">
+        <div className="field-grid">
           <label className="field">
             <span>담당자명</span>
             <input value={form.contact_name} onChange={(event) => updateField("contact_name", event.target.value)} placeholder="예: 김중개" />
           </label>
-
           <label className="field">
             <span>연락처</span>
             <input value={form.contact_phone} onChange={(event) => updateField("contact_phone", event.target.value)} placeholder="예: 010-1234-5678" />
           </label>
         </div>
 
-        <div className="helper-text">
-          부동산 이름과 이메일은 <strong>내 정보 관리</strong> 값이 소개서 하단에 자동 표기됩니다.
-        </div>
+        <p className="form-helper-text">부동산 이름과 이메일은 내 정보 관리 값이 소개서 하단에 자동 표기됩니다.</p>
 
         <div className="form-actions">
-          <button className="primary-btn" type="submit" disabled={loading}>
-            {loading ? "소개서 저장 중..." : "소개서 생성"}
-          </button>
+          <button type="submit" className="primary-btn" disabled={loading}>{loading ? "저장 중..." : "소개서 생성"}</button>
         </div>
       </form>
     </section>

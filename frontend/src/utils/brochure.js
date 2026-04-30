@@ -1,4 +1,4 @@
-const HIDDEN_VALUES = new Set([
+﻿const HIDDEN_VALUES = new Set([
   "",
   "-",
   "-/-",
@@ -8,7 +8,7 @@ const HIDDEN_VALUES = new Set([
   "undefined",
   "nan",
   "n/a",
-  "예:",
+  "??",
 ]);
 
 const CONTAIN_IMAGE_TOKENS = ["평면", "도면", "floorplan", "plan", "layout", "blueprint"];
@@ -24,8 +24,10 @@ export function hasValue(value) {
 export function isMeaningfulText(value) {
   const text = normalizeText(value);
   if (!text) return false;
-  if (HIDDEN_VALUES.has(text.toLowerCase())) return false;
+  const lower = text.toLowerCase();
+  if (HIDDEN_VALUES.has(lower)) return false;
   if (text.startsWith("예:")) return false;
+  if (/^(선택|없음|-|-\s*\/\s*-)$/.test(text)) return false;
   return true;
 }
 
@@ -34,16 +36,18 @@ export function compactDisplayValue(value) {
 }
 
 export function cleanNumber(value) {
-  const match = String(value ?? "").match(/[\d,.]+/);
-  return match ? match[0].replaceAll(",", "") : "";
+  const text = normalizeText(value).replace(/[,]/g, "");
+  const match = text.match(/\d+(?:\.\d+)?/);
+  return match ? match[0] : "";
 }
 
 export function formatAmount(value, unit = "만원") {
   const numeric = cleanNumber(value);
   if (!numeric) return "";
   const [integerPart, decimalPart] = numeric.split(".");
-  const formatted = Number(integerPart).toLocaleString("ko-KR");
-  return decimalPart ? `${formatted}.${decimalPart}${unit}` : `${formatted}${unit}`;
+  const number = Number(integerPart);
+  if (Number.isNaN(number)) return "";
+  return decimalPart ? `${number.toLocaleString("ko-KR")}.${decimalPart}${unit}` : `${number.toLocaleString("ko-KR")}${unit}`;
 }
 
 export function getPriceStatus(form) {
@@ -104,8 +108,8 @@ export function buildPriceSummary(form) {
 export function buildPriceWarning(form) {
   const status = form.price_status || getPriceStatus(form);
   if (status === "ok") return "";
-  if (status === "partial") return "보증금 또는 월차임이 일부만 확인되었습니다. 실제 계약 조건을 다시 확인해 주세요.";
-  if (status === "manual_required") return "가격을 정확히 읽지 못했습니다. 보증금, 월차임, 권리금은 직접 확인해 주세요.";
+  if (status === "partial") return "보증금 또는 월차임 일부만 확인되었습니다. 실제 계약 조건을 다시 확인해 주세요.";
+  if (status === "manual_required") return "가격을 정확히 읽지 못했습니다. 보증금, 월차임, 권리금을 직접 확인해 주세요.";
   return "가격을 정확히 읽지 못했습니다. 가격은 자동 반영하지 않았으니 직접 확인해 주세요.";
 }
 
@@ -211,10 +215,10 @@ export function buildCheckItems(form) {
   const items = [];
   const priceStatus = form.price_status || getPriceStatus(form);
 
-  if (priceStatus !== "ok") items.push("정확한 보증금/월차임");
+  if (priceStatus !== "ok") items.push("정확한 보증금과 월차임");
   if (!compactDisplayValue(form.admin_fee_includes)) items.push("관리비 포함 항목");
   if (!compactDisplayValue(form.parking_count)) items.push("주차 가능 대수");
-  if (!buildRestroomText(form)) items.push("화장실 위치/형태");
+  if (!buildRestroomText(form)) items.push("화장실 위치와 형태");
   if (!compactDisplayValue(form.recommended_use)) items.push("추천 업종 또는 업종 제한 여부");
 
   if (compactDisplayValue(form.special_notes)) {
@@ -255,7 +259,7 @@ export function resolveImageSource(image) {
   if (typeof image === "string") return image;
   if (image.url) return image.url;
   if (image.preview) return image.preview;
-  if (image instanceof Blob || image instanceof File) return URL.createObjectURL(image);
+  if (typeof Blob !== "undefined" && image instanceof Blob) return URL.createObjectURL(image);
   return "";
 }
 

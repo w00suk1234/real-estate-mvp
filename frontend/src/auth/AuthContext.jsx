@@ -1,159 +1,97 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  apiFetch,
-  clearAuthSession,
-  getAuthToken,
-  getStoredUser,
-  setAuthSession,
-} from "../api";
+﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../api";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { getProfile, upsertProfile } from "../services/supabaseRepository";
 
 const AuthContext = createContext(null);
 
-function toAuthEmail(identifier = "") {
-  const value = identifier.trim();
-  if (!value) return "";
-  return value.includes("@") ? value : `${value}@real-estate.local`;
+function toAuthEmail(usernameOrEmail) {
+  const value = String(usernameOrEmail || "").trim();
+  if (value.includes("@")) return value;
+  return `${value || "user"}@agentnote.local`;
 }
 
-function profileFromUser(authUser, profile = {}) {
-  const metadata = authUser?.user_metadata || {};
+function normalizeUser(sessionUser, profile = {}) {
+  if (!sessionUser && !profile) return null;
+  const meta = sessionUser?.user_metadata || {};
   return {
-    id: authUser?.id,
-    username: profile.username || metadata.username || authUser?.email?.split("@")[0] || "",
-    role: profile.role || metadata.role || "user",
-    office_name: profile.office_name || metadata.office_name || "",
-    manager_name: profile.manager_name || metadata.manager_name || "",
-    phone: profile.phone || metadata.phone || "",
-    email: profile.email || metadata.contact_email || authUser?.email || "",
-    privacy_agreed: Boolean(profile.privacy_agreed ?? metadata.privacy_agreed),
+    id: sessionUser?.id || profile?.id,
+    username: profile?.username || meta.username || sessionUser?.email || "",
+    email: profile?.email || sessionUser?.email || meta.email || "",
+    role: profile?.role || meta.role || "user",
+    office_name: profile?.office_name || meta.office_name || "",
+    manager_name: profile?.manager_name || meta.manager_name || "",
+    phone: profile?.phone || meta.phone || "",
+    privacy_agreed: Boolean(profile?.privacy_agreed ?? meta.privacy_agreed),
   };
 }
 
-async function fetchSupabaseProfile(authUser) {
-  if (!supabase || !authUser?.id) return profileFromUser(authUser);
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", authUser.id)
-    .maybeSingle();
-
-  if (error) {
-    console.warn(error);
-    return profileFromUser(authUser);
-  }
-
-  return profileFromUser(authUser, data || {});
-}
-
-export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => getAuthToken());
-  const [user, setUser] = useState(() => getStoredUser());
+function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const logout = async () => {
-    if (isSupabaseConfigured && supabase) {
-      await supabase.auth.signOut();
+  const hydrateSupabaseUser = async (sessionUser) => {
+    if (!sessionUser) {
+      setUser(null);
+      return;
     }
-    clearAuthSession();
-    setToken(null);
-    setUser(null);
+
+    let profile = null;
+    try {
+      profile = await getProfile();
+    } catch {
+      profile = null;
+    }
+    setUser(normalizeUser(sessionUser, profile));
   };
 
   useEffect(() => {
-    const handleUnauthorized = () => logout();
-    window.addEventListener("auth:unauthorized", handleUnauthorized);
-    return () => window.removeEventListener("auth:unauthorized", handleUnauthorized);
-  }, []);
+    let mounted = true;
 
-  useEffect(() => {
-    if (isSupabaseConfigured && supabase) {
-      let mounted = true;
-
-      supabase.auth.getSession().then(async ({ data }) => {
-        if (!mounted) return;
-        const session = data?.session;
-        if (!session?.user) {
-          clearAuthSession();
-          setToken(null);
-          setUser(null);
-          setLoading(false);
-          return;
+    async function boot() {
+      try {
+        if (isSupabaseConfigured) {
+          const { data } = await supabase.auth.getSession();
+          if (mounted) await hydrateSupabaseUser(data.session?.user || null);
+        } else {
+          const saved = localStorage.getItem("auth_user");
+          if (mounted) setUser(saved ? JSON.parse(saved) : null);
         }
-
-        const profile = await fetchSupabaseProfile(session.user);
-        setAuthSession(session.access_token, profile);
-        setToken(session.access_token);
-        setUser(profile);
-        setLoading(false);
-      });
-
-      const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (!mounted) return;
-        if (!session?.user) {
-          clearAuthSession();
-          setToken(null);
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
-        const profile = await fetchSupabaseProfile(session.user);
-        setAuthSession(session.access_token, profile);
-        setToken(session.access_token);
-        setUser(profile);
-        setLoading(false);
-      });
-
-      return () => {
-        mounted = false;
-        subscription?.subscription?.unsubscribe();
-      };
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
-    const checkLegacySession = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+    boot();
 
-      try {
-        const data = await apiFetch("/auth/me");
-        setUser(data.user);
-      } catch {
-        await logout();
-      } finally {
-        setLoading(false);
-      }
+    if (!isSupabaseConfigured) return () => { mounted = false; };
+
+    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      await hydrateSupabaseUser(session?.user || null);
+    });
+
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
     };
-
-    checkLegacySession();
   }, []);
 
   const login = async ({ username, password }) => {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: toAuthEmail(username),
         password,
       });
-
       if (error) throw error;
-      const profile = await fetchSupabaseProfile(data.user);
-      setAuthSession(data.session.access_token, profile);
-      setToken(data.session.access_token);
-      setUser(profile);
-      return profile;
+      await hydrateSupabaseUser(data.user);
+      return normalizeUser(data.user);
     }
 
     const data = await apiFetch("/auth/login", {
-      auth: false,
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
-
-    setAuthSession(data.access_token, data.user);
-    setToken(data.access_token);
+    localStorage.setItem("auth_user", JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
   };
@@ -163,111 +101,89 @@ export function AuthProvider({ children }) {
       throw new Error("개인정보 수집 및 이용 동의가 필요합니다.");
     }
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       const email = toAuthEmail(payload.email || payload.username);
-      const metadata = {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: payload.password,
+        options: {
+          data: {
+            username: payload.username,
+            office_name: payload.office_name,
+            manager_name: payload.manager_name,
+            phone: payload.phone,
+            email,
+            privacy_agreed: true,
+            role: "user",
+          },
+        },
+      });
+      if (error) throw error;
+      if (!data.session) {
+        throw new Error("가입이 완료되었습니다. 이메일 인증이 켜져 있다면 인증 후 로그인해 주세요.");
+      }
+      await upsertProfile({
         username: payload.username,
         office_name: payload.office_name,
         manager_name: payload.manager_name,
         phone: payload.phone,
-        contact_email: payload.email,
-        privacy_agreed: payload.privacy_agreed,
-        role: "user",
-      };
-
-      const { data, error } = await supabase.auth.signUp({
         email,
-        password: payload.password,
-        options: { data: metadata },
+        privacy_agreed: true,
       });
-
-      if (error) throw error;
-      if (!data.session) {
-        throw new Error("가입은 완료되었습니다. 이메일 인증이 켜져 있다면 인증 후 로그인해 주세요.");
-      }
-
-      const profile = await fetchSupabaseProfile(data.user);
-      setAuthSession(data.session.access_token, profile);
-      setToken(data.session.access_token);
-      setUser(profile);
-      return profile;
+      await hydrateSupabaseUser(data.user);
+      return normalizeUser(data.user);
     }
 
-    const data = await apiFetch("/auth/signup", {
-      auth: false,
+    return apiFetch("/auth/signup", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-
-    setAuthSession(data.access_token, data.user);
-    setToken(data.access_token);
-    setUser(data.user);
-    return data.user;
   };
 
   const updateProfile = async (payload) => {
-    if (isSupabaseConfigured && supabase) {
-      const { data: authData } = await supabase.auth.getUser();
-      const authUser = authData?.user;
-      if (!authUser) throw new Error("로그인이 필요합니다.");
-
-      const nextProfile = {
-        id: authUser.id,
-        username: user?.username || authUser.email?.split("@")[0] || "",
-        role: user?.role || "user",
-        office_name: payload.office_name || "",
-        manager_name: payload.manager_name || "",
-        phone: payload.phone || "",
-        email: payload.email || authUser.email || "",
-        privacy_agreed: user?.privacy_agreed ?? true,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .upsert(nextProfile)
-        .select()
-        .single();
-
-      if (error) throw error;
-      const normalized = profileFromUser(authUser, data);
-      setAuthSession(token || "", normalized);
-      setUser(normalized);
-      return normalized;
+    if (isSupabaseConfigured) {
+      const profile = await upsertProfile(payload);
+      const nextUser = { ...user, ...profile };
+      setUser(nextUser);
+      return nextUser;
     }
 
-    const data = await apiFetch("/auth/me", {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
+    if (!user) throw new Error("로그인이 필요합니다.");
+    const nextUser = { ...user, ...payload };
+    localStorage.setItem("auth_user", JSON.stringify(nextUser));
+    setUser(nextUser);
+    return nextUser;
+  };
 
-    setAuthSession(token, data.user);
-    setUser(data.user);
-    return data.user;
+  const logout = async () => {
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+    localStorage.removeItem("auth_user");
+    setUser(null);
   };
 
   const value = useMemo(
     () => ({
       user,
-      token,
       loading,
-      isAuthenticated: Boolean(user),
-      isAdmin: user?.role === "admin",
       login,
       signup,
       updateProfile,
       logout,
+      isAuthenticated: Boolean(user),
     }),
-    [user, token, loading],
+    [user, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+function useAuth() {
   const value = useContext(AuthContext);
-  if (!value) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
+  if (!value) throw new Error("useAuth must be used inside AuthProvider");
   return value;
 }
+
+export { AuthProvider, useAuth };
+
