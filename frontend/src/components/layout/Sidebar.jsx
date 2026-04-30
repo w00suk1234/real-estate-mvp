@@ -22,9 +22,9 @@ function Sidebar({ page, onNavigate, onResetBriefing }) {
 
   return (
     <aside className="sidebar">
-      <div className="brand-block" role="button" tabIndex={0} onClick={() => onNavigate?.("schedules")}>
-        <img className="brand-logo-img" src={icon1} alt="AgentNote" />
-        <div>
+      <div className="sidebar-brand" role="button" tabIndex={0} onClick={() => onNavigate?.("schedules")}>
+        <img className="sidebar-logo" src={icon1} alt="AgentNote" />
+        <div className="sidebar-brand-copy">
           <strong>AgentNote</strong>
           <span>부동산 중개업무 통합툴</span>
         </div>
