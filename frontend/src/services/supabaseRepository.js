@@ -9,6 +9,28 @@ const STORAGE_KEYS = {
   brochures: "real_estate_mvp_brochures",
 };
 
+const CUSTOMER_FIELDS = [
+  "name",
+  "phone",
+  "preferred_area",
+  "property_type",
+  "wanted_condition",
+  "contract_status",
+  "priority",
+  "inflow_date",
+  "memo",
+];
+
+const SCHEDULE_FIELDS = [
+  "title",
+  "customer_id",
+  "customer_name",
+  "schedule_date",
+  "schedule_time",
+  "schedule_type",
+  "note",
+];
+
 function readLocal(key) {
   try {
     return JSON.parse(localStorage.getItem(key) || "[]");
@@ -35,6 +57,14 @@ function hasBrowserFile(value) {
 function stripEmpty(payload) {
   return Object.fromEntries(
     Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
+}
+
+function pickFields(source, fields) {
+  return Object.fromEntries(
+    fields
+      .filter((field) => Object.prototype.hasOwnProperty.call(source, field))
+      .map((field) => [field, source[field]])
   );
 }
 
@@ -130,7 +160,13 @@ export async function saveCustomer(customer) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("로그인이 필요합니다.");
 
-  const payload = stripEmpty({ ...customer, user_id: userId });
+  const customerPayload = pickFields(customer, CUSTOMER_FIELDS);
+  const payload = stripEmpty({
+    ...customerPayload,
+    property_type: customerPayload.property_type || "사무실",
+    inflow_date: customerPayload.inflow_date || null,
+    user_id: userId,
+  });
   const query = supabase.from("customers");
   const { data, error } = customer.id
     ? await query.update(payload).eq("id", customer.id).select().single()
@@ -180,7 +216,13 @@ export async function saveSchedule(schedule) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("로그인이 필요합니다.");
 
-  const payload = stripEmpty({ ...schedule, user_id: userId });
+  const schedulePayload = pickFields(schedule, SCHEDULE_FIELDS);
+  const payload = stripEmpty({
+    ...schedulePayload,
+    schedule_date: schedulePayload.schedule_date || null,
+    schedule_time: schedulePayload.schedule_time || null,
+    user_id: userId,
+  });
   const query = supabase.from("schedules");
   const { data, error } = schedule.id
     ? await query.update(payload).eq("id", schedule.id).select().single()
@@ -208,6 +250,18 @@ export async function listBrochures() {
 
   const { data, error } = await supabase
     .from("brochures")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function listProperties() {
+  if (!isSupabaseConfigured) return readLocal(STORAGE_KEYS.brochures);
+
+  const { data, error } = await supabase
+    .from("properties")
     .select("*")
     .order("created_at", { ascending: false });
 
@@ -353,4 +407,3 @@ export async function savePropertyAndBrochure({ form, mainImage, extraImages, br
   if (brochureError) throw brochureError;
   return { ...brochure, ...payload, property_id: property.id, price: priceSummary };
 }
-

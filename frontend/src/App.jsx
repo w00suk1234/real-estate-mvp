@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import BriefingMakerPage from "./pages/BriefingMakerPage";
 import CustomersPage from "./pages/CustomersPage";
 import SchedulesPage from "./pages/SchedulesPage";
+import SettlementPage from "./pages/SettlementPage";
+import AIPropertyRecommendPage from "./pages/AIPropertyRecommendPage";
 import CalculatorsPage from "./pages/CalculatorsPage";
 import PhotoEditorPage from "./pages/PhotoEditorPage";
 import AddressHubPage from "./pages/AddressHubPage";
@@ -10,8 +12,19 @@ import ProfilePage from "./pages/ProfilePage";
 import PageShell from "./components/layout/PageShell";
 import { apiFetch } from "./api";
 import "./styles/theme.css";
+import "./styles/agentnote-ops.css";
 
 const NAVER_IMPORT_SNAPSHOT_KEY = "naver_import_snapshot";
+
+const PATH_PAGE_MAP = {
+  "/ai-recommend": "ai-recommend",
+  "/recommendations": "ai-recommend",
+};
+
+function getInitialPage() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("page") || PATH_PAGE_MAP[window.location.pathname] || "schedules";
+}
 
 function sanitizeSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== "object") return null;
@@ -100,7 +113,7 @@ async function fetchHandoffSnapshot(handoffId) {
 }
 
 function App() {
-  const [page, setPage] = useState("briefing");
+  const [page, setPage] = useState(getInitialPage);
   const [importUrl, setImportUrl] = useState("");
   const [importSnapshot, setImportSnapshot] = useState(null);
 
@@ -184,6 +197,8 @@ function App() {
 
   if (page === "customers") currentPage = <CustomersPage setPage={setPage} />;
   if (page === "schedules") currentPage = <SchedulesPage setPage={setPage} />;
+  if (page === "settlement") currentPage = <SettlementPage setPage={setPage} />;
+  if (page === "ai-recommend") currentPage = <AIPropertyRecommendPage setPage={setPage} />;
   if (page === "calculators") currentPage = <CalculatorsPage setPage={setPage} />;
   if (page === "photo-editor") currentPage = <PhotoEditorPage setPage={setPage} />;
   if (page === "address-hub") currentPage = <AddressHubPage setPage={setPage} />;

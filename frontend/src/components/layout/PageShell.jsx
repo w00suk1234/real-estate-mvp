@@ -1,8 +1,15 @@
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
+const PAGE_PATHS = {
+  "ai-recommend": "/ai-recommend",
+};
+
 function PageShell({ children, page, setPage }) {
   const handleNavigate = (nextPage) => {
+    const nextPath = PAGE_PATHS[nextPage];
+    if (nextPath) window.history.pushState({}, "", nextPath);
+    else if (window.location.pathname !== "/") window.history.pushState({}, "", "/");
     setPage?.(nextPage);
   };
 

@@ -77,7 +77,7 @@ function emptyForm(date = todayString) {
     customer_id: "",
     customer_name: "",
     schedule_date: date,
-    schedule_time: "",
+    schedule_time: "12:00",
     schedule_type: "일정",
     note: "",
   };
@@ -141,6 +141,16 @@ function SchedulesPage() {
     [currentMonth, items],
   );
   const contractAndBalanceItems = monthItems.filter((item) => ["계약서작성", "잔금날"].includes(item.schedule_type));
+  const monthlyFlowStats = [
+    { label: "고객인입", type: "고객인입" },
+    { label: "미팅", type: "미팅" },
+    { label: "계약서", type: "계약서작성" },
+    { label: "잔금", type: "잔금날" },
+  ].map((stat) => ({
+    ...stat,
+    count: monthItems.filter((item) => item.schedule_type === stat.type).length,
+    className: getTypeClass(stat.type),
+  }));
 
   const filteredCustomers = useMemo(() => {
     const keyword = customerSearch.trim().toLowerCase();
@@ -240,11 +250,18 @@ function SchedulesPage() {
 
   return (
     <div className="page-stack schedule-page-compact">
-      <section className="page-header-card compact-page-header schedule-compact-header">
+      <section className="page-header-card compact-page-header schedule-compact-header schedule-header-with-stats">
         <div>
           <span className="page-eyebrow">일정관리</span>
           <h1>월간 일정</h1>
           <p>날짜를 누르면 팝업에서 일정 확인, 등록, 수정까지 한 번에 처리합니다.</p>
+        </div>
+        <div className="monthly-flow-summary" aria-label="월간 일정 요약">
+          {monthlyFlowStats.map((stat) => (
+            <span key={stat.type} className={`flow-summary-chip ${stat.className}`}>
+              {stat.label} <strong>{stat.count}</strong>
+            </span>
+          ))}
         </div>
       </section>
 

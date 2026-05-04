@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { deleteCustomer, listCustomers, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 
-const CONTRACT_STATUSES = ["미계약", "계약금입금", "잔금완료", "삭제"];
+const CONTRACT_STATUSES = ["미계약", "미팅완료", "계약금입금", "잔금완료", "삭제"];
 const PRIORITY_LEVELS = ["낮음", "보통", "높음"];
-const MEETING_STATUSES = ["미팅 전", "미팅 예정", "미팅 완료"];
+const PROPERTY_TYPE_OPTIONS = ["사무실", "상가", "주거", "매매"];
 const ALL = "전체";
 const PAGE_SIZE = 10;
 
@@ -11,11 +11,10 @@ const defaultForm = {
   name: "",
   phone: "",
   preferred_area: "",
-  property_type: "",
+  property_type: "사무실",
   wanted_condition: "",
   contract_status: "미계약",
   priority: "보통",
-  meeting_status: "미팅 전",
   source: "직접 입력",
   inflow_date: "",
   memo: "",
@@ -23,6 +22,7 @@ const defaultForm = {
 
 function getStatusClass(status) {
   if (status === "계약금입금") return "deposit";
+  if (status === "미팅완료") return "meeting";
   if (status === "잔금완료") return "complete";
   if (status === "삭제") return "deleted";
   return "default";
@@ -40,14 +40,15 @@ function formatDate(dateString) {
   return dateString;
 }
 
-function CustomersPage() {
+const RECOMMEND_CUSTOMER_KEY = "agentnote_recommend_customer_id";
+
+function CustomersPage({ setPage: navigatePage }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [priorityFilter, setPriorityFilter] = useState(ALL);
-  const [meetingFilter, setMeetingFilter] = useState(ALL);
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -72,7 +73,6 @@ function CustomersPage() {
       const haystack = [
         getCustomerValue(item, "name"),
         getCustomerValue(item, "phone"),
-        getCustomerValue(item, "preferred_area"),
         getCustomerValue(item, "property_type"),
         getCustomerValue(item, "wanted_condition"),
         getCustomerValue(item, "memo"),
@@ -85,18 +85,17 @@ function CustomersPage() {
       const matchesSearch = !keyword || haystack.includes(keyword);
       const matchesStatus = statusFilter === ALL || getCustomerValue(item, "contract_status") === statusFilter;
       const matchesPriority = priorityFilter === ALL || getCustomerValue(item, "priority") === priorityFilter;
-      const matchesMeeting = meetingFilter === ALL || getCustomerValue(item, "meeting_status") === meetingFilter;
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesMeeting;
+      return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [items, meetingFilter, priorityFilter, search, statusFilter]);
+  }, [items, priorityFilter, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const pageItems = filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, priorityFilter, meetingFilter]);
+  }, [search, statusFilter, priorityFilter]);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -130,6 +129,13 @@ function CustomersPage() {
     }
   };
 
+  const openRecommendation = (customer) => {
+    if (!customer?.id) return;
+    localStorage.setItem(RECOMMEND_CUSTOMER_KEY, customer.id);
+    window.history.pushState({}, "", `/ai-recommend?customerId=${encodeURIComponent(customer.id)}`);
+    navigatePage?.("ai-recommend");
+  };
+
   const createInflowSchedule = async (customer) => {
     if (!customer.inflow_date || !customer.name) return;
 
@@ -138,12 +144,11 @@ function CustomersPage() {
       customer_id: customer.id,
       customer_name: customer.name,
       schedule_date: customer.inflow_date,
-      schedule_time: "",
+      schedule_time: "12:00",
       schedule_type: "고객인입",
-      note: [customer.phone, customer.preferred_area, customer.property_type, customer.wanted_condition, customer.memo]
+      note: [customer.phone, customer.property_type, customer.wanted_condition, customer.memo]
         .filter(Boolean)
         .join("\n"),
-      source: "customer",
     });
   };
 
@@ -188,7 +193,7 @@ function CustomersPage() {
           </div>
 
           <div className="customer-filter-grid">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="고객명, 연락처, 지역 검색" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="고객명, 연락처, 매물 종류 검색" />
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               {[ALL, ...CONTRACT_STATUSES].map((status) => (
                 <option key={status} value={status}>
@@ -200,13 +205,6 @@ function CustomersPage() {
               {[ALL, ...PRIORITY_LEVELS].map((priority) => (
                 <option key={priority} value={priority}>
                   {priority}
-                </option>
-              ))}
-            </select>
-            <select value={meetingFilter} onChange={(event) => setMeetingFilter(event.target.value)}>
-              {[ALL, ...MEETING_STATUSES].map((meeting) => (
-                <option key={meeting} value={meeting}>
-                  {meeting}
                 </option>
               ))}
             </select>
@@ -227,14 +225,10 @@ function CustomersPage() {
                     </div>
 
                     <div className="customer-meta-grid">
-                      <span>지역</span>
-                      <p>{getCustomerValue(item, "preferred_area") || "미입력"}</p>
                       <span>매물</span>
                       <p>{getCustomerValue(item, "property_type") || "미입력"}</p>
                       <span>중요도</span>
                       <p>{getCustomerValue(item, "priority") || "보통"}</p>
-                      <span>미팅</span>
-                      <p>{getCustomerValue(item, "meeting_status") || "미팅 전"}</p>
                       <span>유입일</span>
                       <p>{formatDate(getCustomerValue(item, "inflow_date"))}</p>
                       <span>유입경로</span>
@@ -247,6 +241,9 @@ function CustomersPage() {
                     {getCustomerValue(item, "memo") ? <p className="customer-note muted">{getCustomerValue(item, "memo")}</p> : null}
 
                     <div className="customer-actions">
+                      <button type="button" className="primary-btn small-btn" onClick={() => openRecommendation(item)}>
+                        AI 매물 추천기에서 추천 보기
+                      </button>
                       <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(item)}>
                         수정
                       </button>
@@ -304,12 +301,18 @@ function CustomersPage() {
             <input value={form.phone} onChange={(event) => updateField("phone", event.target.value)} placeholder="예: 010-1234-5678" />
           </label>
           <label className="field">
-            <span>희망 지역</span>
-            <input value={form.preferred_area} onChange={(event) => updateField("preferred_area", event.target.value)} placeholder="예: 역삼, 선릉" />
-          </label>
-          <label className="field">
             <span>매물 종류</span>
-            <input value={form.property_type} onChange={(event) => updateField("property_type", event.target.value)} placeholder="예: 소형 사무실" />
+            <input
+              list="property-type-options"
+              value={form.property_type}
+              onChange={(event) => updateField("property_type", event.target.value || "사무실")}
+              placeholder="사무실"
+            />
+            <datalist id="property-type-options">
+              {PROPERTY_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type} />
+              ))}
+            </datalist>
           </label>
           <label className="field">
             <span>찾는 조건</span>
@@ -346,16 +349,6 @@ function CustomersPage() {
               </select>
             </label>
           </div>
-          <label className="field">
-            <span>미팅 여부</span>
-            <select value={form.meeting_status} onChange={(event) => updateField("meeting_status", event.target.value)}>
-              {MEETING_STATUSES.map((meeting) => (
-                <option key={meeting} value={meeting}>
-                  {meeting}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="field">
             <span>메모</span>
             <textarea rows="3" value={form.memo} onChange={(event) => updateField("memo", event.target.value)} placeholder="상담 내용 메모" />

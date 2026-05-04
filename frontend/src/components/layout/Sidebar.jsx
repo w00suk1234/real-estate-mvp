@@ -3,6 +3,8 @@
 const primaryItems = [
   { id: "schedules", label: "일정관리" },
   { id: "customers", label: "고객관리" },
+  { id: "ai-recommend", label: "AI 매물 추천기", icon: "AI" },
+  { id: "settlement", label: "정산" },
   { id: "briefing", label: "소개서 작성" },
 ];
 
@@ -13,13 +15,7 @@ const secondaryItems = [
   { id: "address-hub", label: "주소 / 지번 허브" },
 ];
 
-function Sidebar({ page, onNavigate, onResetBriefing }) {
-  const handleReset = () => {
-    if (window.confirm("작성 중인 소개서 내용을 초기화하고 새 업무를 시작할까요?")) {
-      onResetBriefing?.();
-    }
-  };
-
+function Sidebar({ page, onNavigate }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand" role="button" tabIndex={0} onClick={() => onNavigate?.("schedules")}>
@@ -38,7 +34,8 @@ function Sidebar({ page, onNavigate, onResetBriefing }) {
             className={`nav-item ${page === item.id ? "active" : ""}`}
             onClick={() => onNavigate?.(item.id)}
           >
-            {item.label}
+            {item.icon ? <span className="nav-item-icon">{item.icon}</span> : null}
+            <span>{item.label}</span>
           </button>
         ))}
       </nav>
@@ -57,10 +54,6 @@ function Sidebar({ page, onNavigate, onResetBriefing }) {
           </button>
         ))}
       </nav>
-
-      <button type="button" className="new-work-btn" onClick={handleReset}>
-        새 업무 시작
-      </button>
     </aside>
   );
 }
