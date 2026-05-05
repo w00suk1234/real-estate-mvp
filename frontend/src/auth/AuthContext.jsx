@@ -5,6 +5,8 @@ import { getProfile, getProfileByUsername, upsertProfile } from "../services/sup
 
 const AuthContext = createContext(null);
 const AUTH_EMAIL_MAP_KEY = "agentnote_auth_email_map";
+const AUTH_TIMEOUT_MS = 12000;
+const PROFILE_TIMEOUT_MS = 3500;
 
 function toAuthEmail(usernameOrEmail) {
   const value = String(usernameOrEmail || "").trim();
@@ -28,6 +30,15 @@ function rememberAuthEmail(username, email) {
   const key = String(username || "").trim();
   if (!key || !email) return;
   localStorage.setItem(AUTH_EMAIL_MAP_KEY, JSON.stringify({ ...readAuthEmailMap(), [key]: email }));
+}
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
 }
 
 function getAuthErrorMessage(error) {
@@ -69,19 +80,22 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const hydrateSupabaseUser = async (sessionUser) => {
+  const hydrateSupabaseUser = async (sessionUser, options = {}) => {
     if (!sessionUser) {
       setUser(null);
       return;
     }
 
+    setUser(normalizeUser(sessionUser));
+    if (options.skipProfile) return;
+
     let profile = null;
     try {
-      profile = await getProfile();
+      profile = await withTimeout(getProfile(), PROFILE_TIMEOUT_MS, "프로필 정보를 불러오는 데 시간이 오래 걸립니다.");
     } catch {
       profile = null;
     }
-    setUser(normalizeUser(sessionUser, profile));
+    if (profile) setUser(normalizeUser(sessionUser, profile));
   };
 
   useEffect(() => {
@@ -90,8 +104,20 @@ function AuthProvider({ children }) {
     async function boot() {
       try {
         if (isSupabaseConfigured) {
-          const { data } = await supabase.auth.getSession();
-          if (mounted) await hydrateSupabaseUser(data.session?.user || null);
+          const { data } = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_TIMEOUT_MS,
+            "로그인 세션 확인 시간이 초과되었습니다.",
+          );
+          if (mounted) {
+            const sessionUser = data.session?.user || null;
+            if (sessionUser) {
+              setUser(normalizeUser(sessionUser));
+              hydrateSupabaseUser(sessionUser);
+            } else {
+              setUser(null);
+            }
+          }
         } else {
           const saved = localStorage.getItem("auth_user");
           if (mounted) setUser(saved ? JSON.parse(saved) : null);
@@ -105,8 +131,10 @@ function AuthProvider({ children }) {
 
     if (!isSupabaseConfigured) return () => { mounted = false; };
 
-    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      await hydrateSupabaseUser(session?.user || null);
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => {
+        hydrateSupabaseUser(session?.user || null);
+      }, 0);
     });
 
     return () => {
@@ -118,7 +146,13 @@ function AuthProvider({ children }) {
   const login = async ({ username, password }) => {
     if (isSupabaseConfigured) {
       const value = String(username || "").trim();
-      const profile = value.includes("@") ? null : await getProfileByUsername(value);
+      const profile = value.includes("@")
+        ? null
+        : await withTimeout(
+            getProfileByUsername(value),
+            PROFILE_TIMEOUT_MS,
+            "아이디 조회 시간이 초과되었습니다.",
+          ).catch(() => null);
       const rememberedEmail = readAuthEmailMap()[value];
       const candidates = unique([
         value.includes("@") ? value : "",
@@ -129,12 +163,18 @@ function AuthProvider({ children }) {
       let lastError = null;
 
       for (const email of candidates) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { data, error } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email,
+            password,
+          }),
+          AUTH_TIMEOUT_MS,
+          "로그인 요청 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.",
+        );
         if (!error) {
-          await hydrateSupabaseUser(data.user);
+          setUser(normalizeUser(data.user));
+          hydrateSupabaseUser(data.user);
+          rememberAuthEmail(value, email);
           return normalizeUser(data.user);
         }
         lastError = error;
@@ -159,34 +199,47 @@ function AuthProvider({ children }) {
 
     if (isSupabaseConfigured) {
       const email = toAuthEmail(payload.email || payload.username);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: payload.password,
-        options: {
-          data: {
+      const { data, error } = await withTimeout(
+        supabase.auth.signUp({
+          email,
+          password: payload.password,
+          options: {
+            data: {
+              username: payload.username,
+              office_name: payload.office_name,
+              manager_name: payload.manager_name,
+              phone: payload.phone,
+              email,
+              privacy_agreed: true,
+              role: "user",
+            },
+          },
+        }),
+        AUTH_TIMEOUT_MS,
+        "회원가입 요청 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.",
+      );
+      if (error) throw new Error(getAuthErrorMessage(error));
+      if (!data.session) {
+        throw new Error("가입이 완료되었습니다. 이메일 인증이 켜져 있다면 인증 후 로그인해 주세요.");
+      }
+      setUser(normalizeUser(data.user));
+      try {
+        await withTimeout(
+          upsertProfile({
             username: payload.username,
             office_name: payload.office_name,
             manager_name: payload.manager_name,
             phone: payload.phone,
             email,
             privacy_agreed: true,
-            role: "user",
-          },
-        },
-      });
-      if (error) throw new Error(getAuthErrorMessage(error));
-      if (!data.session) {
-        throw new Error("가입이 완료되었습니다. 이메일 인증이 켜져 있다면 인증 후 로그인해 주세요.");
+          }),
+          PROFILE_TIMEOUT_MS,
+          "프로필 저장 시간이 초과되었습니다.",
+        );
+      } catch (profileError) {
+        console.error(profileError);
       }
-      await upsertProfile({
-        username: payload.username,
-        office_name: payload.office_name,
-        manager_name: payload.manager_name,
-        phone: payload.phone,
-        email,
-        privacy_agreed: true,
-      });
-      await hydrateSupabaseUser(data.user);
+      hydrateSupabaseUser(data.user);
       rememberAuthEmail(payload.username, email);
       return normalizeUser(data.user);
     }
