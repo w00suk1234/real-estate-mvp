@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { deleteSchedule, listCustomers, listSchedules, saveSchedule } from "../services/supabaseRepository";
+import { deleteSchedule, listCustomers, listSchedules, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 
 const SCHEDULE_TYPES = ["일정", "고객인입", "미팅", "계약금입금", "계약서작성", "잔금날", "기타"];
-const CUSTOMER_PICKER_TYPES = new Set(["미팅", "계약금입금", "계약서작성", "잔금날"]);
+const CUSTOMER_PICKER_TYPES = new Set(["고객인입", "미팅", "계약금입금", "계약서작성", "잔금날"]);
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 const HOLIDAY_MAP = {
   "01-01": "신정",
@@ -96,6 +96,23 @@ function getTypeClass(type) {
 function isSameMonth(dateString, monthDate) {
   const date = parseDateString(dateString);
   return date.getFullYear() === monthDate.getFullYear() && date.getMonth() === monthDate.getMonth();
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function extractPhone(value) {
+  const match = String(value || "").match(/01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/);
+  return match ? match[0].replace(/[.\s]/g, "-") : "";
+}
+
+function buildCustomerNameFromSchedule(schedule, customerSearch) {
+  const rawName =
+    normalizeText(schedule.customer_name) ||
+    normalizeText(customerSearch) ||
+    normalizeText(schedule.title).replace(/고객인입|일정/g, "").trim();
+  return rawName || "이름 미입력 고객";
 }
 
 function SchedulesPage() {
@@ -195,6 +212,32 @@ function SchedulesPage() {
     setCustomerSearch(customer.name || "");
   };
 
+  const syncCustomerFromInflowSchedule = async (scheduleDraft) => {
+    if (scheduleDraft.schedule_type !== "고객인입") return null;
+
+    const name = buildCustomerNameFromSchedule(scheduleDraft, customerSearch);
+    const phone = extractPhone(`${scheduleDraft.note || ""}\n${customerSearch}`);
+    const existingCustomer =
+      customers.find((customer) => scheduleDraft.customer_id && customer.id === scheduleDraft.customer_id) ||
+      customers.find((customer) => phone && normalizeText(customer.phone) === phone) ||
+      customers.find((customer) => normalizeText(customer.name) === name);
+
+    return saveCustomer({
+      ...(existingCustomer || {}),
+      id: existingCustomer?.id || scheduleDraft.customer_id || undefined,
+      name,
+      phone: phone || existingCustomer?.phone || "",
+      preferred_area: existingCustomer?.preferred_area || "",
+      property_type: existingCustomer?.property_type || "사무실",
+      wanted_condition: existingCustomer?.wanted_condition || existingCustomer?.requirement || scheduleDraft.note || "",
+      contract_status: existingCustomer?.contract_status || "미계약",
+      priority: existingCustomer?.priority || "보통",
+      source: existingCustomer?.source || "일정관리",
+      inflow_date: scheduleDraft.schedule_date || existingCustomer?.inflow_date || existingCustomer?.inquiry_date || "",
+      memo: scheduleDraft.note || existingCustomer?.memo || existingCustomer?.notes || "",
+    });
+  };
+
   const handleMonthChange = (value) => {
     const [year, month] = value.split("-").map(Number);
     if (!year || !month) return;
@@ -213,14 +256,24 @@ function SchedulesPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     const safeTitle = form.title.trim() || `${form.customer_name || form.schedule_type || "일정"} 일정`;
+    let scheduleDraft = { ...form, title: safeTitle };
 
     try {
       setSaving(true);
-      await saveSchedule({ ...form, title: safeTitle });
+      const linkedCustomer = await syncCustomerFromInflowSchedule(scheduleDraft);
+      if (linkedCustomer?.id) {
+        scheduleDraft = {
+          ...scheduleDraft,
+          customer_id: linkedCustomer.id,
+          customer_name: linkedCustomer.name || scheduleDraft.customer_name,
+          title: scheduleDraft.title || `${linkedCustomer.name || "고객"} 고객인입`,
+        };
+      }
+      await saveSchedule(scheduleDraft);
       await refresh();
       setForm(emptyForm(selectedDate));
       setCustomerSearch("");
-      setMessage("일정을 저장했습니다.");
+      setMessage(scheduleDraft.schedule_type === "고객인입" ? "일정과 고객 정보를 함께 저장했습니다." : "일정을 저장했습니다.");
     } catch (error) {
       setMessage(error.message || "일정 저장에 실패했습니다. 날짜, 시간, 종류를 확인해 주세요.");
     } finally {

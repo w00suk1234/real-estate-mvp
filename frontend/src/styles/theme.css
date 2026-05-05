@@ -4085,6 +4085,16 @@ h4 {
   margin-top: 12px;
 }
 
+.customer-action-pair {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.customer-action-pair .small-btn {
+  min-width: 72px;
+}
+
 .pagination-row {
   justify-content: center;
   margin-top: 16px;

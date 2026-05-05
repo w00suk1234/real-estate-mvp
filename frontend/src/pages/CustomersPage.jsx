@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { deleteCustomer, listCustomers, saveCustomer, saveSchedule } from "../services/supabaseRepository";
+import { deleteCustomer, listCustomers, listSchedules, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 
 const CONTRACT_STATUSES = ["미계약", "미팅완료", "계약금입금", "잔금완료", "삭제"];
 const PRIORITY_LEVELS = ["낮음", "보통", "높음"];
@@ -137,16 +137,33 @@ function CustomersPage({ setPage: navigatePage }) {
   };
 
   const createInflowSchedule = async (customer) => {
-    if (!customer.inflow_date || !customer.name) return;
+    const inflowDate = getCustomerValue(customer, "inflow_date");
+    const customerName = getCustomerValue(customer, "name");
+    if (!inflowDate || !customerName) return;
+    const schedules = await listSchedules();
+    const existingSchedule = Array.isArray(schedules)
+      ? schedules.find(
+          (schedule) =>
+            schedule.schedule_type === "고객인입" &&
+            (schedule.customer_id === customer.id ||
+              (!schedule.customer_id && schedule.customer_name === customerName && schedule.schedule_date === inflowDate)),
+        )
+      : null;
 
     await saveSchedule({
-      title: `${customer.name} 고객인입`,
+      id: existingSchedule?.id,
+      title: `${customerName} 고객인입`,
       customer_id: customer.id,
-      customer_name: customer.name,
-      schedule_date: customer.inflow_date,
+      customer_name: customerName,
+      schedule_date: inflowDate,
       schedule_time: "12:00",
       schedule_type: "고객인입",
-      note: [customer.phone, customer.property_type, customer.wanted_condition, customer.memo]
+      note: [
+        getCustomerValue(customer, "phone"),
+        getCustomerValue(customer, "property_type"),
+        getCustomerValue(customer, "wanted_condition"),
+        getCustomerValue(customer, "memo"),
+      ]
         .filter(Boolean)
         .join("\n"),
     });
@@ -256,12 +273,14 @@ function CustomersPage({ setPage: navigatePage }) {
                       <button type="button" className="primary-btn small-btn" onClick={() => openRecommendation(item)}>
                         AI 매물 추천기에서 추천 보기
                       </button>
-                      <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(item)}>
-                        수정
-                      </button>
-                      <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(item.id)}>
-                        삭제
-                      </button>
+                      <div className="customer-action-pair">
+                        <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(item)}>
+                          수정
+                        </button>
+                        <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(item.id)}>
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
