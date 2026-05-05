@@ -162,10 +162,22 @@ function CustomersPage({ setPage: navigatePage }) {
     try {
       setSaving(true);
       const saved = await saveCustomer({ ...form, id: editingId || undefined });
-      await createInflowSchedule(saved);
+      let scheduleSynced = true;
+      try {
+        await createInflowSchedule(saved);
+      } catch (scheduleError) {
+        console.error(scheduleError);
+        scheduleSynced = false;
+      }
       await fetchCustomers();
       resetForm();
-      setMessage(editingId ? "고객 정보를 수정했습니다." : "고객을 등록했습니다.");
+      setMessage(
+        scheduleSynced
+          ? editingId
+            ? "고객 정보를 수정했습니다."
+            : "고객을 등록했습니다."
+          : "고객은 등록했습니다. 다만 일정관리 자동 연동은 실패해 별도 확인이 필요합니다.",
+      );
     } catch (error) {
       setMessage(error.message || "고객 저장에 실패했습니다.");
     } finally {

@@ -68,6 +68,42 @@ function pickFields(source, fields) {
   );
 }
 
+async function writeCustomerWithFallback(query, customer, payload) {
+  const variants = [
+    payload,
+    stripEmpty({
+      name: customer.name,
+      phone: customer.phone,
+      preferred_area: customer.preferred_area,
+      requirement: customer.wanted_condition,
+      notes: customer.memo,
+      inquiry_date: customer.inflow_date || null,
+      contract_status: customer.contract_status,
+      priority: customer.priority,
+      user_id: payload.user_id,
+    }),
+    stripEmpty({
+      name: customer.name,
+      phone: customer.phone,
+      contract_status: customer.contract_status,
+      priority: customer.priority,
+      user_id: payload.user_id,
+    }),
+  ];
+
+  let lastError = null;
+  for (const variant of variants) {
+    const response = customer.id
+      ? await query.update(variant).eq("id", customer.id).select().single()
+      : await query.insert(variant).select().single();
+
+    if (!response.error) return response.data;
+    lastError = response.error;
+  }
+
+  throw lastError;
+}
+
 function assertSupabase() {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error("Supabase 환경 변수가 설정되지 않았습니다.");
@@ -168,12 +204,7 @@ export async function saveCustomer(customer) {
     user_id: userId,
   });
   const query = supabase.from("customers");
-  const { data, error } = customer.id
-    ? await query.update(payload).eq("id", customer.id).select().single()
-    : await query.insert(payload).select().single();
-
-  if (error) throw error;
-  return data;
+  return writeCustomerWithFallback(query, customer, payload);
 }
 
 export async function deleteCustomer(id) {
