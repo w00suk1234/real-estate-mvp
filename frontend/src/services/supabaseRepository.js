@@ -104,6 +104,58 @@ async function writeCustomerWithFallback(query, customer, payload) {
   throw lastError;
 }
 
+function buildScheduleFallbackNote(schedule) {
+  return [
+    schedule.schedule_type ? `종류: ${schedule.schedule_type}` : "",
+    schedule.schedule_time ? `시간: ${schedule.schedule_time}` : "",
+    schedule.customer_name ? `고객: ${schedule.customer_name}` : "",
+    schedule.note || "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function writeScheduleWithFallback(query, schedule, payload) {
+  const fallbackNote = buildScheduleFallbackNote(schedule);
+  const variants = [
+    payload,
+    stripEmpty({
+      title: schedule.title,
+      customer_id: schedule.customer_id || null,
+      schedule_date: schedule.schedule_date || null,
+      schedule_time: schedule.schedule_time || null,
+      schedule_type: schedule.schedule_type,
+      note: schedule.note || fallbackNote,
+      user_id: payload.user_id,
+    }),
+    stripEmpty({
+      title: schedule.title,
+      schedule_date: schedule.schedule_date || null,
+      schedule_time: schedule.schedule_time || null,
+      note: fallbackNote,
+      user_id: payload.user_id,
+    }),
+    stripEmpty({
+      title: schedule.title,
+      schedule_date: schedule.schedule_date || null,
+      note: fallbackNote,
+      user_id: payload.user_id,
+    }),
+  ];
+
+  let lastError = null;
+  for (const variant of variants) {
+    const response = schedule.id
+      ? await query.update(variant).eq("id", schedule.id).select().single()
+      : await query.insert(variant).select().single();
+
+    if (!response.error) return response.data;
+    lastError = response.error;
+  }
+
+  throw lastError;
+}
+
 function assertSupabase() {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error("Supabase 환경 변수가 설정되지 않았습니다.");
@@ -252,7 +304,16 @@ export async function listSchedules() {
     .order("schedule_date", { ascending: true })
     .order("schedule_time", { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await supabase
+      .from("schedules")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (fallback.error) throw error;
+    return fallback.data || [];
+  }
+
   return data || [];
 }
 
@@ -278,12 +339,7 @@ export async function saveSchedule(schedule) {
     user_id: userId,
   });
   const query = supabase.from("schedules");
-  const { data, error } = schedule.id
-    ? await query.update(payload).eq("id", schedule.id).select().single()
-    : await query.insert(payload).select().single();
-
-  if (error) throw error;
-  return data;
+  return writeScheduleWithFallback(query, schedule, payload);
 }
 
 export async function deleteSchedule(id) {

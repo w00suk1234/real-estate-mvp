@@ -212,20 +212,17 @@ function SchedulesPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.title.trim()) {
-      setMessage("일정명을 입력해 주세요.");
-      return;
-    }
+    const safeTitle = form.title.trim() || `${form.customer_name || form.schedule_type || "일정"} 일정`;
 
     try {
       setSaving(true);
-      await saveSchedule(form);
+      await saveSchedule({ ...form, title: safeTitle });
       await refresh();
       setForm(emptyForm(selectedDate));
       setCustomerSearch("");
       setMessage("일정을 저장했습니다.");
     } catch (error) {
-      setMessage(error.message || "일정 저장에 실패했습니다.");
+      setMessage(error.message || "일정 저장에 실패했습니다. 날짜, 시간, 종류를 확인해 주세요.");
     } finally {
       setSaving(false);
     }
