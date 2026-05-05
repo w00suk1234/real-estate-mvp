@@ -132,6 +132,29 @@ export async function getProfile() {
   return data;
 }
 
+export async function getProfileByUsername(username) {
+  const normalized = String(username || "").trim();
+  if (!normalized) return null;
+
+  if (!isSupabaseConfigured) {
+    try {
+      const saved = JSON.parse(localStorage.getItem("auth_user") || "null");
+      return saved?.username === normalized ? saved : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, email")
+    .eq("username", normalized)
+    .maybeSingle();
+
+  if (error) return null;
+  return data;
+}
+
 export async function upsertProfile(profile) {
   if (!isSupabaseConfigured) {
     const saved = JSON.parse(localStorage.getItem("auth_user") || "{}");

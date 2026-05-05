@@ -1,14 +1,53 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
-import { getProfile, upsertProfile } from "../services/supabaseRepository";
+import { getProfile, getProfileByUsername, upsertProfile } from "../services/supabaseRepository";
 
 const AuthContext = createContext(null);
+const AUTH_EMAIL_MAP_KEY = "agentnote_auth_email_map";
 
 function toAuthEmail(usernameOrEmail) {
   const value = String(usernameOrEmail || "").trim();
   if (value.includes("@")) return value;
   return `${value || "user"}@agentnote.local`;
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function readAuthEmailMap() {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_EMAIL_MAP_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function rememberAuthEmail(username, email) {
+  const key = String(username || "").trim();
+  if (!key || !email) return;
+  localStorage.setItem(AUTH_EMAIL_MAP_KEY, JSON.stringify({ ...readAuthEmailMap(), [key]: email }));
+}
+
+function getAuthErrorMessage(error) {
+  const message = String(error?.message || "");
+  if (/invalid login credentials/i.test(message)) {
+    return "아이디 또는 비밀번호가 맞지 않습니다. 가입할 때 이메일을 입력했다면 이메일로도 로그인해 보세요.";
+  }
+  if (/email not confirmed/i.test(message)) {
+    return "이메일 인증이 완료되지 않았습니다. 가입한 이메일의 인증 메일을 확인해 주세요.";
+  }
+  if (/user already registered|already registered/i.test(message)) {
+    return "이미 가입된 계정입니다. 로그인 탭에서 로그인해 주세요.";
+  }
+  if (/password/i.test(message)) {
+    return "비밀번호는 8자 이상으로 입력해 주세요.";
+  }
+  if (/network|failed to fetch/i.test(message)) {
+    return "네트워크 연결이 불안정합니다. 잠시 후 다시 시도해 주세요.";
+  }
+  return message || "로그인 처리 중 오류가 발생했습니다.";
 }
 
 function normalizeUser(sessionUser, profile = {}) {
@@ -78,13 +117,30 @@ function AuthProvider({ children }) {
 
   const login = async ({ username, password }) => {
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: toAuthEmail(username),
-        password,
-      });
-      if (error) throw error;
-      await hydrateSupabaseUser(data.user);
-      return normalizeUser(data.user);
+      const value = String(username || "").trim();
+      const profile = value.includes("@") ? null : await getProfileByUsername(value);
+      const rememberedEmail = readAuthEmailMap()[value];
+      const candidates = unique([
+        value.includes("@") ? value : "",
+        rememberedEmail,
+        profile?.email,
+        toAuthEmail(value),
+      ]);
+      let lastError = null;
+
+      for (const email of candidates) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (!error) {
+          await hydrateSupabaseUser(data.user);
+          return normalizeUser(data.user);
+        }
+        lastError = error;
+      }
+
+      throw new Error(getAuthErrorMessage(lastError));
     }
 
     const data = await apiFetch("/auth/login", {
@@ -118,7 +174,7 @@ function AuthProvider({ children }) {
           },
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(getAuthErrorMessage(error));
       if (!data.session) {
         throw new Error("가입이 완료되었습니다. 이메일 인증이 켜져 있다면 인증 후 로그인해 주세요.");
       }
@@ -131,6 +187,7 @@ function AuthProvider({ children }) {
         privacy_agreed: true,
       });
       await hydrateSupabaseUser(data.user);
+      rememberAuthEmail(payload.username, email);
       return normalizeUser(data.user);
     }
 
