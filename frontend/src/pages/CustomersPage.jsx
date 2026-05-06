@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { deleteCustomer, listCustomers, listSchedules, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 
-const CONTRACT_STATUSES = ["미계약", "미팅완료", "계약금입금", "잔금완료", "삭제"];
+const CONTRACT_STATUSES = ["미계약", "계약금입금", "계약서일정", "잔금완료", "정산완료", "삭제"];
 const PRIORITY_LEVELS = ["낮음", "보통", "높음"];
 const PROPERTY_TYPE_OPTIONS = ["사무실", "상가", "주거", "매매"];
 const ALL = "전체";
@@ -22,8 +22,8 @@ const defaultForm = {
 
 function getStatusClass(status) {
   if (status === "계약금입금") return "deposit";
-  if (status === "미팅완료") return "meeting";
-  if (status === "잔금완료") return "complete";
+  if (status === "계약서일정") return "contract";
+  if (status === "잔금완료" || status === "정산완료") return "complete";
   if (status === "삭제") return "deleted";
   return "default";
 }
@@ -32,12 +32,27 @@ function getCustomerValue(item, key) {
   if (key === "wanted_condition") return item.wanted_condition || item.requirement || "";
   if (key === "memo") return item.memo || item.notes || "";
   if (key === "inflow_date") return item.inflow_date || item.inquiry_date || "";
+  if (key === "property_type") return item.property_type || item.propertyType || "사무실";
   return item[key] || "";
 }
 
 function formatDate(dateString) {
   if (!dateString) return "유입일 미입력";
   return dateString;
+}
+
+function getMonthKey(item) {
+  const date = getCustomerValue(item, "inflow_date") || item.created_at || "";
+  return typeof date === "string" && date.length >= 7 ? date.slice(0, 7) : "";
+}
+
+function mergeMemoOnce(baseMemo, nextMemo) {
+  const base = (baseMemo || "").trim();
+  const next = (nextMemo || "").trim();
+  if (!next) return base;
+  if (!base) return next;
+  if (base.includes(next)) return base;
+  return `${base}\n${next}`;
 }
 
 const RECOMMEND_CUSTOMER_KEY = "agentnote_recommend_customer_id";
@@ -49,6 +64,8 @@ function CustomersPage({ setPage: navigatePage }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [priorityFilter, setPriorityFilter] = useState(ALL);
+  const [propertyTypeFilter, setPropertyTypeFilter] = useState(ALL);
+  const [monthFilter, setMonthFilter] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -73,6 +90,7 @@ function CustomersPage({ setPage: navigatePage }) {
       const haystack = [
         getCustomerValue(item, "name"),
         getCustomerValue(item, "phone"),
+        getCustomerValue(item, "preferred_area"),
         getCustomerValue(item, "property_type"),
         getCustomerValue(item, "wanted_condition"),
         getCustomerValue(item, "memo"),
@@ -85,17 +103,19 @@ function CustomersPage({ setPage: navigatePage }) {
       const matchesSearch = !keyword || haystack.includes(keyword);
       const matchesStatus = statusFilter === ALL || getCustomerValue(item, "contract_status") === statusFilter;
       const matchesPriority = priorityFilter === ALL || getCustomerValue(item, "priority") === priorityFilter;
+      const matchesPropertyType = propertyTypeFilter === ALL || getCustomerValue(item, "property_type") === propertyTypeFilter;
+      const matchesMonth = !monthFilter || getMonthKey(item) === monthFilter;
 
-      return matchesSearch && matchesStatus && matchesPriority;
+      return matchesSearch && matchesStatus && matchesPriority && matchesPropertyType && matchesMonth;
     });
-  }, [items, priorityFilter, search, statusFilter]);
+  }, [items, monthFilter, priorityFilter, propertyTypeFilter, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const pageItems = filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, priorityFilter]);
+  }, [search, statusFilter, priorityFilter, propertyTypeFilter, monthFilter]);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -106,11 +126,20 @@ function CustomersPage({ setPage: navigatePage }) {
     setEditingId(null);
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setStatusFilter(ALL);
+    setPriorityFilter(ALL);
+    setPropertyTypeFilter(ALL);
+    setMonthFilter("");
+  };
+
   const handleEdit = (item) => {
     setEditingId(item.id);
     setForm({
       ...defaultForm,
       ...item,
+      property_type: getCustomerValue(item, "property_type") || "사무실",
       wanted_condition: getCustomerValue(item, "wanted_condition"),
       memo: getCustomerValue(item, "memo"),
       inflow_date: getCustomerValue(item, "inflow_date"),
@@ -140,6 +169,7 @@ function CustomersPage({ setPage: navigatePage }) {
     const inflowDate = getCustomerValue(customer, "inflow_date");
     const customerName = getCustomerValue(customer, "name");
     if (!inflowDate || !customerName) return;
+
     const schedules = await listSchedules();
     const existingSchedule = Array.isArray(schedules)
       ? schedules.find(
@@ -150,6 +180,15 @@ function CustomersPage({ setPage: navigatePage }) {
         )
       : null;
 
+    const nextNote = [
+      getCustomerValue(customer, "phone"),
+      getCustomerValue(customer, "property_type"),
+      getCustomerValue(customer, "wanted_condition"),
+      getCustomerValue(customer, "memo"),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     await saveSchedule({
       id: existingSchedule?.id,
       title: `${customerName} 고객인입`,
@@ -158,19 +197,13 @@ function CustomersPage({ setPage: navigatePage }) {
       schedule_date: inflowDate,
       schedule_time: "12:00",
       schedule_type: "고객인입",
-      note: [
-        getCustomerValue(customer, "phone"),
-        getCustomerValue(customer, "property_type"),
-        getCustomerValue(customer, "wanted_condition"),
-        getCustomerValue(customer, "memo"),
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      note: mergeMemoOnce(existingSchedule?.note, nextNote),
     });
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (saving) return;
     if (!form.name.trim()) {
       setMessage("고객명을 입력해 주세요.");
       return;
@@ -178,7 +211,8 @@ function CustomersPage({ setPage: navigatePage }) {
 
     try {
       setSaving(true);
-      const saved = await saveCustomer({ ...form, id: editingId || undefined });
+      const wasEditing = Boolean(editingId);
+      const saved = await saveCustomer({ ...form, property_type: form.property_type || "사무실", id: editingId || undefined });
       let scheduleSynced = true;
       try {
         await createInflowSchedule(saved);
@@ -190,7 +224,7 @@ function CustomersPage({ setPage: navigatePage }) {
       resetForm();
       setMessage(
         scheduleSynced
-          ? editingId
+          ? wasEditing
             ? "고객 정보를 수정했습니다."
             : "고객을 등록했습니다."
           : "고객은 등록했습니다. 다만 일정관리 자동 연동은 실패해 별도 확인이 필요합니다.",
@@ -221,8 +255,16 @@ function CustomersPage({ setPage: navigatePage }) {
             </div>
           </div>
 
-          <div className="customer-filter-grid">
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="고객명, 연락처, 매물 종류 검색" />
+          <div className="customer-filter-grid customer-filter-grid-extended">
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="고객명, 연락처, 희망 지역 검색" />
+            <input type="month" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} aria-label="월별 조회" />
+            <select value={propertyTypeFilter} onChange={(event) => setPropertyTypeFilter(event.target.value)}>
+              {[ALL, ...PROPERTY_TYPE_OPTIONS].map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               {[ALL, ...CONTRACT_STATUSES].map((status) => (
                 <option key={status} value={status}>
@@ -237,6 +279,9 @@ function CustomersPage({ setPage: navigatePage }) {
                 </option>
               ))}
             </select>
+            <button type="button" className="secondary-btn small-btn" onClick={resetFilters}>
+              초기화
+            </button>
           </div>
 
           <div className="customer-card-list">
@@ -255,13 +300,13 @@ function CustomersPage({ setPage: navigatePage }) {
 
                     <div className="customer-meta-grid">
                       <span>매물</span>
-                      <p>{getCustomerValue(item, "property_type") || "미입력"}</p>
+                      <p>{getCustomerValue(item, "property_type") || "사무실"}</p>
+                      <span>희망 지역</span>
+                      <p>{getCustomerValue(item, "preferred_area") || "미입력"}</p>
                       <span>중요도</span>
                       <p>{getCustomerValue(item, "priority") || "보통"}</p>
                       <span>유입일</span>
                       <p>{formatDate(getCustomerValue(item, "inflow_date"))}</p>
-                      <span>유입경로</span>
-                      <p>{getCustomerValue(item, "source") || "직접 입력"}</p>
                     </div>
 
                     {getCustomerValue(item, "wanted_condition") ? (
@@ -286,7 +331,7 @@ function CustomersPage({ setPage: navigatePage }) {
                 );
               })
             ) : (
-              <div className="empty-state">등록된 고객이 없습니다.</div>
+              <div className="empty-state">조건에 맞는 고객이 없습니다.</div>
             )}
           </div>
 
@@ -332,18 +377,18 @@ function CustomersPage({ setPage: navigatePage }) {
             <input value={form.phone} onChange={(event) => updateField("phone", event.target.value)} placeholder="예: 010-1234-5678" />
           </label>
           <label className="field">
+            <span>희망 지역</span>
+            <input value={form.preferred_area} onChange={(event) => updateField("preferred_area", event.target.value)} placeholder="예: 강남구 역삼동" />
+          </label>
+          <label className="field">
             <span>매물 종류</span>
-            <input
-              list="property-type-options"
-              value={form.property_type}
-              onChange={(event) => updateField("property_type", event.target.value || "사무실")}
-              placeholder="사무실"
-            />
-            <datalist id="property-type-options">
+            <select value={form.property_type || "사무실"} onChange={(event) => updateField("property_type", event.target.value)}>
               {PROPERTY_TYPE_OPTIONS.map((type) => (
-                <option key={type} value={type} />
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
-            </datalist>
+            </select>
           </label>
           <label className="field">
             <span>찾는 조건</span>

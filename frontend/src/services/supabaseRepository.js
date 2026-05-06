@@ -78,6 +78,7 @@ async function writeCustomerWithFallback(query, customer, payload) {
       name: customer.name,
       phone: customer.phone,
       preferred_area: customer.preferred_area,
+      property_type: customer.property_type || "사무실",
       requirement: customer.wanted_condition,
       notes: customer.memo,
       inquiry_date: customer.inflow_date || null,
@@ -439,6 +440,194 @@ export async function deleteSchedule(id) {
   if (error) throw error;
 }
 
+const SETTLEMENT_STORAGE_KEY = "real_estate_mvp_settlements";
+const SETTLEMENT_WAITING_STATUS = "정산대기";
+const SETTLEMENT_DONE_STATUS = "정산완료";
+const BALANCE_SETTLEMENT_TYPES = new Set(["잔금", "잔금날"]);
+
+function parseSettlementMoney(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  const parsed = Number(String(value).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeSettlementPayload(settlement = {}, userId) {
+  const tenantFee = parseSettlementMoney(settlement.tenant_fee ?? settlement.tenantFee);
+  const landlordFee = parseSettlementMoney(settlement.landlord_fee ?? settlement.landlordFee);
+  const fallbackTotal = parseSettlementMoney(
+    settlement.total_fee ?? settlement.totalFee ?? settlement.commission_amount ?? settlement.expected_amount,
+  );
+  const totalFee = tenantFee + landlordFee || fallbackTotal;
+  const status = settlement.status === SETTLEMENT_DONE_STATUS ? SETTLEMENT_DONE_STATUS : settlement.status || SETTLEMENT_WAITING_STATUS;
+
+  return stripEmpty({
+    user_id: userId,
+    customer_id: settlement.customer_id || settlement.linked_customer_id || null,
+    customer_name: settlement.customer_name || settlement.name || "",
+    customer_phone: settlement.customer_phone || settlement.phone || "",
+    property_type: settlement.property_type || settlement.propertyType || "사무실",
+    schedule_id: settlement.schedule_id || null,
+    schedule_title: settlement.schedule_title || settlement.title || "",
+    balance_date: settlement.balance_date || settlement.schedule_date || settlement.date || null,
+    tenant_fee: tenantFee,
+    landlord_fee: landlordFee,
+    total_fee: totalFee,
+    status,
+    completed_at: status === SETTLEMENT_DONE_STATUS ? settlement.completed_at || new Date().toISOString() : settlement.completed_at || null,
+    memo: settlement.memo || settlement.note || "",
+    source: settlement.source || "수동등록",
+    updated_at: new Date().toISOString(),
+  });
+}
+
+function normalizeSettlementRow(row = {}) {
+  const tenantFee = parseSettlementMoney(row.tenant_fee ?? row.tenantFee);
+  const landlordFee = parseSettlementMoney(row.landlord_fee ?? row.landlordFee);
+  const totalFee = tenantFee + landlordFee || parseSettlementMoney(row.total_fee ?? row.commission_amount);
+
+  return {
+    ...row,
+    customer_name: row.customer_name || row.name || "",
+    customer_phone: row.customer_phone || row.phone || "",
+    phone: row.phone || row.customer_phone || "",
+    tenant_fee: tenantFee,
+    landlord_fee: landlordFee,
+    total_fee: totalFee,
+    commission_amount: totalFee,
+    status: row.status || SETTLEMENT_WAITING_STATUS,
+  };
+}
+
+function upsertLocalSettlement(settlement) {
+  const rows = readLocal(SETTLEMENT_STORAGE_KEY, []).map(normalizeSettlementRow);
+  const next = normalizeSettlementRow({
+    ...settlement,
+    id: settlement.id || createLocalId(),
+    created_at: settlement.created_at || new Date().toISOString(),
+  });
+  const index = rows.findIndex((item) => {
+    if (next.id && item.id === next.id) return true;
+    if (next.customer_id && item.customer_id === next.customer_id) return true;
+    if (next.schedule_id && item.schedule_id === next.schedule_id) return true;
+    return false;
+  });
+  const merged = index >= 0 ? rows.map((item, itemIndex) => (itemIndex === index ? { ...item, ...next } : item)) : [next, ...rows];
+  writeLocal(SETTLEMENT_STORAGE_KEY, merged);
+  return next;
+}
+
+export async function listSettlements() {
+  if (!isSupabaseConfigured) {
+    return readLocal(SETTLEMENT_STORAGE_KEY, []).map(normalizeSettlementRow);
+  }
+
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+
+  const { data, error } = await supabase
+    .from("settlements")
+    .select("*")
+    .eq("user_id", userId)
+    .order("balance_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(normalizeSettlementRow);
+}
+
+export async function saveSettlement(settlement = {}) {
+  if (!isSupabaseConfigured) {
+    return upsertLocalSettlement(normalizeSettlementPayload(settlement, "local-user"));
+  }
+
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("로그인 후 정산 정보를 저장할 수 있습니다.");
+
+  const payload = normalizeSettlementPayload(settlement, userId);
+  const id = settlement.id;
+
+  if (id) {
+    const { data, error } = await supabase
+      .from("settlements")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return normalizeSettlementRow(data);
+  }
+
+  const { data, error } = await supabase.from("settlements").insert(payload).select("*").single();
+  if (error) throw error;
+  return normalizeSettlementRow(data);
+}
+
+export async function upsertSettlementFromSchedule(schedule = {}, customer = {}) {
+  const scheduleType = schedule.schedule_type || schedule.type;
+  if (!BALANCE_SETTLEMENT_TYPES.has(scheduleType)) return null;
+
+  const customerId = schedule.customer_id || schedule.linked_customer_id || customer.id;
+  if (!customerId) return null;
+
+  const settlements = await listSettlements();
+  const existing = settlements.find((item) => item.customer_id && String(item.customer_id) === String(customerId));
+  const isCompleted = existing?.status === SETTLEMENT_DONE_STATUS;
+
+  return saveSettlement({
+    ...(existing || {}),
+    customer_id: customerId,
+    customer_name: customer.name || schedule.customer_name || existing?.customer_name || "",
+    customer_phone: customer.phone || customer.contact || existing?.customer_phone || "",
+    property_type: customer.property_type || existing?.property_type || "사무실",
+    schedule_id: schedule.id || existing?.schedule_id || null,
+    schedule_title: schedule.title || existing?.schedule_title || "",
+    balance_date: schedule.schedule_date || existing?.balance_date || null,
+    memo: schedule.note || existing?.memo || "",
+    source: "잔금일정",
+    status: isCompleted ? SETTLEMENT_DONE_STATUS : existing?.status || SETTLEMENT_WAITING_STATUS,
+    completed_at: existing?.completed_at || null,
+    tenant_fee: existing?.tenant_fee || 0,
+    landlord_fee: existing?.landlord_fee || 0,
+    total_fee: existing?.total_fee || 0,
+  });
+}
+
+export async function completeSettlement(settlementId) {
+  const settlements = await listSettlements();
+  const existing = settlements.find((item) => String(item.id) === String(settlementId));
+  if (!existing) throw new Error("정산 항목을 찾을 수 없습니다.");
+  if (existing.status === SETTLEMENT_DONE_STATUS) return existing;
+
+  return saveSettlement({
+    ...existing,
+    status: SETTLEMENT_DONE_STATUS,
+    completed_at: new Date().toISOString(),
+  });
+}
+
+export async function deleteSettlement(settlementId) {
+  if (!isSupabaseConfigured) {
+    const rows = readLocal(SETTLEMENT_STORAGE_KEY, []).filter((item) => String(item.id) !== String(settlementId));
+    writeLocal(SETTLEMENT_STORAGE_KEY, rows);
+    return true;
+  }
+
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("로그인 후 정산 정보를 삭제할 수 있습니다.");
+
+  const { error } = await supabase.from("settlements").delete().eq("id", settlementId).eq("user_id", userId);
+  if (error) throw error;
+  return true;
+}
+
+export async function getSettlementRevenueSummary() {
+  const settlements = await listSettlements();
+  const completed = settlements.filter((item) => item.status === SETTLEMENT_DONE_STATUS);
+  return {
+    completed_count: completed.length,
+    total_revenue: completed.reduce((sum, item) => sum + parseSettlementMoney(item.total_fee ?? item.commission_amount), 0),
+  };
+}
 export async function listBrochures() {
   if (!isSupabaseConfigured) return readLocal(STORAGE_KEYS.brochures);
 
@@ -601,3 +790,5 @@ export async function savePropertyAndBrochure({ form, mainImage, extraImages, br
   if (brochureError) throw brochureError;
   return { ...brochure, ...payload, property_id: property.id, price: priceSummary };
 }
+
+

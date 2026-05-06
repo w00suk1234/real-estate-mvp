@@ -1,68 +1,233 @@
-import { useEffect, useMemo, useState } from "react";
-import { listCustomers, listSchedules } from "../services/supabaseRepository";
+﻿import { useEffect, useMemo, useState } from "react";
+import { completeSettlement, deleteSettlement, listCustomers, listSchedules, listSettlements, saveCustomer, saveSettlement } from "../services/supabaseRepository";
 
-const STORAGE_KEY = "real_estate_mvp_settlement_entries";
+const BALANCE_TYPES = new Set(["잔금", "잔금날"]);
+const DONE_STATUS = "정산완료";
+const WAITING_STATUS = "정산대기";
 const today = new Date();
 
 function toMonthInputValue(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function readLedger() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
+function toDateValue(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function writeLedger(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+function createId(prefix = "settlement") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
-function createId() {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function parseMoney(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value || "").replace(/[^0-9.-]/g, "");
+  return Number(cleaned) || 0;
 }
 
 function formatWon(value) {
-  return `${new Intl.NumberFormat("ko-KR").format(Number(value) || 0)}원`;
+  return `${new Intl.NumberFormat("ko-KR").format(parseMoney(value))}원`;
+}
+
+function formatMoneyInput(value) {
+  const amount = parseMoney(value);
+  return amount ? new Intl.NumberFormat("ko-KR").format(amount) : "";
 }
 
 function sumBy(items, getter) {
-  return items.reduce((total, item) => total + (Number(getter(item)) || 0), 0);
+  return items.reduce((total, item) => total + parseMoney(getter(item)), 0);
 }
 
 function isSameMonth(dateString, monthValue) {
-  return String(dateString || "").startsWith(monthValue);
+  return Boolean(monthValue) && String(dateString || "").startsWith(monthValue);
+}
+
+function getCustomerValue(customer, snakeKey, camelKey) {
+  return customer?.[snakeKey] ?? customer?.[camelKey] ?? "";
+}
+
+function feeTotal(entry) {
+  const tenant = parseMoney(entry.tenant_fee);
+  const landlord = parseMoney(entry.landlord_fee);
+  const splitTotal = tenant + landlord;
+  return splitTotal || parseMoney(entry.total_fee ?? entry.commission_amount);
+}
+
+function normalizeEntry(entry) {
+  const tenantFee = parseMoney(entry.tenant_fee);
+  const landlordFee = parseMoney(entry.landlord_fee);
+  const total = tenantFee + landlordFee || parseMoney(entry.commission_amount);
+
+  return {
+    id: entry.id || "",
+    customer_id: entry.customer_id || entry.linked_customer_id || "",
+    customer_name: entry.customer_name || "",
+    customer_phone: entry.customer_phone || entry.phone || "",
+    phone: entry.phone || entry.customer_phone || "",
+    property_type: entry.property_type || "",
+    contract_status: entry.contract_status || "",
+    schedule_id: entry.schedule_id || "",
+    schedule_title: entry.schedule_title || entry.title || "",
+    balance_date: entry.balance_date || entry.date || toDateValue(today),
+    date: entry.date || entry.balance_date || toDateValue(today),
+    title: entry.title || entry.schedule_title || "정산 대기",
+    tenant_fee: tenantFee,
+    landlord_fee: landlordFee,
+    commission_amount: total,
+      total_fee: total,
+    expected_amount: parseMoney(entry.expected_amount) || total,
+    status: entry.status === DONE_STATUS ? DONE_STATUS : WAITING_STATUS,
+    memo: entry.memo || "",
+    source: entry.source || "수동등록",
+    created_at: entry.created_at || new Date().toISOString(),
+    updated_at: entry.updated_at || new Date().toISOString(),
+  };
 }
 
 function emptyForm(monthValue) {
   return {
     id: "",
-    date: `${monthValue || toMonthInputValue(today)}-${String(today.getDate()).padStart(2, "0")}`,
+    customer_id: "",
     customer_name: "",
+    phone: "",
+    property_type: "",
+    contract_status: "",
+    schedule_id: "",
+    schedule_title: "",
+    balance_date: `${monthValue || toMonthInputValue(today)}-${String(today.getDate()).padStart(2, "0")}`,
     title: "",
-    commission_amount: "",
-    expected_amount: "",
-    status: "예상",
+    tenant_fee: "",
+    landlord_fee: "",
     memo: "",
+    source: "수동등록",
   };
+}
+
+function entryToForm(entry) {
+  return {
+    id: entry.id || "",
+    customer_id: entry.customer_id || "",
+    customer_name: entry.customer_name || "",
+    customer_phone: entry.customer_phone || entry.phone || "",
+    phone: entry.phone || entry.customer_phone || "",
+    property_type: entry.property_type || "",
+    contract_status: entry.contract_status || "",
+    schedule_id: entry.schedule_id || "",
+    schedule_title: entry.schedule_title || "",
+    balance_date: entry.balance_date || entry.date || toDateValue(today),
+    title: entry.title || entry.schedule_title || "",
+    tenant_fee: formatMoneyInput(entry.tenant_fee),
+    landlord_fee: formatMoneyInput(entry.landlord_fee),
+    memo: entry.memo || "",
+    source: entry.source || "수동등록",
+  };
+}
+
+function customerLabel(customer) {
+  const name = getCustomerValue(customer, "name", "name") || "이름 없음";
+  const phone = getCustomerValue(customer, "phone", "phone");
+  const type = getCustomerValue(customer, "property_type", "propertyType");
+  return [name, phone, type].filter(Boolean).join(" · ");
+}
+
+function buildEntryFromCustomer(customer, monthValue) {
+  const customerName = getCustomerValue(customer, "name", "name") || "";
+  return normalizeEntry({
+    customer_id: customer.id || "",
+    customer_name: customerName,
+    phone: getCustomerValue(customer, "phone", "phone"),
+    property_type: getCustomerValue(customer, "property_type", "propertyType") || "사무실",
+    contract_status: getCustomerValue(customer, "contract_status", "contractStatus"),
+    balance_date: `${monthValue}-${String(today.getDate()).padStart(2, "0")}`,
+    date: `${monthValue}-${String(today.getDate()).padStart(2, "0")}`,
+    title: `${customerName || "고객"} 정산`,
+    source: "수동등록",
+  });
+}
+
+function buildEntryFromSchedule(schedule, customer) {
+  const customerName = getCustomerValue(customer, "name", "name") || schedule.customer_name || "";
+  const balanceDate = schedule.schedule_date || toDateValue(today);
+  return normalizeEntry({
+    customer_id: schedule.customer_id || schedule.linked_customer_id || customer?.id || "",
+    customer_name: customerName,
+    phone: getCustomerValue(customer, "phone", "phone"),
+    property_type: getCustomerValue(customer, "property_type", "propertyType") || "사무실",
+    contract_status: getCustomerValue(customer, "contract_status", "contractStatus"),
+    schedule_id: schedule.id || "",
+    schedule_title: schedule.title || "잔금 일정",
+    balance_date: balanceDate,
+    date: balanceDate,
+    title: `${customerName || schedule.title || "고객"} 정산`,
+    memo: schedule.memo || "",
+    source: "잔금일정",
+  });
+}
+
+function mergeScheduleSettlements(ledgerRows, scheduleRows, customerRows) {
+  const customersById = new Map((customerRows || []).map((customer) => [String(customer.id), customer]));
+  const normalized = (ledgerRows || []).map(normalizeEntry);
+  let changed = normalized.length !== (ledgerRows || []).length;
+
+  (scheduleRows || [])
+    .filter((schedule) => BALANCE_TYPES.has(schedule.schedule_type))
+    .filter((schedule) => schedule.customer_id || schedule.linked_customer_id)
+    .forEach((schedule) => {
+      const customerId = String(schedule.customer_id || schedule.linked_customer_id || "");
+      const customer = customersById.get(customerId);
+      const existingIndex = normalized.findIndex((entry) => String(entry.customer_id || "") === customerId);
+      const fromSchedule = buildEntryFromSchedule(schedule, customer);
+
+      if (existingIndex >= 0) {
+        const existing = normalized[existingIndex];
+        const next = {
+          ...existing,
+          customer_name: existing.customer_name || fromSchedule.customer_name,
+          phone: existing.phone || fromSchedule.phone,
+          property_type: existing.property_type || fromSchedule.property_type,
+          contract_status: fromSchedule.contract_status || existing.contract_status,
+          schedule_id: existing.schedule_id || fromSchedule.schedule_id,
+          schedule_title: existing.schedule_title || fromSchedule.schedule_title,
+          balance_date: existing.balance_date || fromSchedule.balance_date,
+          date: existing.date || fromSchedule.date,
+          title: existing.title || fromSchedule.title,
+          source: existing.source === "수동등록" ? "잔금일정" : existing.source,
+          updated_at: new Date().toISOString(),
+        };
+        if (JSON.stringify(next) !== JSON.stringify(existing)) changed = true;
+        normalized[existingIndex] = next;
+      } else {
+        normalized.unshift(fromSchedule);
+        changed = true;
+      }
+    });
+
+  return { rows: normalized, changed };
 }
 
 function SettlementPage() {
   const [month, setMonth] = useState(toMonthInputValue(today));
   const [customers, setCustomers] = useState([]);
   const [schedules, setSchedules] = useState([]);
-  const [ledger, setLedger] = useState(() => readLedger());
+  const [ledger, setLedger] = useState([]);
   const [form, setForm] = useState(() => emptyForm(toMonthInputValue(today)));
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const [customerRows, scheduleRows] = await Promise.all([listCustomers(), listSchedules()]);
-        setCustomers(Array.isArray(customerRows) ? customerRows : []);
-        setSchedules(Array.isArray(scheduleRows) ? scheduleRows : []);
+        const [customerRows, scheduleRows, settlementRows] = await Promise.all([
+          listCustomers(),
+          listSchedules(),
+          listSettlements(),
+        ]);
+        const safeCustomers = Array.isArray(customerRows) ? customerRows : [];
+        const safeSchedules = Array.isArray(scheduleRows) ? scheduleRows : [];
+        const safeSettlements = Array.isArray(settlementRows) ? settlementRows : [];
+
+        setCustomers(safeCustomers);
+        setSchedules(safeSchedules);
+        setLedger(safeSettlements.map(normalizeEntry));
       } catch (error) {
         setMessage(error.message || "정산 데이터를 불러오지 못했습니다.");
       }
@@ -71,30 +236,29 @@ function SettlementPage() {
     load();
   }, []);
 
+  const selectedCustomer = useMemo(
+    () => customers.find((customer) => String(customer.id) === String(form.customer_id)),
+    [customers, form.customer_id],
+  );
+
   const monthLedger = useMemo(
-    () => ledger.filter((item) => isSameMonth(item.date, month)),
+    () => ledger.filter((item) => isSameMonth(item.balance_date || item.date, month)),
     [ledger, month],
   );
 
   const stats = useMemo(() => {
-    const customerInflow = customers.filter((customer) => isSameMonth(customer.inflow_date || customer.inquiry_date, month)).length;
+    const customerInflow = customers.filter((customer) => isSameMonth(customer.inflow_date || customer.inquiry_date || customer.created_at, month)).length;
     const scheduleInflow = schedules.filter((schedule) => isSameMonth(schedule.schedule_date, month) && schedule.schedule_type === "고객인입").length;
-    const contractCustomers = customers.filter(
-      (customer) => isSameMonth(customer.inflow_date || customer.inquiry_date, month) && ["계약금입금", "잔금완료"].includes(customer.contract_status),
-    ).length;
-    const contractSchedules = schedules.filter(
-      (schedule) => isSameMonth(schedule.schedule_date, month) && ["계약서작성", "계약금입금", "잔금날"].includes(schedule.schedule_type),
-    ).length;
-    const confirmedRevenue = sumBy(monthLedger.filter((item) => item.status === "정산완료"), (item) => item.commission_amount);
-    const expectedRevenue =
-      confirmedRevenue +
-      sumBy(monthLedger.filter((item) => item.status !== "정산완료"), (item) => item.expected_amount || item.commission_amount);
+    const contractCount = customers.filter((customer) => ["계약금입금", "계약서일정", "잔금완료", DONE_STATUS].includes(customer.contract_status)).length;
+    const doneRows = monthLedger.filter((item) => item.status === DONE_STATUS);
 
     return {
       inflowCount: Math.max(customerInflow, scheduleInflow),
-      contractCount: Math.max(contractCustomers, contractSchedules),
-      confirmedRevenue,
-      expectedRevenue,
+      contractCount,
+      pendingCount: monthLedger.filter((item) => item.status !== DONE_STATUS).length,
+      doneCount: doneRows.length,
+      confirmedRevenue: sumBy(doneRows, feeTotal),
+      expectedRevenue: sumBy(monthLedger, feeTotal),
     };
   }, [customers, month, monthLedger, schedules]);
 
@@ -104,107 +268,171 @@ function SettlementPage() {
 
   const handleMonthChange = (value) => {
     setMonth(value);
-    setForm((prev) => ({ ...prev, date: `${value}-${String(today.getDate()).padStart(2, "0")}` }));
+    setForm((prev) => ({ ...prev, balance_date: `${value}-${String(today.getDate()).padStart(2, "0")}` }));
   };
 
   const resetForm = () => {
     setForm(emptyForm(month));
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!form.title.trim() && !form.customer_name.trim()) {
-      setMessage("고객명 또는 정산명을 입력해 주세요.");
+  const handleCustomerSelect = (customerId) => {
+    if (!customerId) {
+      resetForm();
       return;
     }
 
-    const entry = {
-      ...form,
-      title: form.title.trim() || `${form.customer_name.trim()} 정산`,
-      commission_amount: Number(form.commission_amount) || 0,
-      expected_amount: Number(form.expected_amount) || Number(form.commission_amount) || 0,
-    };
-    const next = entry.id
-      ? ledger.map((item) => (item.id === entry.id ? entry : item))
-      : [{ ...entry, id: createId(), created_at: new Date().toISOString() }, ...ledger];
-
-    setLedger(next);
-    writeLedger(next);
-    resetForm();
-    setMessage(entry.id ? "정산 내역을 수정했습니다." : "정산 내역을 추가했습니다.");
+    const customer = customers.find((row) => String(row.id) === String(customerId));
+    const existing = ledger.find((entry) => String(entry.customer_id || "") === String(customerId));
+    const entry = existing || buildEntryFromCustomer(customer, month);
+    setForm(entryToForm(entry));
   };
 
-  const handleEdit = (entry) => {
-    setForm({
-      ...emptyForm(month),
-      ...entry,
-      commission_amount: String(entry.commission_amount || ""),
-      expected_amount: String(entry.expected_amount || ""),
+  const buildFormEntry = (status = WAITING_STATUS) => {
+    const tenantFee = parseMoney(form.tenant_fee);
+    const landlordFee = parseMoney(form.landlord_fee);
+    const total = tenantFee + landlordFee;
+    const customerName = form.customer_name.trim() || getCustomerValue(selectedCustomer, "name", "name") || "고객";
+
+    return normalizeEntry({
+      ...form,
+      customer_name: customerName,
+      phone: form.phone || getCustomerValue(selectedCustomer, "phone", "phone"),
+      property_type: form.property_type || getCustomerValue(selectedCustomer, "property_type", "propertyType") || "사무실",
+      contract_status: form.contract_status || getCustomerValue(selectedCustomer, "contract_status", "contractStatus"),
+      date: form.balance_date,
+      balance_date: form.balance_date,
+      title: form.title.trim() || `${customerName} 정산`,
+      tenant_fee: tenantFee,
+      landlord_fee: landlordFee,
+      commission_amount: total,
+      total_fee: total,
+      expected_amount: total,
+      status,
     });
   };
 
-  const handleDelete = (id) => {
-    if (!window.confirm("정산 내역을 삭제할까요?")) return;
-    const next = ledger.filter((item) => item.id !== id);
-    setLedger(next);
-    writeLedger(next);
-    setMessage("정산 내역을 삭제했습니다.");
+  const upsertEntry = async (entry) => {
+    const saved = normalizeEntry(await saveSettlement(entry));
+    setLedger((prev) => {
+      const index = prev.findIndex((item) => {
+        if (saved.id && item.id === saved.id) return true;
+        if (saved.customer_id && item.customer_id === saved.customer_id) return true;
+        return false;
+      });
+      if (index < 0) return [saved, ...prev];
+      return prev.map((item, itemIndex) => (itemIndex === index ? saved : item));
+    });
+    return saved;
   };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const entry = buildFormEntry();
+      await upsertEntry(entry);
+      setMessage("정산 정보가 저장되었습니다.");
+      resetForm();
+    } catch (error) {
+      setMessage(error.message || "정산 저장 중 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const handleEdit = (entry) => {
+    setForm(entryToForm(entry));
+    setMessage("정산 수정 영역에 선택한 내역을 불러왔습니다.");
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteSettlement(id);
+      setLedger((prev) => prev.filter((entry) => entry.id !== id));
+      if (form.id === id) resetForm();
+      setMessage("정산 항목을 삭제했습니다.");
+    } catch (error) {
+      setMessage(error.message || "정산 항목 삭제 중 오류가 발생했습니다.");
+    }
+  };
+  const handleComplete = async (entry) => {
+    if (entry.status === DONE_STATUS || saving) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const completedEntry = normalizeEntry(await completeSettlement(entry.id));
+      setLedger((prev) => prev.map((item) => (item.id === completedEntry.id ? completedEntry : item)));
+      if (entry.customer_id) {
+        const customer = customers.find((item) => String(item.id) === String(entry.customer_id));
+        if (customer) {
+          const updated = await saveCustomer({ ...customer, contract_status: DONE_STATUS });
+          setCustomers((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        }
+      }
+      setMessage("정산완료 처리했습니다.");
+    } catch (error) {
+      setMessage(error.message || "정산완료 처리 중 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const formTotal = parseMoney(form.tenant_fee) + parseMoney(form.landlord_fee);
 
   return (
     <div className="page-stack settlement-page">
       <section className="page-header-card compact-page-header settlement-header">
         <div>
           <span className="page-eyebrow">정산</span>
-          <h1>월별 정산 가계부</h1>
-          <p>월별 손님 인입, 계약 흐름, 수수료 매출과 이번 달 예상 정산금액을 같이 확인합니다.</p>
+          <h1>수수료 정산</h1>
+          <p>잔금 일정과 고객 정보를 기준으로 임차인·임대인 수수료를 분리해 관리합니다.</p>
         </div>
         <input className="month-input settlement-month-input" type="month" value={month} onChange={(event) => handleMonthChange(event.target.value)} />
       </section>
 
       <section className="settlement-stat-grid">
-        <StatCard label="손님 인입건수" value={`${stats.inflowCount}건`} tone="inflow" />
-        <StatCard label="계약건수" value={`${stats.contractCount}건`} tone="contract" />
-        <StatCard label="정산 완료 매출" value={formatWon(stats.confirmedRevenue)} tone="balance" />
-        <StatCard label="이번달 예상금액" value={formatWon(stats.expectedRevenue)} tone="meeting" />
+        <StatCard label="손님 인입" value={`${stats.inflowCount}건`} tone="inflow" />
+        <StatCard label="계약 고객" value={`${stats.contractCount}건`} tone="contract" />
+        <StatCard label="정산 대기" value={`${stats.pendingCount}건`} tone="meeting" />
+        <StatCard label="정산완료 매출" value={formatWon(stats.confirmedRevenue)} tone="balance" />
+        <StatCard label="예상 합계" value={formatWon(stats.expectedRevenue)} tone="expected" />
       </section>
 
       <section className="settlement-layout">
         <div className="settlement-table-card">
           <div className="section-heading-row">
             <div>
-              <h2>수수료 정산 매출표</h2>
-              <p>{monthLedger.length}건의 정산 내역</p>
+              <h2>정산 목록</h2>
+              <p>{monthLedger.length}건의 정산 항목입니다. 잔금 일정 저장 시 고객별 정산 대기가 자동 생성됩니다.</p>
             </div>
           </div>
 
           <div className="settlement-table">
             {monthLedger.length ? (
               monthLedger.map((entry) => (
-                <article key={entry.id} className={`settlement-row ${entry.status === "정산완료" ? "is-done" : "is-expected"}`}>
-                  <div>
-                    <span>{entry.date}</span>
-                    <strong>{entry.title}</strong>
-                    <p>{entry.customer_name || "고객명 미입력"}</p>
+                <article key={entry.id} className={`settlement-row ${entry.status === DONE_STATUS ? "is-done" : "is-waiting"}`}>
+                  <div className="settlement-row-main">
+                    <span>{entry.balance_date || entry.date}</span>
+                    <strong>{entry.customer_name || entry.title || "고객명 미입력"}</strong>
+                    <p>{[entry.phone, entry.property_type, entry.schedule_title || entry.title].filter(Boolean).join(" · ") || "연결 정보 없음"}</p>
+                    {entry.memo ? <p className="settlement-memo">{entry.memo}</p> : null}
                   </div>
-                  <div>
-                    <span>정산금</span>
-                    <strong>{formatWon(entry.commission_amount)}</strong>
+                  <div className="settlement-row-fees">
+                    <span>임차인 {formatWon(entry.tenant_fee)}</span>
+                    <span>임대인 {formatWon(entry.landlord_fee)}</span>
+                    <strong>합계 {formatWon(feeTotal(entry))}</strong>
                   </div>
-                  <div>
-                    <span>예상금</span>
-                    <strong>{formatWon(entry.expected_amount || entry.commission_amount)}</strong>
-                  </div>
-                  <em>{entry.status}</em>
-                  <div className="inline-actions">
+                  <em className={`settlement-status ${entry.status === DONE_STATUS ? "done" : "waiting"}`}>{entry.status}</em>
+                  <div className="inline-actions settlement-row-actions">
                     <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(entry)}>
                       수정
+                    </button>
+                    <button type="button" className="primary-btn small-btn" onClick={() => handleComplete(entry)} disabled={entry.status === DONE_STATUS}>
+                      정산완료
                     </button>
                     <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(entry.id)}>
                       삭제
                     </button>
                   </div>
-                  {entry.memo ? <p className="settlement-memo">{entry.memo}</p> : null}
                 </article>
               ))
             ) : (
@@ -217,48 +445,70 @@ function SettlementPage() {
           <div className="section-heading-row">
             <div>
               <h2>{form.id ? "정산 수정" : "정산 추가"}</h2>
-              <p>예상 건은 예상금액에, 완료 건은 정산금에 입력하면 월 합계에 반영됩니다.</p>
+              <p>고객을 선택하면 기존 고객정보를 확인한 뒤 수수료를 입력할 수 있습니다.</p>
             </div>
           </div>
 
           <label className="field">
-            <span>정산일</span>
-            <input type="date" value={form.date} onChange={(event) => updateForm("date", event.target.value)} />
-          </label>
-          <label className="field">
             <span>고객명</span>
-            <input value={form.customer_name} onChange={(event) => updateForm("customer_name", event.target.value)} placeholder="예: 김고객" />
-          </label>
-          <label className="field">
-            <span>정산명</span>
-            <input value={form.title} onChange={(event) => updateForm("title", event.target.value)} placeholder="예: 역삼 사무실 임대 계약" />
-          </label>
-          <div className="field-grid two">
-            <label className="field">
-              <span>수수료 정산금</span>
-              <input type="number" min="0" step="10000" value={form.commission_amount} onChange={(event) => updateForm("commission_amount", event.target.value)} />
-            </label>
-            <label className="field">
-              <span>예상금액</span>
-              <input type="number" min="0" step="10000" value={form.expected_amount} onChange={(event) => updateForm("expected_amount", event.target.value)} />
-            </label>
-          </div>
-          <label className="field">
-            <span>상태</span>
-            <select value={form.status} onChange={(event) => updateForm("status", event.target.value)}>
-              <option value="예상">예상</option>
-              <option value="정산완료">정산완료</option>
+            <select className="settlement-customer-select" value={form.customer_id} onChange={(event) => handleCustomerSelect(event.target.value)}>
+              <option value="">고객 직접 입력 또는 선택</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customerLabel(customer)}
+                </option>
+              ))}
             </select>
           </label>
+
+          {selectedCustomer ? (
+            <div className="selected-customer-card">
+              <strong>{getCustomerValue(selectedCustomer, "name", "name")}</strong>
+              <p>{[getCustomerValue(selectedCustomer, "phone", "phone"), getCustomerValue(selectedCustomer, "property_type", "propertyType"), getCustomerValue(selectedCustomer, "contract_status", "contractStatus")].filter(Boolean).join(" · ")}</p>
+              <small>{getCustomerValue(selectedCustomer, "memo", "memo") || getCustomerValue(selectedCustomer, "notes", "notes") || "등록된 고객 메모가 없습니다."}</small>
+            </div>
+          ) : null}
+
+          <div className="field-grid two">
+            <label className="field">
+              <span>직접 입력 고객명</span>
+              <input value={form.customer_name} onChange={(event) => updateForm("customer_name", event.target.value)} placeholder="예: 김고객" />
+            </label>
+            <label className="field">
+              <span>잔금일 / 정산일</span>
+              <input type="date" value={form.balance_date} onChange={(event) => updateForm("balance_date", event.target.value)} />
+            </label>
+          </div>
+
+          <label className="field">
+            <span>정산명</span>
+            <input value={form.title} onChange={(event) => updateForm("title", event.target.value)} placeholder="예: 역삼 사무실 잔금 정산" />
+          </label>
+
+          <div className="settlement-fee-grid">
+            <label className="field">
+              <span>임차인 수수료</span>
+              <input inputMode="numeric" value={form.tenant_fee} onChange={(event) => updateForm("tenant_fee", formatMoneyInput(event.target.value))} placeholder="예: 1,500,000" />
+            </label>
+            <label className="field">
+              <span>임대인 수수료</span>
+              <input inputMode="numeric" value={form.landlord_fee} onChange={(event) => updateForm("landlord_fee", formatMoneyInput(event.target.value))} placeholder="예: 1,500,000" />
+            </label>
+            <div className="settlement-total-box">
+              <span>합계 수수료</span>
+              <strong>{formatWon(formTotal)}</strong>
+            </div>
+          </div>
+
           <label className="field">
             <span>메모</span>
-            <textarea rows="3" value={form.memo} onChange={(event) => updateForm("memo", event.target.value)} placeholder="입금 예정일, 분배 메모 등" />
+            <textarea rows="3" value={form.memo} onChange={(event) => updateForm("memo", event.target.value)} placeholder="정산 조건, 지급 예정일 등" />
           </label>
 
           {message ? <div className="schedule-inline-alert">{message}</div> : null}
 
           <div className="form-actions inline-actions">
-            <button type="submit" className="primary-btn">
+            <button type="submit" className="primary-btn" disabled={saving}>
               {form.id ? "수정 저장" : "정산 저장"}
             </button>
             {form.id ? (
@@ -283,3 +533,6 @@ function StatCard({ label, value, tone }) {
 }
 
 export default SettlementPage;
+
+
+
