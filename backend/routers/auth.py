@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from db import engine, row_to_dict, rows_to_dicts, users
@@ -25,6 +25,15 @@ class SignupRequest(BaseModel):
     phone: str = ""
     email: str = ""
     privacy_agreed: bool = False
+
+
+class FindUsernameRequest(BaseModel):
+    email: str = ""
+    phone: str = ""
+
+
+class PasswordResetRequest(BaseModel):
+    username: str = ""
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -93,6 +102,41 @@ def login(payload: LoginRequest):
         "access_token": create_access_token(public_user),
         "token_type": "bearer",
         "user": public_user,
+    }
+
+
+@router.post("/find-username")
+def find_username(payload: FindUsernameRequest):
+    email = _clean_text(payload.email, 120)
+    phone = _clean_text(payload.phone, 80)
+    if not email and not phone:
+        raise HTTPException(status_code=400, detail="이메일 또는 연락처를 입력해 주세요.")
+
+    conditions = []
+    if email:
+        conditions.append(users.c.email == email)
+    if phone:
+        conditions.append(users.c.phone == phone)
+
+    with engine.connect() as conn:
+        row = conn.execute(
+            select(users.c.username, users.c.email, users.c.phone)
+            .where(or_(*conditions))
+            .limit(1)
+        ).first()
+
+    user = row_to_dict(row)
+    if not user:
+        raise HTTPException(status_code=404, detail="입력한 정보와 일치하는 계정을 찾지 못했습니다.")
+
+    return {"username": user["username"], "email": user.get("email") or "", "phone": user.get("phone") or ""}
+
+
+@router.post("/password-reset-request")
+def password_reset_request(_: PasswordResetRequest):
+    return {
+        "success": True,
+        "message": "비밀번호 재설정 요청을 접수했습니다. 운영 환경에서는 가입 이메일로 재설정 메일이 발송됩니다.",
     }
 
 

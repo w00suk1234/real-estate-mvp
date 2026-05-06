@@ -18,6 +18,7 @@ const CUSTOMER_FIELDS = [
   "contract_status",
   "priority",
   "source",
+  "source_schedule_id",
   "inflow_date",
   "memo",
 ];
@@ -25,6 +26,7 @@ const CUSTOMER_FIELDS = [
 const SCHEDULE_FIELDS = [
   "title",
   "customer_id",
+  "linked_customer_id",
   "customer_name",
   "schedule_date",
   "schedule_time",
@@ -165,6 +167,15 @@ async function writeScheduleWithFallback(query, schedule, payload) {
     }),
     stripEmpty({
       title: schedule.title,
+      linked_customer_id: schedule.linked_customer_id || schedule.customer_id || null,
+      schedule_date: schedule.schedule_date || null,
+      schedule_time: schedule.schedule_time || null,
+      schedule_type: schedule.schedule_type,
+      note: schedule.note || fallbackNote,
+      user_id: payload.user_id,
+    }),
+    stripEmpty({
+      title: schedule.title,
       schedule_date: schedule.schedule_date || null,
       schedule_time: schedule.schedule_time || null,
       note: fallbackNote,
@@ -240,6 +251,44 @@ export async function getProfileByUsername(username) {
 
   if (error) return null;
   return data;
+}
+
+export async function getProfileByContact({ email, phone }) {
+  const normalizedEmail = String(email || "").trim();
+  const normalizedPhone = String(phone || "").trim();
+  if (!normalizedEmail && !normalizedPhone) return null;
+
+  if (!isSupabaseConfigured) {
+    try {
+      const saved = JSON.parse(localStorage.getItem("auth_user") || "null");
+      if (!saved) return null;
+      if (normalizedEmail && saved.email === normalizedEmail) return saved;
+      if (normalizedPhone && saved.phone === normalizedPhone) return saved;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (normalizedEmail) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, email, phone")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+    if (!error && data) return data;
+  }
+
+  if (normalizedPhone) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, email, phone")
+      .eq("phone", normalizedPhone)
+      .maybeSingle();
+    if (!error && data) return data;
+  }
+
+  return null;
 }
 
 export async function upsertProfile(profile) {

@@ -1,7 +1,12 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
-import { getProfile, getProfileByUsername, upsertProfile } from "../services/supabaseRepository";
+import {
+  getProfile,
+  getProfileByContact,
+  getProfileByUsername,
+  upsertProfile,
+} from "../services/supabaseRepository";
 
 const AuthContext = createContext(null);
 const AUTH_EMAIL_MAP_KEY = "agentnote_auth_email_map";
@@ -250,6 +255,87 @@ function AuthProvider({ children }) {
     });
   };
 
+  const findUsername = async ({ email, phone }) => {
+    if (!isSupabaseConfigured) {
+      return apiFetch("/auth/find-username", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({ email, phone }),
+      });
+    }
+
+    const profile = await withTimeout(
+      getProfileByContact({ email, phone }),
+      PROFILE_TIMEOUT_MS,
+      "계정 조회 시간이 초과되었습니다.",
+    );
+
+    if (!profile?.username) {
+      throw new Error("입력한 정보와 일치하는 계정을 찾지 못했습니다.");
+    }
+
+    return profile;
+  };
+
+  const requestPasswordReset = async ({ usernameOrEmail }) => {
+    const value = String(usernameOrEmail || "").trim();
+    if (!value) throw new Error("아이디 또는 이메일을 입력해 주세요.");
+
+    if (isSupabaseConfigured) {
+      const profile = value.includes("@")
+        ? null
+        : await withTimeout(
+            getProfileByUsername(value),
+            PROFILE_TIMEOUT_MS,
+            "아이디 조회 시간이 초과되었습니다.",
+          ).catch(() => null);
+      const email = value.includes("@") ? value : profile?.email || readAuthEmailMap()[value] || "";
+
+      if (!email || email.endsWith("@agentnote.local")) {
+        throw new Error("재설정 메일을 받을 이메일을 찾지 못했습니다. 가입 시 입력한 이메일로 다시 시도해 주세요.");
+      }
+
+      const { error } = await withTimeout(
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/?page=login&reset=1`,
+        }),
+        AUTH_TIMEOUT_MS,
+        "비밀번호 재설정 요청 시간이 초과되었습니다.",
+      );
+      if (error) throw new Error(getAuthErrorMessage(error));
+      return { email };
+    }
+
+    return apiFetch("/auth/password-reset-request", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({ username: value }),
+    });
+  };
+
+  const updatePassword = async ({ password }) => {
+    const nextPassword = String(password || "").trim();
+    if (nextPassword.length < 8) {
+      throw new Error("비밀번호는 8자 이상으로 입력해 주세요.");
+    }
+
+    if (!isSupabaseConfigured) {
+      throw new Error("로컬 계정은 관리자에게 비밀번호 초기화를 요청해 주세요.");
+    }
+
+    const { data, error } = await withTimeout(
+      supabase.auth.updateUser({ password: nextPassword }),
+      AUTH_TIMEOUT_MS,
+      "비밀번호 변경 요청 시간이 초과되었습니다.",
+    );
+    if (error) throw new Error(getAuthErrorMessage(error));
+    if (data.user) {
+      setUser(normalizeUser(data.user));
+      hydrateSupabaseUser(data.user);
+    }
+    return data.user;
+  };
+
   const updateProfile = async (payload) => {
     if (isSupabaseConfigured) {
       const profile = await upsertProfile(payload);
@@ -279,6 +365,9 @@ function AuthProvider({ children }) {
       loading,
       login,
       signup,
+      findUsername,
+      requestPasswordReset,
+      updatePassword,
       updateProfile,
       logout,
       isAuthenticated: Boolean(user),

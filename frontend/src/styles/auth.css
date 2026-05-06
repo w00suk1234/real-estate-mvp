@@ -123,6 +123,15 @@
   font-weight: 700;
 }
 
+.auth-success {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .auth-submit {
   border: none;
   border-radius: 14px;
@@ -136,6 +145,23 @@
 .auth-submit:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.auth-helper-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.auth-helper-actions button {
+  border: none;
+  background: transparent;
+  color: var(--secondary);
+  font-weight: 800;
+  cursor: pointer;
+  padding: 8px 10px;
 }
 
 .auth-skip {

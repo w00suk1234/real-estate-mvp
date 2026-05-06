@@ -75,6 +75,7 @@ function emptyForm(date = todayString) {
     id: undefined,
     title: "",
     customer_id: "",
+    linked_customer_id: "",
     customer_name: "",
     schedule_date: date,
     schedule_time: "12:00",
@@ -203,6 +204,7 @@ function SchedulesPage() {
     setForm((prev) => ({
       ...prev,
       customer_id: customer.id,
+      linked_customer_id: customer.id,
       customer_name: customer.name || "",
       title: prev.title || `${customer.name || "고객"} ${prev.schedule_type}`,
       note:
@@ -219,12 +221,13 @@ function SchedulesPage() {
     const phone = extractPhone(`${scheduleDraft.note || ""}\n${customerSearch}`);
     const existingCustomer =
       customers.find((customer) => scheduleDraft.customer_id && customer.id === scheduleDraft.customer_id) ||
+      customers.find((customer) => scheduleDraft.linked_customer_id && customer.id === scheduleDraft.linked_customer_id) ||
       customers.find((customer) => phone && normalizeText(customer.phone) === phone) ||
       customers.find((customer) => normalizeText(customer.name) === name);
 
     return saveCustomer({
       ...(existingCustomer || {}),
-      id: existingCustomer?.id || scheduleDraft.customer_id || undefined,
+      id: existingCustomer?.id || scheduleDraft.customer_id || scheduleDraft.linked_customer_id || undefined,
       name,
       phone: phone || existingCustomer?.phone || "",
       preferred_area: existingCustomer?.preferred_area || "",
@@ -233,6 +236,7 @@ function SchedulesPage() {
       contract_status: existingCustomer?.contract_status || "미계약",
       priority: existingCustomer?.priority || "보통",
       source: existingCustomer?.source || "일정관리",
+      source_schedule_id: scheduleDraft.id || existingCustomer?.source_schedule_id || undefined,
       inflow_date: scheduleDraft.schedule_date || existingCustomer?.inflow_date || existingCustomer?.inquiry_date || "",
       memo: scheduleDraft.note || existingCustomer?.memo || existingCustomer?.notes || "",
     });
@@ -265,6 +269,7 @@ function SchedulesPage() {
         scheduleDraft = {
           ...scheduleDraft,
           customer_id: linkedCustomer.id,
+          linked_customer_id: linkedCustomer.id,
           customer_name: linkedCustomer.name || scheduleDraft.customer_name,
           title: scheduleDraft.title || `${linkedCustomer.name || "고객"} 고객인입`,
         };
