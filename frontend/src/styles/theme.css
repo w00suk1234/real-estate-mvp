@@ -4081,6 +4081,7 @@ h4 {
 }
 
 .customer-actions {
+  flex-direction: row;
   justify-content: flex-end;
   margin-top: 12px;
 }
@@ -4089,10 +4090,12 @@ h4 {
   display: inline-grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  min-width: 156px;
 }
 
 .customer-action-pair .small-btn {
   min-width: 72px;
+  width: 100%;
 }
 
 .pagination-row {
@@ -4164,6 +4167,15 @@ h4 {
   .customer-filter-grid,
   .customer-meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .customer-actions {
+    justify-content: stretch;
+  }
+
+  .customer-actions > .primary-btn,
+  .customer-action-pair {
+    width: 100%;
   }
 }
 
