@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import BriefingMakerPage from "./pages/BriefingMakerPage";
 import CustomersPage from "./pages/CustomersPage";
 import SchedulesPage from "./pages/SchedulesPage";
-import SettlementsPage from "./pages/SettlementsPage";
+import SettlementPage from "./pages/SettlementPage";
 import AIPropertyRecommendPage from "./pages/AIPropertyRecommendPage";
 import CalculatorsPage from "./pages/CalculatorsPage";
 import PhotoEditorPage from "./pages/PhotoEditorPage";
@@ -197,9 +197,7 @@ function App() {
 
   if (page === "customers") currentPage = <CustomersPage setPage={setPage} />;
   if (page === "schedules") currentPage = <SchedulesPage setPage={setPage} />;
-  if (page === "settlements" || page === "settlement") {
-    currentPage = <SettlementsPage setPage={setPage} />;
-  }
+  if (page === "settlement") currentPage = <SettlementPage setPage={setPage} />;
   if (page === "ai-recommend") currentPage = <AIPropertyRecommendPage setPage={setPage} />;
   if (page === "calculators") currentPage = <CalculatorsPage setPage={setPage} />;
   if (page === "photo-editor") currentPage = <PhotoEditorPage setPage={setPage} />;
