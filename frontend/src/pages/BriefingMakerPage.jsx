@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import PropertyForm from "../form/PropertyForm";
 import PreviewCard from "../cards/PreviewCard";
@@ -219,10 +219,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
       <div className="page-stack">
         <section className="page-header-card">
           <h1>소개서 작성</h1>
-          <p>
-            네이버 매물 정보를 정리하고, 담당자 정보까지 포함한 고객용 소개서를
-            빠르게 완성해 보세요.
-          </p>
+          <p>매물 정보를 고객용 소개서로 빠르게 정리합니다.</p>
         </section>
 
         <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
