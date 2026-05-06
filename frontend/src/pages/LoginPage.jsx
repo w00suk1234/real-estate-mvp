@@ -121,7 +121,7 @@ function LoginPage({ setPage }) {
   return (
     <main className="auth-page">
       <section className="auth-card auth-card-wide">
-        <p className="auth-eyebrow">부동산 중개업무 통합툴</p>
+        <p className="auth-eyebrow">부동산 업무 통합툴</p>
         <h1>{getTitle()}</h1>
         <p className="auth-copy">{getCopy()}</p>
 

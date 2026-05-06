@@ -1,4 +1,4 @@
-﻿import icon1 from "../../assets/icon1.png";
+import icon1 from "../../assets/icon1.png";
 
 const primaryItems = [
   { id: "schedules", label: "일정관리" },
@@ -22,7 +22,7 @@ function Sidebar({ page, onNavigate }) {
         <img className="sidebar-logo" src={icon1} alt="AgentNote" />
         <div className="sidebar-brand-copy">
           <strong>AgentNote</strong>
-          <span>부동산 중개업무 통합툴</span>
+          <span>부동산 업무 통합툴</span>
         </div>
       </div>
 

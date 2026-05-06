@@ -390,13 +390,13 @@ h4 {
   width: 100%;
 }
 
-/* 위쪽 높이 */
+/* top area height */
 .property-card > .panel,
 .preview-card-wrap > .panel {
   min-height: 720px;
 }
 
-/* 아래쪽 높이 */
+/* lower area height */
 .brochure-list-card > .panel,
 .result-card-wrap > .panel {
   min-height: 430px;
@@ -5051,4 +5051,25 @@ h4 {
   .settlement-row-actions {
     justify-content: flex-start;
   }
+}
+
+/* Calendar month context polish */
+.calendar-weekdays span.weekend,
+.calendar-cell.weekend .date-number {
+  color: #dc2626;
+}
+
+.calendar-cell.muted {
+  background: #f1f5f9;
+  border-color: #d8e2ef;
+  opacity: 1;
+}
+
+.calendar-cell.muted .date-number {
+  color: #64748b;
+}
+
+.calendar-cell.muted.weekend .date-number {
+  color: #b91c1c;
+  opacity: 0.75;
 }

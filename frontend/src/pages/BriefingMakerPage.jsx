@@ -218,7 +218,6 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     <>
       <div className="page-stack">
         <section className="page-header-card">
-          <span className="section-eyebrow">중개 업무</span>
           <h1>소개서 작성</h1>
           <p>
             네이버 매물 정보를 정리하고, 담당자 정보까지 포함한 고객용 소개서를
@@ -276,4 +275,3 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 }
 
 export default BriefingMakerPage;
-

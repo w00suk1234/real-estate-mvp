@@ -1,10 +1,10 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { deleteSchedule, listCustomers, listSchedules, saveCustomer, saveSchedule, upsertSettlementFromSchedule } from "../services/supabaseRepository";
 
 const SCHEDULE_TYPES = ["일정", "고객인입", "미팅", "계약금입금", "계약서일정", "잔금", "잔금날", "기타"];
 const CUSTOMER_PICKER_TYPES = new Set(["미팅", "계약금입금", "계약서일정", "잔금", "잔금날"]);
 const BALANCE_TYPES = new Set(["잔금", "잔금날"]);
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const today = new Date();
 
 function toDateValue(date) {
@@ -26,7 +26,8 @@ function buildCells(monthDate) {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const first = new Date(year, month, 1);
-  first.setDate(first.getDate() - first.getDay());
+  const mondayOffset = (first.getDay() + 6) % 7;
+  first.setDate(first.getDate() - mondayOffset);
   const cells = [];
   for (let i = 0; i < 42; i += 1) {
     const date = new Date(first);
@@ -38,6 +39,7 @@ function buildCells(monthDate) {
       dayOfWeek: date.getDay(),
       isCurrentMonth: date.getMonth() === month,
       isToday: toDateValue(date) === toDateValue(today),
+      isWeekend: date.getDay() === 0 || date.getDay() === 6,
     });
   }
   return cells;
@@ -247,7 +249,6 @@ export default function SchedulesPage() {
   return (
     <div className="page-stack schedule-page-compact">
       <section className="page-header-card compact-page-header">
-        <span className="eyebrow">일정관리</span>
         <div>
           <h1>일정관리</h1>
           <p>월간 일정과 고객 흐름을 한 화면에서 관리합니다.</p>
@@ -271,7 +272,11 @@ export default function SchedulesPage() {
 
       <section className="dashboard-card calendar-card compact-calendar-card">
         <div className="calendar-weekdays">
-          {WEEKDAYS.map((day) => <span key={day}>{day}</span>)}
+          {WEEKDAYS.map((day) => (
+              <span key={day} className={day === "토" || day === "일" ? "weekend" : ""}>
+                {day}
+              </span>
+            ))}
         </div>
         <div className="calendar-grid">
           {cells.map((cell) => {
@@ -280,10 +285,12 @@ export default function SchedulesPage() {
               <button
                 type="button"
                 key={cell.dateString}
-                className={`calendar-cell ${cell.isCurrentMonth ? "" : "muted"} ${cell.isToday ? "today" : ""} ${cell.dateString === selectedDate ? "selected" : ""} ${cell.dayOfWeek === 0 || cell.dayOfWeek === 6 ? "weekend" : ""}`}
+                className={`calendar-cell ${cell.isCurrentMonth ? "" : "muted"} ${cell.isToday ? "today" : ""} ${cell.dateString === selectedDate ? "selected" : ""} ${cell.isWeekend ? "weekend" : ""}`}
                 onClick={() => openCreate(cell.dateString)}
               >
-                <span className="date-number">{cell.day}</span>
+                <span className="date-number">
+                  {cell.isCurrentMonth ? cell.day : `${cell.date.getMonth() + 1}/${cell.day}`}
+                </span>
                 <div className="calendar-events">
                   {dayItems.slice(0, 3).map((item) => (
                     <span key={item.id || `${item.title}-${item.schedule_time}`} className={`event-pill ${typeClass(item.schedule_type)}`} onClick={(event) => { event.stopPropagation(); openEdit(item); }}>
@@ -362,7 +369,3 @@ function ScheduleList({ items, onEdit }) {
     </div>
   );
 }
-
-
-
-
