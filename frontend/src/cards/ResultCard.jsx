@@ -3,8 +3,6 @@
     return (
       <section className="surface-card result-card-v2">
         <div className="panel-head">
-          <p className="section-eyebrow">생성 결과</p>
-          <h3>최종 소개서</h3>
           <p>소개서를 생성하면 PDF 저장과 인쇄 기능을 바로 사용할 수 있습니다.</p>
         </div>
         <div className="empty-state dashed-empty">
@@ -18,8 +16,6 @@
   return (
     <section className="surface-card result-card-v2 result-ready-card">
       <div className="panel-head">
-        <p className="section-eyebrow">생성 완료</p>
-        <h3>최종 소개서</h3>
         <p>고객에게 전달할 소개서를 PDF와 인쇄 형태로 정리할 수 있습니다.</p>
       </div>
 

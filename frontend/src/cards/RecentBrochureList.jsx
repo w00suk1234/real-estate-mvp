@@ -58,7 +58,6 @@ function RecentBrochureList({ refreshKey = 0 }) {
   return (
     <section className="surface-card fill-panel recent-brochure-panel">
       <div className="panel-head">
-        <h3>최근 생성 소개서</h3>
         <p>저장한 소개서를 다시 열 수 있습니다.</p>
       </div>
 
