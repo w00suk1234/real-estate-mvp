@@ -7875,3 +7875,139 @@ h4 {
     justify-content: flex-start !important;
   }
 }
+
+/* Focused UI finishing pass: briefing form, mobile preview, address hub */
+.briefing-redesign .briefing-accordion-form {
+  gap: 16px !important;
+}
+
+.briefing-redesign .briefing-form-section {
+  border-color: #d9e6f5;
+  box-shadow: 0 4px 12px rgba(15, 35, 65, 0.035);
+}
+
+.briefing-redesign .briefing-form-section > summary {
+  min-height: 54px;
+  padding: 0 17px;
+}
+
+.briefing-redesign .briefing-form-section[open] > summary {
+  border-bottom-color: #e1ebf7;
+}
+
+.briefing-redesign .briefing-section-body {
+  gap: 12px;
+  padding: 18px;
+}
+
+.briefing-redesign .briefing-section-body .field-grid,
+.briefing-redesign .briefing-section-body .upload-grid,
+.briefing-redesign .briefing-section-body .compact-action-grid {
+  gap: 11px 12px !important;
+}
+
+.briefing-redesign .briefing-sticky-actions {
+  margin-top: 8px;
+  padding-top: 18px;
+}
+
+.briefing-redesign .preview-card-wrap {
+  z-index: 1 !important;
+}
+
+.briefing-redesign .preview-card-wrap .preview-panel {
+  border: 1px solid #dbe7f5 !important;
+  box-shadow: 0 8px 18px rgba(15, 35, 65, 0.055) !important;
+}
+
+.briefing-redesign .preview-helper-box {
+  margin-bottom: 12px !important;
+}
+
+.briefing-redesign .preview-action-row {
+  gap: 9px !important;
+}
+
+.briefing-redesign .brochure-preview-v3 {
+  box-shadow: inset 0 0 0 1px rgba(15, 35, 65, 0.045) !important;
+}
+
+.address-hub-workspace {
+  width: min(100%, 1120px) !important;
+  max-width: 1120px !important;
+}
+
+.address-hub-workspace .address-search-card {
+  padding: 22px !important;
+}
+
+.address-hub-workspace .form-box {
+  gap: 16px !important;
+}
+
+.address-hub-workspace .address-query-preview {
+  gap: 7px;
+  padding: 16px;
+  margin-bottom: 2px;
+}
+
+.address-hub-workspace .address-button-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  padding-top: 2px;
+}
+
+.address-hub-workspace .address-button-grid .primary-btn,
+.address-hub-workspace .address-button-grid .secondary-btn {
+  min-height: 46px !important;
+  justify-content: center;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
+@media (max-width: 1280px) {
+  .briefing-redesign .preview-card-wrap {
+    position: static !important;
+    top: auto !important;
+    z-index: auto !important;
+  }
+
+  .briefing-redesign .preview-card-wrap .preview-panel {
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: 0 6px 14px rgba(15, 35, 65, 0.045) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .address-hub-workspace .address-button-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .briefing-redesign .briefing-accordion-form {
+    gap: 14px !important;
+  }
+
+  .briefing-redesign .briefing-form-section > summary {
+    min-height: 0;
+    padding: 13px 14px;
+  }
+
+  .briefing-redesign .briefing-section-body {
+    padding: 15px;
+  }
+
+  .briefing-redesign .preview-card-wrap .preview-panel {
+    border-radius: 14px !important;
+  }
+
+  .address-hub-workspace .address-button-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
