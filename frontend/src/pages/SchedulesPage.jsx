@@ -316,10 +316,12 @@ export default function SchedulesPage() {
                 className={`calendar-cell ${cell.isCurrentMonth ? "" : "muted"} ${cell.isToday ? "today" : ""} ${cell.dateString === selectedDate ? "selected" : ""} ${cell.isWeekend ? "weekend" : ""} ${cell.isHoliday ? "holiday" : ""}`}
                 onClick={() => openCreate(cell.dateString)}
               >
-                <span className="date-number">
-                  {cell.isCurrentMonth ? cell.day : `${cell.date.getMonth() + 1}/${cell.day}`}
+                <span className="calendar-date-line">
+                  <span className="date-number">
+                    {cell.isCurrentMonth ? cell.day : `${cell.date.getMonth() + 1}/${cell.day}`}
+                  </span>
+                  {cell.holidayName ? <span className="holiday-label">{cell.holidayName}</span> : null}
                 </span>
-                {cell.holidayName ? <span className="holiday-label">{cell.holidayName}</span> : null}
                 <div className="calendar-events">
                   {dayItems.slice(0, 3).map((item) => (
                     <span key={item.id || `${item.title}-${item.schedule_time}`} className={`event-pill ${typeClass(item.schedule_type)}`} onClick={(event) => { event.stopPropagation(); openEdit(item); }}>

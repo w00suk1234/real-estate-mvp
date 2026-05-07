@@ -6571,12 +6571,20 @@ h4 {
   color: #dc2626 !important;
 }
 
+.schedule-page-compact .calendar-date-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .schedule-page-compact .holiday-label {
   display: inline-flex;
   align-items: center;
   width: fit-content;
   max-width: 100%;
-  margin-top: 3px;
+  margin-top: 0;
   padding: 2px 7px;
   border-radius: 999px;
   background: #fff1f2;
