@@ -115,7 +115,6 @@ function AIPropertyRecommendPage({ setPage }) {
           <h1>AI 매물 추천기</h1>
           <p>고객 희망 조건을 기준으로 등록된 매물 중 적합한 매물을 추천합니다.</p>
         </div>
-        <span className="zero-cost-badge">Rule-based · API 호출 0회</span>
       </section>
 
       <section className="recommend-flow-strip" aria-label="추천 흐름">

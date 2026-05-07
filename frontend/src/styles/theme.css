@@ -8011,3 +8011,91 @@ h4 {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Final surface polish: quieter badges, settlement filters, solid buttons */
+.ai-recommend-header {
+  min-height: 116px !important;
+}
+
+.zero-cost-badge,
+.ai-recommend-header .zero-cost-badge {
+  display: none !important;
+}
+
+.settlement-table-card {
+  background: #ffffff !important;
+}
+
+.settlement-toolbar {
+  padding: 14px !important;
+  border: 1px solid #d7e4f4 !important;
+  border-radius: 16px !important;
+  background: #f3f7fc !important;
+}
+
+.settlement-toolbar .field {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.settlement-toolbar .field span {
+  color: #0f2348 !important;
+}
+
+.settlement-toolbar input,
+.settlement-toolbar select {
+  border-color: #cfdded !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.settlement-toolbar .secondary-btn,
+.settlement-reset-btn {
+  border-color: #cfdded !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.primary-btn,
+.cta-btn,
+.button.primary,
+.support-workspace .primary-btn,
+.address-button-grid .primary-btn,
+.briefing-sticky-actions .primary-btn,
+.settlement-form-card .form-actions .primary-btn,
+.photo-editor-workspace .primary-btn {
+  background: #0f4f9f !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.primary-btn:hover,
+.cta-btn:hover,
+.button.primary:hover,
+.support-workspace .primary-btn:hover,
+.address-button-grid .primary-btn:hover,
+.briefing-sticky-actions .primary-btn:hover,
+.settlement-form-card .form-actions .primary-btn:hover,
+.photo-editor-workspace .primary-btn:hover {
+  background: #0b438a !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.primary-btn:disabled,
+.cta-btn:disabled,
+.button.primary:disabled {
+  background: #8aa6c8 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.photo-editor-workspace .form-box {
+  overflow: visible;
+}
+
+.photo-editor-workspace .photo-tool-card {
+  overflow: hidden;
+}
