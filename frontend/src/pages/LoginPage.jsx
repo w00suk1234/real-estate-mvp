@@ -35,6 +35,22 @@ function formatPhone(value) {
   return `${digits.slice(0, 3)}-${digits.slice(3, middleEnd)}-${digits.slice(middleEnd)}`;
 }
 
+function getPhoneError(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "연락처를 입력해 주세요.";
+  if (!/^01[016789]\d{7,8}$/.test(digits)) {
+    return "연락처 형식을 확인해 주세요. 예: 010-1234-5678";
+  }
+  return "";
+}
+
+function getLookupUsernameError(value) {
+  const username = String(value || "").trim();
+  if (!username) return "아이디를 입력해 주세요.";
+  if (!USERNAME_PATTERN.test(username)) return "아이디는 영문, 숫자, -, _만 입력해 주세요.";
+  return "";
+}
+
 function validateSignupForm(form) {
   const errors = {};
   const username = form.username.trim();
@@ -73,11 +89,8 @@ function validateSignupForm(form) {
     errors.manager_name = "담당자명을 입력해 주세요.";
   }
 
-  if (!phone) {
-    errors.phone = "연락처를 입력해 주세요.";
-  } else if (!PHONE_PATTERN.test(phone)) {
-    errors.phone = "연락처 형식을 확인해 주세요. 예: 010-1234-5678";
-  }
+  const phoneError = getPhoneError(phone);
+  if (phoneError) errors.phone = phoneError;
 
   if (!form.privacy_agreed) {
     errors.privacy_agreed = "개인정보 수집 및 이용에 동의해야 가입할 수 있습니다.";
@@ -92,8 +105,10 @@ function LoginPage({ setPage }) {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [signupForm, setSignupForm] = useState(initialSignupForm);
   const [signupTouched, setSignupTouched] = useState({});
+  const [findTouched, setFindTouched] = useState({});
+  const [resetTouched, setResetTouched] = useState({});
   const [findForm, setFindForm] = useState({ email: "", phone: "" });
-  const [resetForm, setResetForm] = useState({ usernameOrEmail: "" });
+  const [resetForm, setResetForm] = useState({ usernameOrEmail: "", phone: "" });
   const [newPasswordForm, setNewPasswordForm] = useState({ password: "", confirm: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -103,9 +118,17 @@ function LoginPage({ setPage }) {
   const isFindId = mode === "find-id";
   const isResetRequest = mode === "reset-request";
   const isResetPassword = mode === "reset-password";
+  const isAccountRecovery = isFindId || isResetRequest;
   const signupErrors = useMemo(() => validateSignupForm(signupForm), [signupForm]);
+  const findPhoneError = useMemo(() => getPhoneError(findForm.phone), [findForm.phone]);
+  const resetUsernameError = useMemo(() => getLookupUsernameError(resetForm.usernameOrEmail), [resetForm.usernameOrEmail]);
+  const resetPhoneError = useMemo(() => getPhoneError(resetForm.phone), [resetForm.phone]);
   const hasSignupErrors = Object.keys(signupErrors).length > 0;
-  const isSubmitDisabled = loading || (isSignup && hasSignupErrors);
+  const isSubmitDisabled =
+    loading ||
+    (isSignup && hasSignupErrors) ||
+    (isFindId && Boolean(findPhoneError)) ||
+    (isResetRequest && Boolean(resetUsernameError || resetPhoneError));
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -119,6 +142,8 @@ function LoginPage({ setPage }) {
     setError("");
     setResult("");
     setSignupTouched({});
+    setFindTouched({});
+    setResetTouched({});
   }
 
   function updateLoginField(key, value) {
@@ -131,8 +156,32 @@ function LoginPage({ setPage }) {
     setSignupTouched((prev) => ({ ...prev, [key]: true }));
   }
 
+  function updateFindField(key, value) {
+    const nextValue = key === "phone" ? formatPhone(value) : value;
+    setFindForm((prev) => ({ ...prev, [key]: nextValue }));
+    setFindTouched((prev) => ({ ...prev, [key]: true }));
+  }
+
+  function updateResetField(key, value) {
+    const nextValue = key === "phone" ? formatPhone(value) : value;
+    setResetForm((prev) => ({ ...prev, [key]: nextValue }));
+    setResetTouched((prev) => ({ ...prev, [key]: true }));
+  }
+
   function showSignupError(key) {
     return isSignup && signupTouched[key] ? signupErrors[key] : "";
+  }
+
+  function showFindError(key) {
+    if (!isFindId || !findTouched[key]) return "";
+    return key === "phone" ? findPhoneError : "";
+  }
+
+  function showResetError(key) {
+    if (!isResetRequest || !resetTouched[key]) return "";
+    if (key === "usernameOrEmail") return resetUsernameError;
+    if (key === "phone") return resetPhoneError;
+    return "";
   }
 
   function markAllSignupFieldsTouched() {
@@ -163,21 +212,44 @@ function LoginPage({ setPage }) {
       }
 
       if (isFindId) {
-        if (!findForm.phone.trim()) {
-          throw new Error("가입할 때 입력한 연락처를 입력해 주세요.");
+        const phoneError = getPhoneError(findForm.phone);
+        if (phoneError) {
+          setFindTouched({ phone: true });
+          throw new Error("입력값을 다시 확인해 주세요.");
         }
         const profile = await findUsername(findForm);
-        setResult(`찾은 아이디: ${profile.username}`);
+        setResult(`가입된 아이디는 ${profile.username} 입니다.`);
         return;
       }
 
       if (isResetRequest) {
-        const response = await requestPasswordReset(resetForm);
-        setResult(
-          response?.email
-            ? `${response.email} 주소로 비밀번호 재설정 메일을 보냈습니다.`
-            : "비밀번호 재설정 요청을 접수했습니다.",
-        );
+        const usernameError = getLookupUsernameError(resetForm.usernameOrEmail);
+        const phoneError = getPhoneError(resetForm.phone);
+        if (usernameError || phoneError) {
+          setResetTouched({ usernameOrEmail: true, phone: true });
+          throw new Error("입력값을 다시 확인해 주세요.");
+        }
+
+        const profile = await findUsername({ phone: resetForm.phone });
+        if (profile.username !== resetForm.usernameOrEmail.trim()) {
+          throw new Error("아이디 또는 연락처가 일치하지 않습니다.");
+        }
+
+        try {
+          const response = await requestPasswordReset(resetForm);
+          setResult(
+            response?.email
+              ? `${response.email} 주소로 비밀번호 재설정 메일을 보냈습니다.`
+              : "계정 확인이 완료되었습니다. 관리자에게 비밀번호 초기화를 요청해 주세요.",
+          );
+        } catch (resetError) {
+          const resetMessage = resetError.message || "";
+          if (/이메일을 찾지 못했습니다|agentnote\.local|재설정 메일/i.test(resetMessage)) {
+            setResult("계정 확인이 완료되었습니다. 현재 계정은 이메일 없이 생성되어 관리자에게 비밀번호 초기화를 요청해 주세요.");
+            return;
+          }
+          throw resetError;
+        }
         return;
       }
 
@@ -215,9 +287,23 @@ function LoginPage({ setPage }) {
   function getCopy() {
     if (isSignup) return "기본 계정 정보를 입력하면 고객, 일정, 소개서 저장 기능을 사용할 수 있습니다.";
     if (isFindId) return "가입할 때 입력한 연락처로 아이디를 확인합니다.";
-    if (isResetRequest) return "아이디를 입력하면 비밀번호 재설정 가능 여부를 확인합니다.";
+    if (isResetRequest) return "아이디와 연락처를 확인한 뒤 비밀번호 재설정 방법을 안내합니다.";
     if (isResetPassword) return "메일 링크 인증이 끝난 계정의 비밀번호를 새로 설정합니다.";
     return "계정으로 로그인하고 고객, 일정, 소개서 데이터를 관리하세요.";
+  }
+
+  function getSubmitText() {
+    if (loading) {
+      if (isSignup) return "가입 중...";
+      if (isFindId) return "아이디 확인 중...";
+      if (isResetRequest) return "계정 확인 중...";
+      return "처리 중...";
+    }
+    if (isSignup) return "가입하기";
+    if (isFindId) return "아이디 확인";
+    if (isResetRequest) return "비밀번호 재설정 확인";
+    if (isResetPassword) return "비밀번호 변경";
+    return "로그인";
   }
 
   return (
@@ -227,22 +313,24 @@ function LoginPage({ setPage }) {
         <h1>{getTitle()}</h1>
         <p className="auth-copy">{getCopy()}</p>
 
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={mode === "login" ? "active" : ""}
-            onClick={() => switchMode("login")}
-          >
-            로그인
-          </button>
-          <button
-            type="button"
-            className={mode === "signup" ? "active" : ""}
-            onClick={() => switchMode("signup")}
-          >
-            회원가입
-          </button>
-        </div>
+        {!isAccountRecovery && !isResetPassword ? (
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={mode === "login" ? "active" : ""}
+              onClick={() => switchMode("login")}
+            >
+              로그인
+            </button>
+            <button
+              type="button"
+              className={mode === "signup" ? "active" : ""}
+              onClick={() => switchMode("signup")}
+            >
+              회원가입
+            </button>
+          </div>
+        ) : null}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           {isFindId ? (
@@ -250,26 +338,47 @@ function LoginPage({ setPage }) {
               <label>
                 연락처
                 <input
+                  className={showFindError("phone") ? "is-invalid" : ""}
                   value={findForm.phone}
-                  onChange={(event) => setFindForm((prev) => ({ ...prev, phone: event.target.value }))}
+                  onChange={(event) => updateFindField("phone", event.target.value)}
                   placeholder="예: 010-1234-5678"
                 />
+                <span className="field-helper">예: 010-1234-5678</span>
+                {showFindError("phone") ? <span className="field-error">{showFindError("phone")}</span> : null}
               </label>
             </div>
           ) : null}
 
           {isResetRequest ? (
-            <label>
-              아이디
-              <input
-                value={resetForm.usernameOrEmail}
-                onChange={(event) => setResetForm({ usernameOrEmail: event.target.value })}
-                autoComplete="username"
-                autoFocus
-                required
-                placeholder="예: broker01"
-              />
-            </label>
+            <div className="auth-grid one">
+              <label>
+                아이디
+                <input
+                  className={showResetError("usernameOrEmail") ? "is-invalid" : ""}
+                  value={resetForm.usernameOrEmail}
+                  onChange={(event) => updateResetField("usernameOrEmail", event.target.value)}
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  placeholder="예: broker01"
+                />
+                {showResetError("usernameOrEmail") ? (
+                  <span className="field-error">{showResetError("usernameOrEmail")}</span>
+                ) : null}
+              </label>
+
+              <label>
+                연락처
+                <input
+                  className={showResetError("phone") ? "is-invalid" : ""}
+                  value={resetForm.phone}
+                  onChange={(event) => updateResetField("phone", event.target.value)}
+                  placeholder="예: 010-1234-5678"
+                />
+                <span className="field-helper">가입할 때 입력한 연락처를 입력해 주세요.</span>
+                {showResetError("phone") ? <span className="field-error">{showResetError("phone")}</span> : null}
+              </label>
+            </div>
           ) : null}
 
           {isResetPassword ? (
@@ -422,30 +531,42 @@ function LoginPage({ setPage }) {
           {result ? <div className="auth-success">{result}</div> : null}
 
           <button className="auth-submit" type="submit" disabled={isSubmitDisabled}>
-            {loading
-              ? isSignup
-                ? "가입 중..."
-                : "처리 중..."
-              : isSignup
-                ? "가입하기"
-                : isFindId
-                  ? "아이디 확인"
-                  : isResetRequest
-                    ? "재설정 메일 받기"
-                    : isResetPassword
-                      ? "비밀번호 변경"
-                      : "로그인"}
+            {getSubmitText()}
           </button>
         </form>
 
-        <div className="auth-helper-actions">
-          <button type="button" onClick={() => switchMode("find-id")}>
-            아이디 찾기
-          </button>
-          <button type="button" onClick={() => switchMode("reset-request")}>
-            비밀번호 찾기
-          </button>
-        </div>
+        {isAccountRecovery || isResetPassword ? (
+          <>
+            <div className="auth-helper-actions auth-helper-actions-separated">
+              <button
+                type="button"
+                className={isFindId ? "active" : ""}
+                onClick={() => switchMode("find-id")}
+              >
+                아이디 찾기
+              </button>
+              <button
+                type="button"
+                className={isResetRequest ? "active" : ""}
+                onClick={() => switchMode("reset-request")}
+              >
+                비밀번호 찾기
+              </button>
+            </div>
+            <button className="auth-secondary-full" type="button" onClick={() => switchMode("login")}>
+              로그인으로 돌아가기
+            </button>
+          </>
+        ) : (
+          <div className="auth-helper-actions">
+            <button type="button" onClick={() => switchMode("find-id")}>
+              아이디 찾기
+            </button>
+            <button type="button" onClick={() => switchMode("reset-request")}>
+              비밀번호 찾기
+            </button>
+          </div>
+        )}
 
         <button className="auth-skip" type="button" onClick={() => setPage?.("calculators")}>
           로그인 없이 계산기 먼저 보기

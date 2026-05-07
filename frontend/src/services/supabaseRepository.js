@@ -254,9 +254,24 @@ export async function getProfileByUsername(username) {
   return data;
 }
 
+function getPhoneLookupVariants(phone) {
+  const raw = String(phone || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return [];
+
+  const dashed = digits.length <= 3
+    ? digits
+    : digits.length <= 7
+      ? `${digits.slice(0, 3)}-${digits.slice(3)}`
+      : `${digits.slice(0, 3)}-${digits.slice(3, digits.length === 10 ? 6 : 7)}-${digits.slice(digits.length === 10 ? 6 : 7)}`;
+
+  return [...new Set([raw, digits, dashed])];
+}
+
 export async function getProfileByContact({ email, phone }) {
   const normalizedEmail = String(email || "").trim();
   const normalizedPhone = String(phone || "").trim();
+  const phoneVariants = getPhoneLookupVariants(normalizedPhone);
   if (!normalizedEmail && !normalizedPhone) return null;
 
   if (!isSupabaseConfigured) {
@@ -264,7 +279,7 @@ export async function getProfileByContact({ email, phone }) {
       const saved = JSON.parse(localStorage.getItem("auth_user") || "null");
       if (!saved) return null;
       if (normalizedEmail && saved.email === normalizedEmail) return saved;
-      if (normalizedPhone && saved.phone === normalizedPhone) return saved;
+      if (phoneVariants.includes(String(saved.phone || "").trim())) return saved;
       return null;
     } catch {
       return null;
@@ -280,11 +295,12 @@ export async function getProfileByContact({ email, phone }) {
     if (!error && data) return data;
   }
 
-  if (normalizedPhone) {
+  if (phoneVariants.length) {
     const { data, error } = await supabase
       .from("profiles")
       .select("id, username, email, phone")
-      .eq("phone", normalizedPhone)
+      .in("phone", phoneVariants)
+      .limit(1)
       .maybeSingle();
     if (!error && data) return data;
   }
