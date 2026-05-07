@@ -5,7 +5,7 @@ const CONTRACT_STATUSES = ["미계약", "계약금입금", "계약서일정", "�
 const PRIORITY_LEVELS = ["낮음", "보통", "높음"];
 const PROPERTY_TYPE_OPTIONS = ["사무실", "상가", "주거", "매매"];
 const ALL = "전체";
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 const defaultForm = {
   name: "",
@@ -32,6 +32,7 @@ function getCustomerValue(item, key) {
   if (key === "wanted_condition") return item.wanted_condition || item.requirement || "";
   if (key === "memo") return item.memo || item.notes || "";
   if (key === "inflow_date") return item.inflow_date || item.inquiry_date || "";
+  if (key === "preferred_area") return item.preferred_area || item.area || String(item.wanted_condition || "").split(/[,\s]/)[0] || "";
   if (key === "property_type") return item.property_type || item.propertyType || "사무실";
   return item[key] || "";
 }

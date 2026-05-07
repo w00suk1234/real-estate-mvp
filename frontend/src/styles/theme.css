@@ -8673,3 +8673,22 @@ h4 {
 .photo-editor-workspace .photo-tool-card {
   overflow: hidden;
 }
+
+/* Unified left rail alignment */
+.content-area {
+  padding-right: 24px !important;
+  padding-left: 24px !important;
+}
+
+.page-stack,
+.briefing-workspace.briefing-redesign,
+.support-workspace,
+.profile-workspace,
+.calculator-workspace,
+.photo-editor-workspace,
+.address-hub-workspace {
+  width: 100% !important;
+  max-width: none !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
