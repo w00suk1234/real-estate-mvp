@@ -12,18 +12,10 @@ const AuthContext = createContext(null);
 const AUTH_EMAIL_MAP_KEY = "agentnote_auth_email_map";
 const AUTH_TIMEOUT_MS = 12000;
 const PROFILE_TIMEOUT_MS = 3500;
-const INTERNAL_AUTH_EMAIL_DOMAIN = "accounts.agentnote.co.kr";
-const LEGACY_INTERNAL_AUTH_EMAIL_DOMAIN = "agentnote.local";
-
 function toAuthEmail(usernameOrEmail) {
   const value = String(usernameOrEmail || "").trim();
   if (value.includes("@")) return value;
-  return `${value || "user"}@${INTERNAL_AUTH_EMAIL_DOMAIN}`;
-}
-
-function isInternalAuthEmail(email) {
-  const value = String(email || "").trim().toLowerCase();
-  return value.endsWith(`@${INTERNAL_AUTH_EMAIL_DOMAIN}`) || value.endsWith(`@${LEGACY_INTERNAL_AUTH_EMAIL_DOMAIN}`);
+  return "";
 }
 
 function unique(values) {
@@ -56,7 +48,7 @@ function withTimeout(promise, ms, message) {
 function getAuthErrorMessage(error) {
   const message = String(error?.message || "");
   if (/invalid login credentials/i.test(message)) {
-    return "아이디 또는 비밀번호가 맞지 않습니다.";
+    return "이메일 또는 비밀번호가 맞지 않습니다.";
   }
   if (/email not confirmed/i.test(message)) {
     return "이메일 인증이 완료되지 않았습니다. 가입한 이메일의 인증 메일을 확인해 주세요.";
@@ -65,10 +57,13 @@ function getAuthErrorMessage(error) {
     return "이미 가입된 계정입니다. 로그인 탭에서 로그인해 주세요.";
   }
   if (/duplicate|unique|profiles_username|already exists/i.test(message)) {
-    return "이미 사용 중인 아이디입니다. 다른 아이디로 가입해 주세요.";
+    return "이미 가입된 이메일입니다. 로그인 탭에서 로그인해 주세요.";
+  }
+  if (/email rate limit exceeded/i.test(message)) {
+    return "Supabase 이메일 발송 한도에 걸렸습니다. 잠시 후 다시 시도하거나 관리자에게 이메일 인증 설정을 확인해 달라고 요청해 주세요.";
   }
   if (/unable to validate email|invalid email|email address/i.test(message)) {
-    return "인증 서버가 내부 계정 이메일을 거부했습니다. 관리자에게 Supabase 이메일 인증/도메인 설정 확인이 필요합니다.";
+    return "올바른 이메일 주소를 입력해 주세요.";
   }
   if (/password/i.test(message)) {
     return "비밀번호는 8자 이상으로 입력해 주세요.";
@@ -217,9 +212,9 @@ function AuthProvider({ children }) {
     if (!payload.privacy_agreed) {
       throw new Error("개인정보 수집 및 이용 동의가 필요합니다.");
     }
-    const username = String(payload.username || "").trim();
-    if (username.length < 3) {
-      throw new Error("아이디는 3자 이상으로 입력해 주세요.");
+    const email = String(payload.email || payload.username || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error("올바른 이메일 주소를 입력해 주세요.");
     }
     if (String(payload.password || "").trim().length < 8) {
       throw new Error("비밀번호는 8자 이상으로 입력해 주세요.");
@@ -227,21 +222,20 @@ function AuthProvider({ children }) {
 
     if (isSupabaseConfigured) {
       const existingProfile = await withTimeout(
-        getProfileByUsername(username),
+        getProfileByUsername(email),
         PROFILE_TIMEOUT_MS,
-        "아이디 중복 확인 시간이 초과되었습니다.",
+        "이메일 중복 확인 시간이 초과되었습니다.",
       ).catch(() => null);
       if (existingProfile?.username) {
-        throw new Error("이미 사용 중인 아이디입니다. 다른 아이디로 가입해 주세요.");
+        throw new Error("이미 가입된 이메일입니다. 로그인 탭에서 로그인해 주세요.");
       }
-      const email = toAuthEmail(payload.email || payload.username);
       const { data, error } = await withTimeout(
         supabase.auth.signUp({
           email,
           password: payload.password,
           options: {
             data: {
-              username: payload.username,
+              username: email,
               office_name: payload.office_name,
               manager_name: payload.manager_name,
               phone: payload.phone,
@@ -265,7 +259,7 @@ function AuthProvider({ children }) {
       try {
         await withTimeout(
           upsertProfile({
-            username: payload.username,
+            username: email,
             office_name: payload.office_name,
             manager_name: payload.manager_name,
             phone: payload.phone,
@@ -279,7 +273,7 @@ function AuthProvider({ children }) {
         console.error(profileError);
       }
       hydrateSupabaseUser(data.user);
-      rememberAuthEmail(payload.username, email);
+      rememberAuthEmail(email, email);
       return normalizeUser(data.user);
     }
 
@@ -313,7 +307,7 @@ function AuthProvider({ children }) {
 
   const requestPasswordReset = async ({ usernameOrEmail }) => {
     const value = String(usernameOrEmail || "").trim();
-    if (!value) throw new Error("아이디 또는 이메일을 입력해 주세요.");
+    if (!value) throw new Error("이메일을 입력해 주세요.");
 
     if (isSupabaseConfigured) {
       const profile = value.includes("@")
@@ -325,7 +319,7 @@ function AuthProvider({ children }) {
           ).catch(() => null);
       const email = value.includes("@") ? value : profile?.email || readAuthEmailMap()[value] || "";
 
-      if (!email || isInternalAuthEmail(email)) {
+      if (!email) {
         throw new Error("재설정 메일을 받을 이메일을 찾지 못했습니다. 가입 시 입력한 이메일로 다시 시도해 주세요.");
       }
 

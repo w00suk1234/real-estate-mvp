@@ -23,7 +23,7 @@ const SIGNUP_FIELD_KEYS = [
   "privacy_agreed",
 ];
 
-const USERNAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^01[016789]-\d{3,4}-\d{4}$/;
 
 function formatPhone(value) {
@@ -46,8 +46,8 @@ function getPhoneError(value) {
 
 function getLookupUsernameError(value) {
   const username = String(value || "").trim();
-  if (!username) return "아이디를 입력해 주세요.";
-  if (!USERNAME_PATTERN.test(username)) return "아이디는 영문, 숫자, -, _만 입력해 주세요.";
+  if (!username) return "이메일을 입력해 주세요.";
+  if (!EMAIL_PATTERN.test(username)) return "올바른 이메일 주소를 입력해 주세요.";
   return "";
 }
 
@@ -58,13 +58,9 @@ function validateSignupForm(form) {
   const phone = form.phone.trim();
 
   if (!username) {
-    errors.username = "아이디를 입력해 주세요.";
-  } else if (username.length < 4) {
-    errors.username = "아이디는 4자 이상 입력해 주세요.";
-  } else if (username.length > 20) {
-    errors.username = "아이디는 20자 이하로 입력해 주세요.";
-  } else if (!USERNAME_PATTERN.test(username)) {
-    errors.username = "아이디는 영문, 숫자, -, _만 입력해 주세요.";
+    errors.username = "이메일을 입력해 주세요.";
+  } else if (!EMAIL_PATTERN.test(username)) {
+    errors.username = "올바른 이메일 주소를 입력해 주세요.";
   }
 
   if (!password) {
@@ -152,7 +148,11 @@ function LoginPage({ setPage }) {
 
   function updateSignupField(key, value) {
     const nextValue = key === "phone" ? formatPhone(value) : value;
-    setSignupForm((prev) => ({ ...prev, [key]: nextValue }));
+    setSignupForm((prev) => ({
+      ...prev,
+      [key]: nextValue,
+      ...(key === "username" ? { email: nextValue } : {}),
+    }));
     setSignupTouched((prev) => ({ ...prev, [key]: true }));
   }
 
@@ -231,8 +231,12 @@ function LoginPage({ setPage }) {
         }
 
         const profile = await findUsername({ phone: resetForm.phone });
-        if (profile.username !== resetForm.usernameOrEmail.trim()) {
-          throw new Error("아이디 또는 연락처가 일치하지 않습니다.");
+        const lookupValue = resetForm.usernameOrEmail.trim().toLowerCase();
+        const profileIds = [profile.username, profile.email]
+          .filter(Boolean)
+          .map((value) => String(value).trim().toLowerCase());
+        if (!profileIds.includes(lookupValue)) {
+          throw new Error("이메일 또는 연락처가 일치하지 않습니다.");
         }
 
         try {
@@ -269,7 +273,7 @@ function LoginPage({ setPage }) {
     } catch (err) {
       const message = err.message || "처리 중 오류가 발생했습니다.";
       setError(isSignup && /요청 처리 중 오류가 발생했습니다/.test(message)
-        ? "회원가입에 실패했습니다. 아이디 중복 또는 인증 서버 설정 문제일 수 있습니다."
+        ? "회원가입에 실패했습니다. 이미 가입된 이메일이거나 인증 서버 설정 문제일 수 있습니다."
         : message);
     } finally {
       setLoading(false);
@@ -286,8 +290,8 @@ function LoginPage({ setPage }) {
 
   function getCopy() {
     if (isSignup) return "기본 계정 정보를 입력하면 고객, 일정, 소개서 저장 기능을 사용할 수 있습니다.";
-    if (isFindId) return "가입할 때 입력한 연락처로 아이디를 확인합니다.";
-    if (isResetRequest) return "아이디와 연락처를 확인한 뒤 비밀번호 재설정 방법을 안내합니다.";
+    if (isFindId) return "가입할 때 입력한 연락처로 이메일 아이디를 확인합니다.";
+    if (isResetRequest) return "이메일과 연락처를 확인한 뒤 비밀번호 재설정 방법을 안내합니다.";
     if (isResetPassword) return "메일 링크 인증이 끝난 계정의 비밀번호를 새로 설정합니다.";
     return "계정으로 로그인하고 고객, 일정, 소개서 데이터를 관리하세요.";
   }
@@ -353,7 +357,7 @@ function LoginPage({ setPage }) {
           {isResetRequest ? (
             <div className="auth-grid one">
               <label>
-                아이디
+                이메일
                 <input
                   className={showResetError("usernameOrEmail") ? "is-invalid" : ""}
                   value={resetForm.usernameOrEmail}
@@ -361,7 +365,7 @@ function LoginPage({ setPage }) {
                   autoComplete="username"
                   autoFocus
                   required
-                  placeholder="예: broker01"
+                  placeholder="예: broker@example.com"
                 />
                 {showResetError("usernameOrEmail") ? (
                   <span className="field-error">{showResetError("usernameOrEmail")}</span>
@@ -416,7 +420,7 @@ function LoginPage({ setPage }) {
           {!isFindId && !isResetRequest && !isResetPassword ? (
             <>
               <label>
-                아이디
+                이메일
                 <input
                   className={showSignupError("username") ? "is-invalid" : ""}
                   value={isSignup ? signupForm.username : loginForm.username}
@@ -428,10 +432,9 @@ function LoginPage({ setPage }) {
                   autoComplete="username"
                   autoFocus
                   required
-                  minLength={3}
-                  placeholder="예: broker01"
+                  placeholder="예: broker@example.com"
                 />
-                {isSignup ? <span className="field-helper">영문, 숫자, -, _ 사용 가능</span> : null}
+                {isSignup ? <span className="field-helper">로그인 아이디로 사용할 이메일 주소를 입력해 주세요.</span> : null}
                 {showSignupError("username") ? <span className="field-error">{showSignupError("username")}</span> : null}
               </label>
 
