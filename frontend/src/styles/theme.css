@@ -8674,6 +8674,206 @@ h4 {
   overflow: hidden;
 }
 
+/* Customer management compact finish */
+.customer-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px) !important;
+  align-items: start !important;
+}
+
+.customer-list-card,
+.customer-form-card {
+  padding: 16px !important;
+  border-radius: 16px !important;
+}
+
+.customer-list-card > .section-heading-row,
+.customer-form-card > .section-heading-row {
+  margin-bottom: 10px !important;
+}
+
+.customer-list-card .section-heading-row h2,
+.customer-form-card .section-heading-row h2 {
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+}
+
+.customer-list-card .section-heading-row p,
+.customer-form-card .section-heading-row p {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.customer-filter-grid.customer-filter-grid-extended {
+  grid-template-columns: minmax(220px, 1.35fr) minmax(140px, 0.42fr) minmax(110px, 0.36fr) minmax(120px, 0.4fr) minmax(110px, 0.36fr) minmax(92px, 0.3fr) !important;
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+.customer-filter-grid input,
+.customer-filter-grid select,
+.customer-filter-grid .small-btn {
+  min-height: 38px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+}
+
+.customer-card-list {
+  gap: 8px !important;
+}
+
+.customer-card-item {
+  padding: 10px 12px 10px 14px !important;
+  border-radius: 13px !important;
+}
+
+.customer-card-head {
+  align-items: center !important;
+  margin-bottom: 7px !important;
+}
+
+.customer-card-head strong {
+  font-size: 16px !important;
+  line-height: 1.2 !important;
+}
+
+.customer-card-head span:not(.status-badge) {
+  margin-top: 2px !important;
+  font-size: 12.5px !important;
+  line-height: 1.2 !important;
+}
+
+.customer-meta-grid {
+  grid-template-columns: repeat(4, max-content minmax(0, 1fr)) !important;
+  gap: 5px 8px !important;
+  align-items: baseline !important;
+}
+
+.customer-meta-grid span {
+  font-size: 11.5px !important;
+  white-space: nowrap !important;
+}
+
+.customer-meta-grid p {
+  font-size: 12.5px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.customer-note {
+  display: -webkit-box !important;
+  margin-top: 7px !important;
+  padding: 7px 9px !important;
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+  overflow: hidden !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 1 !important;
+}
+
+.customer-note.muted {
+  display: none !important;
+}
+
+.customer-actions {
+  margin-top: 8px !important;
+  gap: 6px !important;
+}
+
+.customer-actions .small-btn {
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 11px !important;
+  font-size: 12.5px !important;
+}
+
+.customer-actions > .primary-btn {
+  min-width: 190px !important;
+}
+
+.customer-action-pair {
+  min-width: 132px !important;
+  gap: 6px !important;
+}
+
+.pagination-row {
+  margin-top: 10px !important;
+  gap: 6px !important;
+}
+
+.pagination-page-btn {
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  border-radius: 9px !important;
+}
+
+.customer-form-card {
+  top: 76px !important;
+  gap: 8px !important;
+  max-height: calc(100vh - 92px) !important;
+  overflow: auto !important;
+  padding-bottom: 14px !important;
+}
+
+.customer-form-card .field {
+  gap: 5px !important;
+}
+
+.customer-form-card .field span {
+  font-size: 12px !important;
+}
+
+.customer-form-card input,
+.customer-form-card select {
+  min-height: 38px !important;
+  height: 38px !important;
+  border-radius: 11px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+}
+
+.customer-form-card textarea {
+  min-height: 70px !important;
+  border-radius: 11px !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  resize: vertical !important;
+}
+
+.customer-form-card .compact-select-grid {
+  gap: 8px !important;
+}
+
+.customer-form-card .form-actions {
+  margin-top: 2px !important;
+}
+
+.customer-form-card .form-actions .primary-btn,
+.customer-form-card .form-actions .secondary-btn {
+  min-height: 38px !important;
+  border-radius: 11px !important;
+}
+
+@media (max-width: 1280px) {
+  .customer-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .customer-form-card {
+    position: static !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .customer-filter-grid.customer-filter-grid-extended,
+  .customer-meta-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* Unified left rail alignment */
 .content-area {
   padding-right: 24px !important;
