@@ -6859,22 +6859,55 @@ h4 {
 
 .schedule-page-compact .customer-picker-box {
   display: grid;
-  gap: 10px;
+  gap: 9px;
   padding: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
+  background: #ffffff;
+}
+
+.schedule-page-compact .selected-customer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #dbe7f5;
+  border-radius: 11px;
   background: #f8fbff;
+}
+
+.schedule-page-compact .selected-customer-card strong,
+.schedule-page-compact .selected-customer-card span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-page-compact .selected-customer-card strong {
+  color: #0f2348;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.schedule-page-compact .selected-customer-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .schedule-page-compact .customer-picker-list {
   display: grid;
-  gap: 8px;
-  max-height: 170px;
+  gap: 6px;
+  max-height: 148px;
   overflow: auto;
+  padding: 2px;
 }
 
 .schedule-page-compact .customer-picker-list button {
-  min-height: 38px;
+  min-height: 36px;
   border: 1px solid #dbe7f5;
   border-radius: 10px;
   background: #ffffff;
@@ -6889,6 +6922,14 @@ h4 {
 .schedule-page-compact .customer-picker-list button:hover {
   border-color: #9bb9e5;
   background: #f2f7ff;
+}
+
+.schedule-page-compact .customer-picker-list p {
+  margin: 0;
+  padding: 9px 4px 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .schedule-page-compact .modal-actions {
@@ -6927,6 +6968,11 @@ h4 {
   background: #fff1f2;
   color: #dc2626;
   margin-right: auto;
+}
+
+.schedule-page-compact .modal-actions .button.danger:hover {
+  border-color: #fca5a5;
+  background: #ffe4e6;
 }
 
 @media (max-width: 900px) {

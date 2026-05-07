@@ -128,22 +128,6 @@ function mergeMemoOnce(existing, next) {
 function customerLabel(customer) {
   return [customer.name, customer.phone, customer.property_type].filter(Boolean).join(" · ");
 }
-function customerInflowSchedule(customer) {
-  const date = customer.inflow_date || customer.inquiry_date;
-  if (!date) return null;
-  return {
-    id: `customer-inflow-${customer.id || customer.name}-${date}`,
-    title: `${customer.name || "고객"} 고객인입`,
-    customer_id: customer.id || "",
-    linked_customer_id: customer.id || "",
-    customer_name: customer.name || "",
-    schedule_date: date,
-    schedule_time: "",
-    schedule_type: "고객인입",
-    note: customer.memo || customer.notes || "",
-    isCustomerInflow: true,
-  };
-}
 
 export default function SchedulesPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -178,22 +162,7 @@ export default function SchedulesPage() {
   }, [authLoading, isAuthenticated]);
 
   const cells = useMemo(() => buildCells(month), [month]);
-  const displayItems = useMemo(() => {
-    const rows = Array.isArray(items) ? [...items] : [];
-    const existingKeys = new Set(
-      rows.map((item) => `${item.schedule_date || ""}|${item.customer_id || item.linked_customer_id || ""}|${item.schedule_type || ""}`)
-    );
-    customers.forEach((customer) => {
-      const inflowItem = customerInflowSchedule(customer);
-      if (!inflowItem) return;
-      const key = `${inflowItem.schedule_date}|${customer.id || ""}|고객인입`;
-      if (!existingKeys.has(key)) {
-        rows.push(inflowItem);
-        existingKeys.add(key);
-      }
-    });
-    return rows;
-  }, [items, customers]);
+  const displayItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const schedulesByDate = useMemo(() => {
     return displayItems.reduce((map, item) => {
       const date = item.schedule_date;
@@ -205,11 +174,15 @@ export default function SchedulesPage() {
   const selectedSchedules = schedulesByDate[selectedDate] || [];
   const filteredCustomers = useMemo(() => {
     const keyword = customerSearch.trim().toLowerCase();
-    if (!keyword) return customers.slice(0, 10);
+    if (!keyword) return [];
     return customers
       .filter((customer) => customerLabel(customer).toLowerCase().includes(keyword))
       .slice(0, 10);
   }, [customerSearch, customers]);
+  const selectedCustomer = useMemo(() => {
+    const selectedId = form.linked_customer_id || form.customer_id;
+    return customers.find((customer) => String(customer.id) === String(selectedId)) || null;
+  }, [customers, form.customer_id, form.linked_customer_id]);
   const monthSchedules = useMemo(() => {
     const key = toMonthValue(month);
     return displayItems
@@ -227,15 +200,20 @@ export default function SchedulesPage() {
   }
   function openEdit(item) {
     setSelectedDate(item.schedule_date || selectedDate);
-    const draft = item.isCustomerInflow ? { ...item, id: undefined } : item;
-    setForm({ ...emptyForm(item.schedule_date || selectedDate), ...draft });
-    setCustomerSearch(item.customer_name || "");
+    setForm({ ...emptyForm(item.schedule_date || selectedDate), ...item });
+    setCustomerSearch("");
     setModalOpen(true);
   }
   function updateForm(key, value) {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
       if (key === "schedule_type" && value === "고객인입") {
+        next.customer_id = "";
+        next.linked_customer_id = "";
+        next.customer_name = "";
+        setCustomerSearch("");
+      }
+      if (key === "schedule_type" && !CUSTOMER_PICKER_TYPES.has(value)) {
         next.customer_id = "";
         next.linked_customer_id = "";
         next.customer_name = "";
@@ -252,7 +230,7 @@ export default function SchedulesPage() {
       customer_name: customer.name || "",
       title: prev.title || `${customer.name || "고객"} ${prev.schedule_type}`,
     }));
-    setCustomerSearch(customerLabel(customer));
+    setCustomerSearch("");
   }
 
   async function syncInflowCustomer(savedSchedule, draft) {
@@ -331,10 +309,16 @@ export default function SchedulesPage() {
 
   async function handleDelete(id) {
     if (!id) return;
-    await deleteSchedule(id);
-    await load();
-    setModalOpen(false);
-    setMessage("일정을 삭제했습니다.");
+    const confirmed = window.confirm("일정을 삭제하면 복구가 어렵습니다. 삭제하시겠습니까?");
+    if (!confirmed) return;
+    try {
+      await deleteSchedule(id);
+      await load();
+      setModalOpen(false);
+      setMessage("일정을 삭제했습니다.");
+    } catch (error) {
+      setMessage(error.message || "일정 삭제에 실패했습니다.");
+    }
   }
 
   return (
@@ -428,11 +412,19 @@ export default function SchedulesPage() {
             <label>일정종류<select value={form.schedule_type} onChange={(event) => updateForm("schedule_type", event.target.value)}>{SCHEDULE_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label>
             {CUSTOMER_PICKER_TYPES.has(form.schedule_type) && (
               <div className="customer-picker-box">
-                <label>고객 선택<input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="고객명 또는 연락처 검색" /></label>
-                <div className="customer-picker-list">
-                  {filteredCustomers.map((customer) => <button type="button" key={customer.id || customer.name} onClick={() => selectCustomer(customer)}>{customerLabel(customer)}</button>)}
-                  {filteredCustomers.length === 0 && <p>선택할 고객이 없습니다.</p>}
-                </div>
+                <label>고객 검색<input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder={form.customer_name ? "다른 고객으로 변경하려면 검색" : "고객명 또는 연락처 검색"} /></label>
+                {(form.customer_name || selectedCustomer) && (
+                  <div className="selected-customer-card">
+                    <strong>{selectedCustomer?.name || form.customer_name}</strong>
+                    <span>{[selectedCustomer?.phone, selectedCustomer?.property_type].filter(Boolean).join(" · ") || "연결된 고객"}</span>
+                  </div>
+                )}
+                {customerSearch.trim() ? (
+                  <div className="customer-picker-list">
+                    {filteredCustomers.map((customer) => <button type="button" key={customer.id || customer.name} onClick={() => selectCustomer(customer)}>{customerLabel(customer)}</button>)}
+                    {filteredCustomers.length === 0 && <p>검색된 고객이 없습니다.</p>}
+                  </div>
+                ) : null}
               </div>
             )}
             <label>메모<textarea rows="4" value={form.note || ""} onChange={(event) => updateForm("note", event.target.value)} placeholder="상담 내용, 잔금 확인사항 등을 입력하세요." /></label>
