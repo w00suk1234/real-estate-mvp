@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { deleteSchedule, listCustomers, listSchedules, saveCustomer, saveSchedule, upsertSettlementFromSchedule } from "../services/supabaseRepository";
 
 const SCHEDULE_TYPES = ["일정", "고객인입", "미팅", "계약금입금", "계약서일정", "잔금", "잔금날", "기타"];
@@ -113,6 +114,7 @@ function customerLabel(customer) {
 }
 
 export default function SchedulesPage() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(toDateValue(today));
   const [items, setItems] = useState([]);
@@ -130,8 +132,18 @@ export default function SchedulesPage() {
   }
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      setItems([]);
+      setCustomers([]);
+      setModalOpen(false);
+      setMessage("");
+      return;
+    }
+
     load().catch((error) => setMessage(error.message || "일정 데이터를 불러오지 못했습니다."));
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   const cells = useMemo(() => buildCells(month), [month]);
   const schedulesByDate = useMemo(() => {
