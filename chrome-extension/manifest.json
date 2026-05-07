@@ -8,6 +8,7 @@
     "https://fin.land.naver.com/*",
     "https://new.land.naver.com/*",
     "https://land.naver.com/*",
+    "https://agentnote.co.kr/*",
     "https://*.vercel.app/*"
   ],
   "action": {

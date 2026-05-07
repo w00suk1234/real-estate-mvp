@@ -92,10 +92,11 @@ function decodeSnapshotPayload(payload) {
   }
 }
 
-function readHashSnapshot() {
+function readImportPayload() {
   const hash = window.location.hash || "";
-  const match = hash.match(/snapshot=([^&]+)/);
-  return decodeSnapshotPayload(match?.[1] || "");
+  const hashMatch = hash.match(/(?:snapshot|import)=([^&]+)/);
+  const params = new URLSearchParams(window.location.search);
+  return decodeSnapshotPayload(hashMatch?.[1] || params.get("import") || params.get("snapshot") || "");
 }
 
 async function fetchHandoffSnapshot(handoffId) {
@@ -122,7 +123,7 @@ function App() {
       const params = new URLSearchParams(window.location.search);
       const handoffId = params.get("handoff_id");
       const handoffSnapshot = await fetchHandoffSnapshot(handoffId);
-      const hashSnapshot = readHashSnapshot();
+      const hashSnapshot = readImportPayload();
       const snapshotRaw =
         sessionStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY) ||
         localStorage.getItem(NAVER_IMPORT_SNAPSHOT_KEY);
@@ -166,7 +167,10 @@ function App() {
         url ||
         hasExtensionImport ||
         hasHandoffId ||
-        window.location.hash.includes("snapshot=")
+        window.location.hash.includes("snapshot=") ||
+        window.location.hash.includes("import=") ||
+        params.has("import") ||
+        params.has("snapshot")
       ) {
         window.history.replaceState({}, "", window.location.pathname);
       }

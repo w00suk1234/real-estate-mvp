@@ -35,7 +35,7 @@ function encodeSnapshotPayload(snapshot) {
 async function sendSnapshotToApp(snapshot) {
   const compactSnapshot = makeCompactSnapshot(snapshot);
   const payload = encodeSnapshotPayload(compactSnapshot);
-  const targetUrl = `${APP_URL}/?extension_import=1#snapshot=${payload}`;
+  const targetUrl = `${APP_URL}/?page=briefing&extension_import=1#import=${payload}`;
   await chrome.tabs.create({ url: targetUrl });
 }
 
