@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { deleteCustomer, listCustomers, listSchedules, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 
-const CONTRACT_STATUSES = ["미계약", "계약금입금", "계약서일정", "잔금완료", "정산완료", "삭제"];
+const CONTRACT_STATUSES = ["미계약", "계약금입금", "계약서일정", "잔금완료", "정산완료", "파토", "삭제"];
 const PRIORITY_LEVELS = ["낮음", "보통", "높음"];
 const PROPERTY_TYPE_OPTIONS = ["사무실", "상가", "주거", "매매"];
 const ALL = "전체";
@@ -24,7 +24,7 @@ function getStatusClass(status) {
   if (status === "계약금입금") return "deposit";
   if (status === "계약서일정") return "contract";
   if (status === "잔금완료" || status === "정산완료") return "complete";
-  if (status === "삭제") return "deleted";
+  if (status === "삭제" || status === "파토") return "deleted";
   return "default";
 }
 

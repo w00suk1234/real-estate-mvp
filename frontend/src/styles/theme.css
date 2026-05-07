@@ -2245,9 +2245,9 @@ h4 {
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
-  padding: 22px 20px 18px;
+  padding: 22px 14px 18px;
   background: transparent;
   border: 0;
   text-align: left;
@@ -2278,6 +2278,7 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .sidebar-brand-copy strong {
@@ -2286,8 +2287,11 @@ h4 {
 }
 
 .sidebar-brand-copy span {
-  font-size: 0.83rem;
+  overflow: hidden;
+  font-size: 0.78rem;
   color: #667a9f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-nav {
