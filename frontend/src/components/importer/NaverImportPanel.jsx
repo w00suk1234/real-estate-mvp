@@ -506,11 +506,13 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
   };
 
   return (
-    <section className="panel import-panel">
+    <section className="panel import-panel import-panel-compact">
       <div className="panel-head import-panel-head">
         <div>
           <h3>네이버 매물 → 소개서 초안</h3>
+          <p>향후 네이버 매물 URL을 기반으로 입력값을 자동 채우는 보조 기능입니다.</p>
         </div>
+        <span className="import-beta-badge">예비 기능</span>
         <div className="import-head-actions" ref={helpRef}>
           <button
             type="button"
@@ -655,10 +657,12 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       {status && <div className="import-alert success">{status}</div>}
 
       <details className="url-fallback-box">
-        <summary>URL로 가져오기 예비 기능</summary>
+        <summary>
+          <span>URL로 가져오기</span>
+          <em>접힘</em>
+        </summary>
         <p>
-          URL 방식은 서버가 네이버를 다시 열어 읽는 예비 기능이라 timeout이 날 수 있습니다. 실제 사용 흐름은
-          네이버 화면에서 바로 업무툴 버튼을 누르는 방식입니다.
+          향후 네이버 매물 URL을 기반으로 입력값을 자동 채우는 기능입니다. 현재 URL 방식은 예비 기능이라 실패할 수 있습니다.
         </p>
         <div className="import-quick-actions">
           <button type="button" className="secondary-btn" onClick={openNaverLand}>

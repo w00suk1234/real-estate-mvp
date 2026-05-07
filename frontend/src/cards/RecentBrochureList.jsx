@@ -35,11 +35,11 @@ function RecentBrochureList({ refreshKey = 0 }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("소개서를 삭제할까요?")) return;
+    if (!window.confirm("이 소개서를 삭제할까요?")) return;
 
     try {
       await deleteBrochure(id);
-      await fetchBrochures();
+      fetchBrochures();
     } catch (error) {
       alert(error.message || "소개서 삭제 중 오류가 발생했습니다.");
     }
@@ -56,18 +56,16 @@ function RecentBrochureList({ refreshKey = 0 }) {
   }, [items, page]);
 
   return (
-    <section className="surface-card fill-panel compact-recent-card">
+    <section className="surface-card fill-panel recent-brochure-panel">
       <div className="panel-head">
         <h3>최근 생성 소개서</h3>
-        <p>저장된 소개서를 다시 열고 정리할 수 있습니다.</p>
+        <p>저장한 소개서를 다시 열 수 있습니다.</p>
       </div>
 
-      <div className="recent-list recent-list-fixed compact-recent-list">
+      <div className="recent-list recent-list-fixed">
         {pagedItems.length === 0 ? (
-          <div className="empty-box compact-empty">
-            {isAuthenticated
-              ? "아직 생성된 소개서가 없습니다."
-              : "로그인하면 저장된 소개서 목록을 볼 수 있습니다."}
+          <div className="empty-box recent-empty-box">
+            {isAuthenticated ? "아직 생성한 소개서가 없습니다." : "로그인하면 저장한 소개서 목록을 볼 수 있습니다."}
           </div>
         ) : (
           pagedItems.map((item) => (
@@ -105,11 +103,15 @@ function RecentBrochureList({ refreshKey = 0 }) {
         )}
       </div>
 
-      <div className="pagination-row compact-pagination">
+      <div className="pagination-row">
         <button type="button" className="secondary-btn" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={page === 1}>
           이전
         </button>
-        <div className="pagination-info">{page} / {totalPages}</div>
+
+        <div className="pagination-info">
+          {page} / {totalPages}
+        </div>
+
         <button type="button" className="secondary-btn" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={page === totalPages}>
           다음
         </button>

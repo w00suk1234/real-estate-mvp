@@ -208,8 +208,7 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
         </div>
 
         <p className="image-upload-note">
-          대표사진 1장, 추가사진 최대 {IMAGE_UPLOAD_LIMITS.maxExtraImages}장까지 등록할 수 있습니다. 원본 1장당 {formatBytes(IMAGE_UPLOAD_LIMITS.maxOriginalBytes)} 이하 이미지만 가능하며,
-          저장 시 긴 변 {IMAGE_UPLOAD_LIMITS.maxDimension}px 기준으로 자동 압축됩니다. DB에는 이미지 본문이 아니라 Storage URL만 저장됩니다.
+          대표사진 1장, 추가사진 최대 {IMAGE_UPLOAD_LIMITS.maxExtraImages}장. {formatBytes(IMAGE_UPLOAD_LIMITS.maxOriginalBytes)} 이하 이미지는 저장 시 자동 압축됩니다.
         </p>
         {imageNotice && <div className="warning-strip image-notice">{imageNotice}</div>}
 

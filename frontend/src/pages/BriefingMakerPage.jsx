@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import PropertyForm from "../form/PropertyForm";
 import PreviewCard from "../cards/PreviewCard";
@@ -216,8 +216,9 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 
   return (
     <>
-      <div className="page-stack">
-        <section className="page-header-card">
+      <div className="page-stack briefing-workspace">
+        <section className="page-header-card briefing-header-card">
+          <span className="section-eyebrow">중개 업무</span>
           <h1>소개서 작성</h1>
           <p>매물 정보를 고객용 소개서로 빠르게 정리합니다.</p>
         </section>
@@ -272,3 +273,4 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
 }
 
 export default BriefingMakerPage;
+

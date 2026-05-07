@@ -4828,6 +4828,270 @@ h4 {
   }
 }
 
+/* AgentNote briefing workspace compact QA pass */
+.briefing-workspace {
+  width: min(100%, 1420px);
+  gap: 10px;
+}
+
+.briefing-workspace .briefing-header-card {
+  padding: 12px 16px;
+}
+
+.briefing-workspace .briefing-header-card h1 {
+  margin: 2px 0 4px;
+  font-size: clamp(26px, 2.4vw, 30px);
+  line-height: 1.08;
+}
+
+.briefing-workspace .briefing-header-card p,
+.briefing-workspace .import-panel-compact .import-panel-head p {
+  font-size: 13px;
+}
+
+.briefing-workspace .import-panel-compact {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+}
+
+.briefing-workspace .import-panel-compact .import-panel-head {
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.briefing-workspace .import-panel-compact h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.import-beta-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.briefing-workspace .import-help-trigger {
+  width: 30px;
+  height: 30px;
+}
+
+.briefing-workspace .url-fallback-box {
+  margin-top: 6px;
+  padding: 0;
+  border-radius: 12px;
+}
+
+.briefing-workspace .url-fallback-box summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.briefing-workspace .url-fallback-box summary span {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.briefing-workspace .url-fallback-box summary em {
+  color: #64748b;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.briefing-workspace .url-fallback-box[open] {
+  padding-bottom: 12px;
+}
+
+.briefing-workspace .url-fallback-box p,
+.briefing-workspace .import-alert {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.briefing-workspace .url-fallback-box p,
+.briefing-workspace .import-quick-actions,
+.briefing-workspace .import-row {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.briefing-workspace .import-row {
+  grid-template-columns: 1fr 132px;
+  gap: 8px;
+}
+
+.briefing-workspace .import-url-input,
+.briefing-workspace .import-btn {
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.briefing-workspace .briefing-grid-v2 {
+  grid-template-columns: minmax(0, 1.28fr) minmax(420px, 0.72fr);
+  gap: 20px;
+}
+
+.briefing-workspace .compact-form-card,
+.briefing-workspace .preview-card-wrap .preview-panel,
+.briefing-workspace .recent-brochure-panel,
+.briefing-workspace .result-card-v2 {
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.briefing-workspace .compact-form-card {
+  padding: 18px;
+}
+
+.briefing-workspace .property-form-density,
+.briefing-workspace .property-form-density .field-grid {
+  gap: 8px 10px;
+}
+
+.briefing-workspace .property-form-density input,
+.briefing-workspace .property-form-density select {
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.briefing-workspace .property-form-density textarea {
+  min-height: 80px;
+  padding: 9px 10px;
+  border-radius: 10px;
+}
+
+.briefing-workspace .compact-action-grid .secondary-btn,
+.briefing-workspace .preview-action-row .secondary-btn,
+.briefing-workspace .preview-action-row .cta-btn {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.briefing-workspace .upload-box {
+  min-height: 74px;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.briefing-workspace .upload-box small,
+.briefing-workspace .upload-meta {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.briefing-workspace .image-upload-note {
+  margin: -1px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.briefing-workspace .warning-strip {
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.briefing-workspace .compact-tags button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid #dbe7f5;
+  background: #f8fbff;
+  color: #245078;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.briefing-workspace .preview-card-wrap {
+  top: 78px;
+}
+
+.briefing-workspace .preview-card-wrap .preview-panel {
+  max-height: calc(100vh - 94px);
+  overflow: auto;
+}
+
+.briefing-workspace .preview-helper-box {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.briefing-workspace .brochure-cover-v3 {
+  aspect-ratio: 16 / 8.7;
+}
+
+.briefing-workspace .brochure-body-v3 {
+  padding: 12px;
+}
+
+.briefing-workspace .recent-list-fixed {
+  min-height: 0;
+}
+
+.briefing-workspace .recent-empty-box,
+.briefing-workspace .dashed-empty {
+  min-height: 52px;
+  padding: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.briefing-workspace .recent-item {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+@media (max-width: 1280px) {
+  .briefing-workspace .briefing-grid-v2 {
+    grid-template-columns: 1fr;
+  }
+
+  .briefing-workspace .preview-card-wrap {
+    position: static;
+  }
+
+  .briefing-workspace .preview-card-wrap .preview-panel {
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .briefing-workspace .import-panel-compact .import-panel-head,
+  .briefing-workspace .panel-head-with-actions {
+    display: grid;
+  }
+
+  .briefing-workspace .import-row,
+  .briefing-workspace .upload-grid,
+  .briefing-workspace .compact-action-grid,
+  .briefing-workspace .property-form-density > .field-grid,
+  .briefing-workspace .four-col-fields,
+  .briefing-workspace .area-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Settlement workflow */
 .settlement-page {
   gap: 14px;
