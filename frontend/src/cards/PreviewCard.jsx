@@ -33,7 +33,6 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
     <section className="surface-card preview-panel preview-panel-dense preview-summary-panel">
       <div className="panel-head panel-head-with-actions">
         <div>
-          <p className="preview-mode-label">{canDownloadPdf ? "최종 소개서 준비됨" : "실시간 요약"}</p>
           <h3>고객용 요약 미리보기</h3>
           <p>커버, 가격, 핵심 정보만 먼저 확인하고 전체본은 새 창에서 봅니다.</p>
         </div>

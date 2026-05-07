@@ -157,7 +157,6 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
   return (
     <section className="surface-card property-form-card compact-form-card">
       <div className="panel-head">
-        <p className="section-eyebrow">매물 브리핑 입력</p>
         <h3>매물 정보 입력</h3>
         <p>고객에게 전달할 사무실 / 상가 정보를 빠르게 정리합니다.</p>
       </div>
