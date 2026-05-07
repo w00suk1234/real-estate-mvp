@@ -19,6 +19,7 @@ function AIPropertyRecommendPage({ setPage }) {
   const [message, setMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [recommending, setRecommending] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -62,7 +63,7 @@ function AIPropertyRecommendPage({ setPage }) {
     else localStorage.removeItem(SELECTED_CUSTOMER_KEY);
   };
 
-  const handleRecommend = () => {
+  const handleRecommend = async () => {
     setCopyMessage("");
     if (!selectedCustomer) {
       setMessage("추천할 고객을 먼저 선택해 주세요.");
@@ -73,21 +74,29 @@ function AIPropertyRecommendPage({ setPage }) {
       return;
     }
 
-    const recommended = recommendPropertiesForCustomer(selectedCustomer, properties, { limit: 5, minScore: 20 });
-    const summarized = generateRecommendationSummary(selectedCustomer, recommended);
-    setResults(summarized);
+    setRecommending(true);
+    try {
+      await Promise.resolve();
+      const recommended = recommendPropertiesForCustomer(selectedCustomer, properties, { limit: 5, minScore: 20 });
+      const summarized = generateRecommendationSummary(selectedCustomer, recommended);
+      setResults(summarized);
 
-    if (!hasEnoughCustomerCondition(selectedCustomer)) {
-      setMessage("고객 희망 조건이 부족합니다. 예산, 희망지역, 거래유형 등을 입력하면 더 정확하게 추천할 수 있습니다.");
-      return;
+      if (!hasEnoughCustomerCondition(selectedCustomer)) {
+        setMessage("고객 희망 조건이 부족합니다. 예산, 희망지역, 거래유형 등을 입력하면 더 정확하게 추천할 수 있습니다.");
+        return;
+      }
+
+      if (!summarized.length) {
+        setMessage("현재 조건에 정확히 맞는 매물이 없습니다. 조건을 완화해 보세요.");
+        return;
+      }
+
+      setMessage(`${summarized.length}개의 추천 매물을 찾았습니다.`);
+    } catch (error) {
+      setMessage(error.message || "추천 중 오류가 발생했습니다. 다시 시도해 주세요.");
+    } finally {
+      setRecommending(false);
     }
-
-    if (!summarized.length) {
-      setMessage("현재 조건에 정확히 맞는 매물이 없습니다. 예산, 지역, 방 개수 조건을 완화해 보세요.");
-      return;
-    }
-
-    setMessage(`${summarized.length}개의 추천 매물을 찾았습니다.`);
   };
 
   const handleCopy = async (text) => {
@@ -110,12 +119,24 @@ function AIPropertyRecommendPage({ setPage }) {
         <span className="zero-cost-badge">Rule-based · API 호출 0회</span>
       </section>
 
+      <section className="recommend-flow-strip" aria-label="추천 흐름">
+        <span className={selectedCustomer ? "done" : "active"}>1 고객 선택</span>
+        <span className={selectedCustomer ? "active" : ""}>2 조건 확인</span>
+        <span>3 추천 실행</span>
+        <span>4 결과 확인</span>
+      </section>
+
       <section className="ai-recommend-control-panel">
         <div className="recommend-customer-picker">
-          <label className="field">
-            <span>고객 선택</span>
+          <div className="recommend-panel-heading">
+            <span className="page-eyebrow">STEP 1</span>
+            <h2>고객 선택</h2>
+            <p>추천할 고객을 고르면 희망 조건을 기준으로 매물을 비교합니다.</p>
+          </div>
+          <label className="field compact-recommend-select">
+            <span>고객</span>
             <select value={selectedCustomerId} onChange={(event) => handleCustomerChange(event.target.value)} disabled={loading}>
-              <option value="">추천할 고객을 선택해 주세요</option>
+              <option value="">{loading ? "고객 목록을 불러오는 중입니다" : "추천할 고객을 선택해 주세요"}</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name || "이름 없음"} {customer.phone ? `· ${customer.phone}` : ""}
@@ -124,24 +145,25 @@ function AIPropertyRecommendPage({ setPage }) {
             </select>
           </label>
 
-          {selectedCustomer ? <CustomerSummary customer={customerCondition} /> : <div className="recommend-empty-note">추천할 고객을 먼저 선택해 주세요.</div>}
+          {selectedCustomer ? <CustomerSummary customer={customerCondition} /> : <div className="recommend-empty-note"><strong>추천할 고객을 먼저 선택해 주세요.</strong><span>고객관리의 희망 지역, 예산, 매물 종류가 추천 조건으로 사용됩니다.</span></div>}
         </div>
 
         <div className="recommend-action-card">
-          <div>
+          <div className="recommend-panel-heading">
             <span className="page-eyebrow">추천 조건 요약</span>
             <h2>{selectedCustomer ? `${customerCondition.name} 고객 조건` : "고객 조건 대기"}</h2>
             <p>
               외부 AI API 없이 거래유형, 예산, 지역, 면적, 주차, 입주 가능일을 점수화합니다.
             </p>
           </div>
+          {selectedCustomer ? <ConditionSummary customer={customerCondition} /> : <div className="condition-waiting-box">고객을 선택하면 거래유형, 예산, 지역, 면적 조건이 여기에 정리됩니다.</div>}
           <div className="recommend-option-row">
             <label className="toggle-check">
               <input type="checkbox" checked={topLimit === 5} onChange={(event) => setTopLimit(event.target.checked ? 5 : 3)} />
               TOP 5까지 보기
             </label>
-            <button type="button" className="primary-btn" onClick={handleRecommend}>
-              추천 매물 찾기
+            <button type="button" className="primary-btn" onClick={handleRecommend} disabled={!selectedCustomer || loading || recommending}>
+              {recommending ? "추천 중..." : "추천 매물 찾기"}
             </button>
           </div>
         </div>
@@ -158,10 +180,15 @@ function AIPropertyRecommendPage({ setPage }) {
           </div>
         </div>
 
-        {!selectedCustomer ? (
-          <div className="empty-state">추천할 고객을 먼저 선택해 주세요.</div>
+        {recommending ? (
+          <div className="recommend-empty-state loading-state">조건을 비교해서 추천 매물을 정리하는 중입니다.</div>
+        ) : !selectedCustomer ? (
+          <div className="recommend-empty-state">
+            <strong>고객을 선택하고 추천 매물 찾기를 누르면 결과가 표시됩니다.</strong>
+            <span>추천 결과는 등록된 매물과 고객 희망 조건을 비교해 점수 높은 순으로 보여줍니다.</span>
+          </div>
         ) : !properties.length ? (
-          <div className="empty-state">등록된 매물이 없어 추천할 수 없습니다.</div>
+          <div className="recommend-empty-state">등록된 매물이 없어 추천할 수 없습니다.</div>
         ) : visibleResults.length ? (
           <div className="recommend-card-list">
             {visibleResults.map((result, index) => (
@@ -175,10 +202,33 @@ function AIPropertyRecommendPage({ setPage }) {
             ))}
           </div>
         ) : (
-          <div className="empty-state">현재 조건에 정확히 맞는 매물이 없습니다. 예산, 지역, 방 개수 조건을 완화해 보세요.</div>
+          <div className="recommend-empty-state">현재 조건에 정확히 맞는 매물이 없습니다. 조건을 완화해 보세요.</div>
         )}
       </section>
     </div>
+  );
+}
+
+function ConditionSummary({ customer }) {
+  const rows = [
+    ["거래유형", customer.dealType || "확인 필요"],
+    ["예산", formatBudget(customer)],
+    ["지역", customer.locations.length ? customer.locations.join(", ") : "확인 필요"],
+    ["면적", customer.minAreaM2 ? `${customer.minAreaM2}㎡ 이상` : "확인 필요"],
+    ["주차", customer.parkingRequired ? "주차 필요" : "선택 조건 없음"],
+    ["입주", customer.moveInDeadline || "미입력"],
+    ["매물 종류", customer.raw?.property_type || customer.customerType || "미입력"],
+  ];
+
+  return (
+    <dl className="recommend-condition-list">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

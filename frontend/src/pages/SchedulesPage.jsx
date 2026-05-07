@@ -6,6 +6,27 @@ const CUSTOMER_PICKER_TYPES = new Set(["미팅", "계약금입금", "계약서�
 const BALANCE_TYPES = new Set(["잔금", "잔금날"]);
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const today = new Date();
+const FIXED_HOLIDAYS = {
+  "01-01": "신정",
+  "03-01": "삼일절",
+  "05-05": "어린이날",
+  "06-06": "현충일",
+  "08-15": "광복절",
+  "10-03": "개천절",
+  "10-09": "한글날",
+  "12-25": "성탄절",
+};
+const SPECIAL_HOLIDAYS = {
+  "2026-02-16": "설날",
+  "2026-02-17": "설날",
+  "2026-02-18": "설날",
+  "2026-03-02": "대체공휴일",
+  "2026-05-24": "부처님오신날",
+  "2026-05-25": "대체공휴일",
+  "2026-09-24": "추석",
+  "2026-09-25": "추석",
+  "2026-09-26": "추석",
+};
 
 function toDateValue(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -16,6 +37,9 @@ function toMonthValue(date) {
 function parseDate(value) {
   const [y, m, d] = String(value || toDateValue(today)).split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
+}
+function getHolidayName(dateString) {
+  return SPECIAL_HOLIDAYS[dateString] || FIXED_HOLIDAYS[dateString.slice(5)] || "";
 }
 function formatDate(value) {
   if (!value) return "날짜 없음";
@@ -32,14 +56,18 @@ function buildCells(monthDate) {
   for (let i = 0; i < 42; i += 1) {
     const date = new Date(first);
     date.setDate(first.getDate() + i);
+    const dateString = toDateValue(date);
+    const holidayName = getHolidayName(dateString);
     cells.push({
       date,
-      dateString: toDateValue(date),
+      dateString,
       day: date.getDate(),
       dayOfWeek: date.getDay(),
       isCurrentMonth: date.getMonth() === month,
-      isToday: toDateValue(date) === toDateValue(today),
+      isToday: dateString === toDateValue(today),
       isWeekend: date.getDay() === 0 || date.getDay() === 6,
+      isHoliday: Boolean(holidayName),
+      holidayName,
     });
   }
   return cells;
@@ -262,11 +290,11 @@ export default function SchedulesPage() {
           <strong>{month.getFullYear()}년 {month.getMonth() + 1}월</strong>
           <p>날짜를 클릭하면 일정 등록/수정 창이 열립니다.</p>
         </div>
-        <div className="toolbar-actions">
-          <input type="month" value={toMonthValue(month)} onChange={(event) => setMonth(parseDate(`${event.target.value}-01`))} />
-          <button type="button" className="button secondary" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>이전</button>
-          <button type="button" className="button secondary" onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}>오늘</button>
-          <button type="button" className="button secondary" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>다음</button>
+        <div className="toolbar-actions schedule-nav-actions">
+          <input className="schedule-month-input-ui" type="month" value={toMonthValue(month)} onChange={(event) => setMonth(parseDate(`${event.target.value}-01`))} />
+          <button type="button" className="button secondary schedule-nav-btn" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>이전</button>
+          <button type="button" className="button secondary schedule-nav-btn today-btn" onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}>오늘</button>
+          <button type="button" className="button secondary schedule-nav-btn" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>다음</button>
         </div>
       </section>
 
@@ -285,12 +313,13 @@ export default function SchedulesPage() {
               <button
                 type="button"
                 key={cell.dateString}
-                className={`calendar-cell ${cell.isCurrentMonth ? "" : "muted"} ${cell.isToday ? "today" : ""} ${cell.dateString === selectedDate ? "selected" : ""} ${cell.isWeekend ? "weekend" : ""}`}
+                className={`calendar-cell ${cell.isCurrentMonth ? "" : "muted"} ${cell.isToday ? "today" : ""} ${cell.dateString === selectedDate ? "selected" : ""} ${cell.isWeekend ? "weekend" : ""} ${cell.isHoliday ? "holiday" : ""}`}
                 onClick={() => openCreate(cell.dateString)}
               >
                 <span className="date-number">
                   {cell.isCurrentMonth ? cell.day : `${cell.date.getMonth() + 1}/${cell.day}`}
                 </span>
+                {cell.holidayName ? <span className="holiday-label">{cell.holidayName}</span> : null}
                 <div className="calendar-events">
                   {dayItems.slice(0, 3).map((item) => (
                     <span key={item.id || `${item.title}-${item.schedule_time}`} className={`event-pill ${typeClass(item.schedule_type)}`} onClick={(event) => { event.stopPropagation(); openEdit(item); }}>
