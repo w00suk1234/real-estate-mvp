@@ -41,6 +41,18 @@ function isSameMonth(dateString, monthValue) {
   return Boolean(monthValue) && String(dateString || "").startsWith(monthValue);
 }
 
+function getEntryDate(entry) {
+  return entry.balance_date || entry.date || String(entry.created_at || "").slice(0, 10);
+}
+
+function getSourceLabel(source) {
+  return source === "잔금일정" ? "잔금일정 자동생성" : "수동등록";
+}
+
+function getSortDate(entry) {
+  return new Date(getEntryDate(entry) || entry.created_at || 0).getTime() || 0;
+}
+
 function getCustomerValue(customer, snakeKey, camelKey) {
   return customer?.[snakeKey] ?? customer?.[camelKey] ?? "";
 }
@@ -204,12 +216,16 @@ function mergeScheduleSettlements(ledgerRows, scheduleRows, customerRows) {
   return { rows: normalized, changed };
 }
 
-function SettlementPage() {
+function SettlementPage({ setPage } = {}) {
   const [month, setMonth] = useState(toMonthInputValue(today));
   const [customers, setCustomers] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [ledger, setLedger] = useState([]);
   const [form, setForm] = useState(() => emptyForm(toMonthInputValue(today)));
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("전체");
+  const [sourceFilter, setSourceFilter] = useState("전체");
+  const [sortMode, setSortMode] = useState("waiting-first");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -242,9 +258,39 @@ function SettlementPage() {
   );
 
   const monthLedger = useMemo(
-    () => ledger.filter((item) => isSameMonth(item.balance_date || item.date, month)),
+    () => ledger.filter((item) => isSameMonth(getEntryDate(item), month)),
     [ledger, month],
   );
+
+  const filteredLedger = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    const rows = monthLedger.filter((entry) => {
+      const searchable = [
+        entry.customer_name,
+        entry.title,
+        entry.schedule_title,
+        entry.phone,
+        entry.customer_phone,
+        entry.memo,
+        entry.property_type,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const statusOk = statusFilter === "전체" || entry.status === statusFilter;
+      const sourceOk =
+        sourceFilter === "전체" ||
+        (sourceFilter === "잔금일정" ? entry.source === "잔금일정" : entry.source !== "잔금일정");
+      return (!keyword || searchable.includes(keyword)) && statusOk && sourceOk;
+    });
+
+    return [...rows].sort((a, b) => {
+      if (sortMode === "amount-desc") return feeTotal(b) - feeTotal(a);
+      if (sortMode === "date-desc") return getSortDate(b) - getSortDate(a);
+      const statusRank = (entry) => (entry.status === DONE_STATUS ? 1 : 0);
+      return statusRank(a) - statusRank(b) || getSortDate(b) - getSortDate(a);
+    });
+  }, [monthLedger, searchTerm, sortMode, sourceFilter, statusFilter]);
 
   const stats = useMemo(() => {
     const customerInflow = customers.filter((customer) => isSameMonth(customer.inflow_date || customer.inquiry_date || customer.created_at, month)).length;
@@ -273,6 +319,26 @@ function SettlementPage() {
 
   const resetForm = () => {
     setForm(emptyForm(month));
+  };
+
+  const focusSettlementForm = () => {
+    resetForm();
+    requestAnimationFrame(() => {
+      const formNode = document.getElementById("settlement-form-card");
+      formNode?.scrollIntoView({ behavior: "smooth", block: "start" });
+      formNode?.querySelector("select, input, textarea")?.focus();
+    });
+  };
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("전체");
+    setSourceFilter("전체");
+    setSortMode("waiting-first");
+  };
+
+  const goToSchedules = () => {
+    if (typeof setPage === "function") setPage("schedules");
   };
 
   const handleCustomerSelect = (customerId) => {
@@ -384,7 +450,7 @@ function SettlementPage() {
         <div>
           <span className="page-eyebrow">정산</span>
           <h1>수수료 정산</h1>
-          <p>잔금 일정과 고객 정보를 기준으로 임차인·임대인 수수료를 분리해 관리합니다.</p>
+          <p>잔금 일정과 고객 정보를 기준으로 임차인·임대인 수수료를 관리합니다.</p>
         </div>
         <input className="month-input settlement-month-input" type="month" value={month} onChange={(event) => handleMonthChange(event.target.value)} />
       </section>
@@ -393,8 +459,8 @@ function SettlementPage() {
         <StatCard label="손님 인입" value={`${stats.inflowCount}건`} tone="inflow" />
         <StatCard label="계약 고객" value={`${stats.contractCount}건`} tone="contract" />
         <StatCard label="정산 대기" value={`${stats.pendingCount}건`} tone="meeting" />
-        <StatCard label="정산완료 매출" value={formatWon(stats.confirmedRevenue)} tone="balance" />
         <StatCard label="예상 합계" value={formatWon(stats.expectedRevenue)} tone="expected" />
+        <StatCard label="정산완료 매출" value={formatWon(stats.confirmedRevenue)} tone="balance" />
       </section>
 
       <section className="settlement-layout">
@@ -402,18 +468,55 @@ function SettlementPage() {
           <div className="section-heading-row">
             <div>
               <h2>정산 목록</h2>
-              <p>{monthLedger.length}건의 정산 항목입니다. 잔금 일정 저장 시 고객별 정산 대기가 자동 생성됩니다.</p>
+              <p>{monthLedger.length}건 중 {filteredLedger.length}건을 표시합니다. 잔금 일정 저장 시 정산 대기가 자동 생성됩니다.</p>
             </div>
+            <button type="button" className="primary-btn settlement-add-trigger" onClick={focusSettlementForm}>
+              + 정산 추가
+            </button>
+          </div>
+
+          <div className="settlement-toolbar">
+            <label className="field">
+              <span>검색</span>
+              <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="고객명, 정산명, 연락처, 메모" />
+            </label>
+            <label className="field">
+              <span>상태</span>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option>전체</option>
+                <option>{WAITING_STATUS}</option>
+                <option>{DONE_STATUS}</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>생성 경로</span>
+              <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
+                <option>전체</option>
+                <option value="잔금일정">잔금일정 자동생성</option>
+                <option value="수동등록">수동등록</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>정렬</span>
+              <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+                <option value="waiting-first">정산대기 우선</option>
+                <option value="date-desc">잔금일 최신순</option>
+                <option value="amount-desc">금액 높은순</option>
+              </select>
+            </label>
+            <button type="button" className="secondary-btn settlement-reset-btn" onClick={resetFilters}>
+              초기화
+            </button>
           </div>
 
           <div className="settlement-table">
-            {monthLedger.length ? (
-              monthLedger.map((entry) => (
+            {filteredLedger.length ? (
+              filteredLedger.map((entry) => (
                 <article key={entry.id} className={`settlement-row ${entry.status === DONE_STATUS ? "is-done" : "is-waiting"}`}>
                   <div className="settlement-row-main">
-                    <span>{entry.balance_date || entry.date}</span>
+                    <span>{getEntryDate(entry)} · {getSourceLabel(entry.source)}</span>
                     <strong>{entry.customer_name || entry.title || "고객명 미입력"}</strong>
-                    <p>{[entry.phone, entry.property_type, entry.schedule_title || entry.title].filter(Boolean).join(" · ") || "연결 정보 없음"}</p>
+                    <p>{[entry.title, entry.phone, entry.property_type].filter(Boolean).join(" · ") || "연결 정보 없음"}</p>
                     {entry.memo ? <p className="settlement-memo">{entry.memo}</p> : null}
                   </div>
                   <div className="settlement-row-fees">
@@ -427,8 +530,13 @@ function SettlementPage() {
                       수정
                     </button>
                     <button type="button" className="primary-btn small-btn" onClick={() => handleComplete(entry)} disabled={entry.status === DONE_STATUS}>
-                      정산완료
+                      {entry.status === DONE_STATUS ? "완료됨" : "정산완료"}
                     </button>
+                    {entry.customer_id ? (
+                      <button type="button" className="secondary-btn small-btn" onClick={() => typeof setPage === "function" && setPage("customers")} disabled={typeof setPage !== "function"}>
+                        고객정보
+                      </button>
+                    ) : null}
                     <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(entry.id)}>
                       삭제
                     </button>
@@ -436,12 +544,29 @@ function SettlementPage() {
                 </article>
               ))
             ) : (
-              <div className="empty-state">이번 달 정산 내역이 없습니다.</div>
+              <div className="settlement-empty-state">
+                <strong>{monthLedger.length ? "조건에 맞는 정산 내역이 없습니다." : "이번 달 정산 내역이 없습니다."}</strong>
+                <p>{monthLedger.length ? "검색어 또는 필터를 초기화해 다시 확인해 주세요." : "잔금 일정을 저장하면 고객별 정산 대기 항목이 자동으로 생성됩니다."}</p>
+                <div className="inline-actions settlement-empty-actions">
+                  <button type="button" className="primary-btn small-btn" onClick={focusSettlementForm}>
+                    정산 직접 추가
+                  </button>
+                  {monthLedger.length ? (
+                    <button type="button" className="secondary-btn small-btn" onClick={resetFilters}>
+                      필터 초기화
+                    </button>
+                  ) : typeof setPage === "function" ? (
+                    <button type="button" className="secondary-btn small-btn" onClick={goToSchedules}>
+                      일정관리로 이동
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        <form className="settlement-form-card" onSubmit={handleSubmit}>
+        <form id="settlement-form-card" className="settlement-form-card" onSubmit={handleSubmit}>
           <div className="section-heading-row">
             <div>
               <h2>{form.id ? "정산 수정" : "정산 추가"}</h2>
@@ -465,6 +590,7 @@ function SettlementPage() {
             <div className="selected-customer-card">
               <strong>{getCustomerValue(selectedCustomer, "name", "name")}</strong>
               <p>{[getCustomerValue(selectedCustomer, "phone", "phone"), getCustomerValue(selectedCustomer, "property_type", "propertyType"), getCustomerValue(selectedCustomer, "contract_status", "contractStatus")].filter(Boolean).join(" · ")}</p>
+              <p>{getCustomerValue(selectedCustomer, "preferred_area", "preferredArea") || getCustomerValue(selectedCustomer, "location", "location") || "희망지역 미입력"}</p>
               <small>{getCustomerValue(selectedCustomer, "memo", "memo") || getCustomerValue(selectedCustomer, "notes", "notes") || "등록된 고객 메모가 없습니다."}</small>
             </div>
           ) : null}
