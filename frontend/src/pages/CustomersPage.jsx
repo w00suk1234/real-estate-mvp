@@ -251,7 +251,7 @@ function CustomersPage({ setPage: navigatePage }) {
           <div className="section-heading-row">
             <div>
               <h2>고객 목록</h2>
-              <p>총 {filteredItems.length}명의 고객을 표시합니다.</p>
+              <p>현재 총 {items.length}명의 고객 DB가 있고, 조건에 맞는 {filteredItems.length}명을 표시합니다.</p>
             </div>
           </div>
 

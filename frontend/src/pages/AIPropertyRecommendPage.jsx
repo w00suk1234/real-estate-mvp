@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { listCustomers, listProperties } from "../services/supabaseRepository";
+import { listCustomers, listProperties, saveCustomer } from "../services/supabaseRepository";
 import { generateRecommendationSummary } from "../services/aiRecommendationService";
 import {
   hasEnoughCustomerCondition,
@@ -9,17 +9,34 @@ import {
 } from "../utils/recommendProperties";
 
 const SELECTED_CUSTOMER_KEY = "agentnote_recommend_customer_id";
+const SCORE_FILTERS = [
+  { label: "90% 이상", value: 90, limit: 5 },
+  { label: "70% 이상", value: 70, limit: 5 },
+  { label: "50% 이상", value: 50, limit: 5 },
+  { label: "전체보기", value: 30, limit: 30 },
+];
+
+function createConditionDraft(customer = {}) {
+  return {
+    preferred_area: customer.preferred_area || "",
+    property_type: customer.property_type || "사무실",
+    wanted_condition: customer.wanted_condition || customer.requirement || "",
+    memo: customer.memo || customer.notes || "",
+  };
+}
 
 function AIPropertyRecommendPage({ setPage }) {
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [results, setResults] = useState([]);
-  const [topLimit, setTopLimit] = useState(3);
+  const [minScore, setMinScore] = useState(50);
+  const [conditionDraft, setConditionDraft] = useState(() => createConditionDraft());
   const [message, setMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [recommending, setRecommending] = useState(false);
+  const [savingCondition, setSavingCondition] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -53,7 +70,12 @@ function AIPropertyRecommendPage({ setPage }) {
     [selectedCustomer],
   );
 
-  const visibleResults = results.slice(0, topLimit);
+  const activeScoreFilter = SCORE_FILTERS.find((item) => item.value === minScore) || SCORE_FILTERS[2];
+  const visibleResults = results;
+
+  useEffect(() => {
+    setConditionDraft(createConditionDraft(selectedCustomer || {}));
+  }, [selectedCustomer]);
 
   const handleCustomerChange = (value) => {
     setSelectedCustomerId(value);
@@ -77,7 +99,10 @@ function AIPropertyRecommendPage({ setPage }) {
     setRecommending(true);
     try {
       await Promise.resolve();
-      const recommended = recommendPropertiesForCustomer(selectedCustomer, properties, { limit: 5, minScore: 20 });
+      const recommended = recommendPropertiesForCustomer(selectedCustomer, properties, {
+        limit: activeScoreFilter.limit,
+        minScore: activeScoreFilter.value,
+      });
       const summarized = generateRecommendationSummary(selectedCustomer, recommended);
       setResults(summarized);
 
@@ -87,15 +112,40 @@ function AIPropertyRecommendPage({ setPage }) {
       }
 
       if (!summarized.length) {
-        setMessage("현재 조건에 정확히 맞는 매물이 없습니다. 조건을 완화해 보세요.");
+        setMessage(`${activeScoreFilter.label} 조건에 맞는 매물이 없습니다. 신뢰도 기준을 낮춰 보세요.`);
         return;
       }
 
-      setMessage(`${summarized.length}개의 추천 매물을 찾았습니다.`);
+      setMessage(`${activeScoreFilter.label} 기준으로 ${summarized.length}개의 추천 매물을 찾았습니다.`);
     } catch (error) {
       setMessage(error.message || "추천 중 오류가 발생했습니다. 다시 시도해 주세요.");
     } finally {
       setRecommending(false);
+    }
+  };
+
+  const handleConditionDraftChange = (key, value) => {
+    setConditionDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveCondition = async () => {
+    if (!selectedCustomer || savingCondition) return;
+    setSavingCondition(true);
+    setCopyMessage("");
+    try {
+      const saved = await saveCustomer({
+        ...selectedCustomer,
+        ...conditionDraft,
+      });
+      setCustomers((prev) =>
+        prev.map((customer) => (String(customer.id) === String(saved.id) ? { ...customer, ...conditionDraft, ...saved } : customer)),
+      );
+      setResults([]);
+      setMessage("고객 추천 조건을 저장했습니다. 추천 매물 찾기를 다시 눌러 주세요.");
+    } catch (error) {
+      setMessage(error.message || "고객 조건 저장에 실패했습니다.");
+    } finally {
+      setSavingCondition(false);
     }
   };
 
@@ -143,7 +193,17 @@ function AIPropertyRecommendPage({ setPage }) {
             </select>
           </label>
 
-          {selectedCustomer ? <CustomerSummary customer={customerCondition} /> : <div className="recommend-empty-note"><strong>추천할 고객을 먼저 선택해 주세요.</strong><span>고객관리의 희망 지역, 예산, 매물 종류가 추천 조건으로 사용됩니다.</span></div>}
+          {selectedCustomer ? (
+            <CustomerConditionEditor
+              customer={customerCondition}
+              draft={conditionDraft}
+              onChange={handleConditionDraftChange}
+              onSave={handleSaveCondition}
+              saving={savingCondition}
+            />
+          ) : (
+            <div className="recommend-empty-note"><strong>추천할 고객을 먼저 선택해 주세요.</strong><span>고객관리의 희망 지역, 예산, 매물 종류가 추천 조건으로 사용됩니다.</span></div>
+          )}
         </div>
 
         <div className="recommend-action-card">
@@ -155,11 +215,23 @@ function AIPropertyRecommendPage({ setPage }) {
             </p>
           </div>
           {selectedCustomer ? <ConditionSummary customer={customerCondition} /> : <div className="condition-waiting-box">고객을 선택하면 거래유형, 예산, 지역, 면적 조건이 여기에 정리됩니다.</div>}
+          <div className="recommend-score-control" aria-label="추천 신뢰도 기준">
+            {SCORE_FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                className={minScore === item.value ? "active" : ""}
+                onClick={() => {
+                  setMinScore(item.value);
+                  setResults([]);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
           <div className="recommend-option-row">
-            <label className="toggle-check">
-              <input type="checkbox" checked={topLimit === 5} onChange={(event) => setTopLimit(event.target.checked ? 5 : 3)} />
-              TOP 5까지 보기
-            </label>
+            <span className="recommend-score-note">{activeScoreFilter.label} 매물 {activeScoreFilter.limit === 5 ? "상위 5개" : "전체"} 추천</span>
             <button type="button" className="primary-btn" onClick={handleRecommend} disabled={!selectedCustomer || loading || recommending}>
               {recommending ? "추천 중..." : "추천 매물 찾기"}
             </button>
@@ -174,7 +246,7 @@ function AIPropertyRecommendPage({ setPage }) {
         <div className="section-heading-row">
           <div>
             <h2>추천 결과</h2>
-            <p>추천 점수 높은 순으로 표시합니다.</p>
+            <p>{activeScoreFilter.label} 기준에서 점수 높은 순으로 표시합니다.</p>
           </div>
         </div>
 
@@ -200,10 +272,46 @@ function AIPropertyRecommendPage({ setPage }) {
             ))}
           </div>
         ) : (
-          <div className="recommend-empty-state">현재 조건에 정확히 맞는 매물이 없습니다. 조건을 완화해 보세요.</div>
+          <div className="recommend-empty-state">현재 신뢰도 기준에 맞는 매물이 없습니다. 70%, 50%, 전체보기 순서로 조건을 낮춰 보세요.</div>
         )}
       </section>
     </div>
+  );
+}
+
+function CustomerConditionEditor({ customer, draft, onChange, onSave, saving }) {
+  return (
+    <article className="customer-condition-card condition-editor-card">
+      <div className="condition-editor-head">
+        <strong>{customer.name} 고객 조건</strong>
+        <button type="button" className="secondary-btn small-btn" onClick={onSave} disabled={saving}>
+          {saving ? "저장 중..." : "조건 저장"}
+        </button>
+      </div>
+      <div className="recommend-edit-grid">
+        <label>
+          <span>희망지역</span>
+          <input value={draft.preferred_area} onChange={(event) => onChange("preferred_area", event.target.value)} placeholder="예: 역삼동" />
+        </label>
+        <label>
+          <span>매물 종류</span>
+          <select value={draft.property_type} onChange={(event) => onChange("property_type", event.target.value)}>
+            {["사무실", "상가", "주거", "매매"].map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </label>
+        <label className="wide">
+          <span>찾는 조건</span>
+          <textarea rows="3" value={draft.wanted_condition} onChange={(event) => onChange("wanted_condition", event.target.value)} placeholder="예: 월세, 보증금 2000만원 이하, 전용 50m2 이상, 주차 필요" />
+        </label>
+        <label className="wide">
+          <span>상담 메모</span>
+          <textarea rows="2" value={draft.memo} onChange={(event) => onChange("memo", event.target.value)} placeholder="추천 시 참고할 메모" />
+        </label>
+      </div>
+      <p className="condition-editor-preview">{customer.importantNotes || "조건을 저장하면 고객관리 DB와 추천 조건에 반영됩니다."}</p>
+    </article>
   );
 }
 
