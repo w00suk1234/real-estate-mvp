@@ -69,6 +69,18 @@ function getScheduleCustomerName(item) {
   if (title && type && title.endsWith(type)) return normalize(title.slice(0, -type.length));
   return title || "고객 없음";
 }
+function groupSchedulesByDate(items) {
+  return [...items].sort(sortSchedules).reduce((groups, item) => {
+    const date = item.schedule_date || "no-date";
+    const last = groups[groups.length - 1];
+    if (last?.date === date) {
+      last.items.push(item);
+    } else {
+      groups.push({ date, items: [item] });
+    }
+    return groups;
+  }, []);
+}
 function buildCells(monthDate) {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -452,17 +464,27 @@ function ScheduleList({ items, onEdit }) {
   if (!items.length) return <div className="empty-state">등록된 일정이 없습니다.</div>;
   return (
     <div className="schedule-list compact-list">
-      {[...items].sort(sortSchedules).map((item) => {
-        const scheduleDate = formatScheduleDate(item.schedule_date);
-        const customerName = getScheduleCustomerName(item);
+      {groupSchedulesByDate(items).map((group) => {
+        const scheduleDate = formatScheduleDate(group.date);
         return (
-          <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className="schedule-row" onClick={() => onEdit(item)}>
-            <span className={`event-dot ${typeClass(item.schedule_type)}`} />
-            <span className="schedule-row-date">{scheduleDate.date}</span>
-            <span className="schedule-row-day">{scheduleDate.day}</span>
-            <strong className="schedule-row-name">{customerName}</strong>
-            <span className={`schedule-type-badge ${typeClass(item.schedule_type)}`}>{item.schedule_type || "일정"}</span>
-          </button>
+          <section key={group.date} className="schedule-date-group">
+            <div className="schedule-date-stamp">
+              <strong>{scheduleDate.date}</strong>
+              <span>{scheduleDate.day}</span>
+            </div>
+            <div className="schedule-group-items">
+              {group.items.map((item) => {
+                const customerName = getScheduleCustomerName(item);
+                return (
+                  <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className="schedule-row" onClick={() => onEdit(item)}>
+                    <span className={`event-dot ${typeClass(item.schedule_type)}`} />
+                    <strong className="schedule-row-name">{customerName}</strong>
+                    <span className={`schedule-type-badge ${typeClass(item.schedule_type)}`}>{item.schedule_type || "일정"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         );
       })}
     </div>
