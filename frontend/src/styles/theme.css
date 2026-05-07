@@ -5627,6 +5627,488 @@ h4 {
   }
 }
 
+/* Briefing workspace redesign */
+.briefing-workspace.briefing-redesign {
+  width: min(100%, 1480px);
+  max-width: 1480px;
+  gap: 12px !important;
+}
+
+.briefing-redesign .briefing-header-card {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 20px rgba(15, 35, 65, 0.04);
+}
+
+.briefing-redesign .briefing-header-card h1 {
+  margin: 0 0 3px !important;
+  font-size: clamp(26px, 2.2vw, 30px) !important;
+  line-height: 1.08 !important;
+}
+
+.briefing-redesign .briefing-header-card p {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+
+.briefing-redesign .briefing-header-card .section-eyebrow {
+  display: none;
+}
+
+.briefing-header-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.briefing-redesign .briefing-grid-v2 {
+  grid-template-columns: minmax(0, 1.15fr) minmax(420px, 0.85fr) !important;
+  gap: 22px !important;
+  align-items: start !important;
+}
+
+.briefing-redesign .briefing-grid-v2 > .grid-card,
+.briefing-redesign .briefing-support-grid > .grid-card {
+  min-width: 0;
+}
+
+.briefing-redesign .property-card,
+.briefing-redesign .preview-card-wrap,
+.briefing-redesign .brochure-list-card,
+.briefing-redesign .result-card-wrap,
+.briefing-redesign .import-card-wrap {
+  display: block;
+}
+
+.briefing-redesign .preview-card-wrap {
+  position: sticky !important;
+  top: 68px !important;
+}
+
+.briefing-redesign .preview-card-wrap .preview-panel {
+  max-height: calc(100vh - 82px);
+  overflow: auto;
+}
+
+.briefing-support-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.8fr) minmax(280px, 0.65fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.briefing-redesign .compact-form-card,
+.briefing-redesign .preview-panel,
+.briefing-redesign .recent-brochure-panel,
+.briefing-redesign .result-card-v2,
+.briefing-redesign .import-panel-compact {
+  padding: 16px !important;
+  border-radius: 16px !important;
+}
+
+.briefing-redesign .compact-form-card {
+  padding: 18px !important;
+}
+
+.briefing-redesign .panel-head {
+  margin-bottom: 10px !important;
+}
+
+.briefing-redesign .panel-head h3 {
+  font-size: 18px !important;
+}
+
+.briefing-redesign .panel-head p {
+  font-size: 12.5px !important;
+}
+
+.briefing-redesign .property-form-density {
+  gap: 9px !important;
+}
+
+.briefing-redesign .form-section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 0;
+}
+
+.briefing-redesign .form-section-label::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #e4edf8;
+}
+
+.briefing-redesign .form-section-label strong {
+  color: #0f2348;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.briefing-redesign .property-form-density .field-grid,
+.briefing-redesign .upload-grid,
+.briefing-redesign .compact-action-grid {
+  gap: 8px 10px !important;
+}
+
+.briefing-redesign .property-form-density > .field-grid:not(.four-col-fields):not(.area-grid) {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.briefing-redesign .four-col-fields,
+.briefing-redesign .area-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.briefing-redesign .property-form-density .field span {
+  margin-bottom: 4px !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em;
+}
+
+.briefing-redesign .property-form-density input,
+.briefing-redesign .property-form-density select {
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+
+.briefing-redesign .property-form-density textarea {
+  min-height: 78px !important;
+  padding: 9px 10px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+
+.briefing-redesign .compact-action-grid .secondary-btn,
+.briefing-redesign .property-form-density .form-actions .primary-btn {
+  min-height: 38px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+
+.briefing-redesign .upload-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.briefing-redesign .upload-box {
+  min-height: 68px !important;
+  padding: 9px 11px !important;
+  gap: 6px !important;
+  border-radius: 12px !important;
+  background: #f8fbff;
+}
+
+.briefing-redesign .upload-box small {
+  max-width: 100%;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.briefing-redesign .upload-title,
+.briefing-redesign .upload-meta {
+  font-size: 12px !important;
+}
+
+.briefing-redesign .upload-meta {
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #07519f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.briefing-redesign .image-upload-note,
+.briefing-redesign .form-helper-text {
+  margin: -2px 0 0 !important;
+  color: #64748b;
+  font-size: 11.5px !important;
+  line-height: 1.35 !important;
+}
+
+.briefing-redesign .warning-strip {
+  min-height: 0 !important;
+  padding: 7px 10px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+.briefing-redesign .extra-image-list {
+  gap: 6px !important;
+}
+
+.briefing-redesign .extra-image-row {
+  padding: 7px 8px !important;
+  border-radius: 10px;
+}
+
+.briefing-redesign .tag-row,
+.briefing-redesign .compact-tags {
+  gap: 6px !important;
+}
+
+.briefing-redesign .tag-row button,
+.briefing-redesign .compact-tags button {
+  min-height: 26px !important;
+  padding: 0 8px !important;
+  border: 1px solid #d6e4f4 !important;
+  border-radius: 999px !important;
+  background: #f8fbff !important;
+  color: #1d4f86 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+
+.briefing-redesign .tag-row button:hover,
+.briefing-redesign .compact-tags button:hover {
+  border-color: #8fb5e6 !important;
+  background: #eff6ff !important;
+}
+
+.briefing-redesign .preview-panel {
+  padding: 14px !important;
+}
+
+.briefing-redesign .panel-head-with-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.briefing-redesign .preview-action-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 7px !important;
+}
+
+.briefing-redesign .preview-action-row .cta-btn,
+.briefing-redesign .preview-action-row .secondary-btn {
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+}
+
+.briefing-redesign .preview-helper-box {
+  margin-bottom: 8px !important;
+  padding: 7px 9px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+}
+
+.briefing-redesign .brochure-preview-v3 {
+  border-radius: 14px !important;
+}
+
+.briefing-redesign .brochure-cover-v3 {
+  aspect-ratio: 16 / 8 !important;
+  min-height: 210px;
+}
+
+.briefing-redesign .cover-copy h4 {
+  font-size: clamp(22px, 2.1vw, 30px);
+  line-height: 1.1;
+}
+
+.briefing-redesign .cover-copy strong {
+  font-size: clamp(18px, 1.7vw, 24px);
+}
+
+.briefing-redesign .brochure-body-v3 {
+  padding: 12px !important;
+}
+
+.briefing-redesign .brochure-section {
+  margin-bottom: 10px !important;
+}
+
+.briefing-redesign .brochure-spec-grid-v3 {
+  gap: 7px !important;
+}
+
+.briefing-redesign .spec-item {
+  padding: 8px 9px !important;
+  border-radius: 11px !important;
+}
+
+.briefing-redesign .spec-item span {
+  font-size: 11px !important;
+}
+
+.briefing-redesign .spec-item strong {
+  font-size: 13px !important;
+}
+
+.briefing-redesign .text-section p,
+.briefing-redesign .list-section li,
+.briefing-redesign .footer-section p {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.briefing-redesign .import-panel-compact {
+  margin: 0 !important;
+}
+
+.briefing-redesign .import-panel-compact .import-panel-head {
+  margin-bottom: 0 !important;
+  align-items: center !important;
+}
+
+.briefing-redesign .import-panel-compact h3 {
+  font-size: 15px !important;
+}
+
+.briefing-redesign .import-panel-compact .import-panel-head p {
+  display: none;
+}
+
+.briefing-redesign .import-help-trigger {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.briefing-redesign .url-fallback-box {
+  margin-top: 8px !important;
+  border-radius: 12px !important;
+}
+
+.briefing-redesign .url-fallback-box summary {
+  min-height: 36px !important;
+  padding: 0 10px !important;
+}
+
+.briefing-redesign .url-fallback-box:not([open]) {
+  max-height: 38px;
+  overflow: hidden;
+}
+
+.briefing-redesign .url-fallback-box[open] {
+  padding-bottom: 10px !important;
+}
+
+.briefing-redesign .url-fallback-box p,
+.briefing-redesign .import-alert {
+  font-size: 12px !important;
+}
+
+.briefing-redesign .import-quick-actions .secondary-btn,
+.briefing-redesign .import-btn,
+.briefing-redesign .import-url-input {
+  min-height: 34px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+}
+
+.briefing-redesign .recent-brochure-panel,
+.briefing-redesign .result-card-v2 {
+  min-height: 0 !important;
+}
+
+.briefing-redesign .recent-brochure-panel .panel-head,
+.briefing-redesign .result-card-v2 .panel-head {
+  margin-bottom: 8px !important;
+}
+
+.briefing-redesign .recent-list-fixed {
+  min-height: 0 !important;
+}
+
+.briefing-redesign .recent-empty-box,
+.briefing-redesign .dashed-empty {
+  min-height: 46px !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+}
+
+.briefing-redesign .recent-item {
+  padding: 9px !important;
+  border-radius: 11px !important;
+}
+
+.briefing-redesign .recent-main strong {
+  font-size: 13px !important;
+}
+
+.briefing-redesign .recent-main span,
+.briefing-redesign .recent-main small {
+  font-size: 12px !important;
+}
+
+.briefing-redesign .recent-actions .danger-btn,
+.briefing-redesign .recent-open-btn,
+.briefing-redesign .pagination-row .secondary-btn {
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+}
+
+.briefing-redesign .pagination-row {
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+}
+
+@media (max-width: 1240px) {
+  .briefing-redesign .briefing-grid-v2,
+  .briefing-support-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .briefing-redesign .preview-card-wrap {
+    position: static !important;
+  }
+
+  .briefing-redesign .preview-card-wrap .preview-panel {
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .briefing-redesign .briefing-header-card {
+    display: grid;
+  }
+
+  .briefing-header-badge {
+    width: fit-content;
+  }
+
+  .briefing-redesign .property-form-density > .field-grid,
+  .briefing-redesign .four-col-fields,
+  .briefing-redesign .area-grid,
+  .briefing-redesign .upload-grid,
+  .briefing-redesign .compact-action-grid,
+  .briefing-redesign .preview-action-row,
+  .briefing-redesign .import-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* Calendar month context polish */
 .calendar-weekdays span.weekend,
 .calendar-cell.weekend .date-number {

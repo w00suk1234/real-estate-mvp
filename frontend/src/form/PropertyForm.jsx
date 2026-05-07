@@ -163,6 +163,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
       </div>
 
       <form className="profile-form property-form-density" onSubmit={handleSubmit}>
+        <div className="form-section-label">
+          <strong>기본 설정</strong>
+        </div>
         <div className="field-grid">
           <label className="field">
             <span>소개서 템플릿</span>
@@ -187,6 +190,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
           <button type="button" className="secondary-btn" onClick={resetDefaults}>기본 설정 삭제</button>
         </div>
 
+        <div className="form-section-label">
+          <strong>사진</strong>
+        </div>
         <div className="upload-grid">
           <label className="upload-box">
             <input type="file" accept={IMAGE_ACCEPT} onChange={(event) => handleMainImageChange(event.target.files)} />
@@ -226,6 +232,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
           </div>
         )}
 
+        <div className="form-section-label">
+          <strong>기본 매물 정보</strong>
+        </div>
         <label className="field wide-field">
           <span>매물명</span>
           <input value={form.title} onChange={(event) => updateField("title", event.target.value)} placeholder="예: 역삼역 도보 5분 소형 사무실" />
@@ -248,6 +257,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
 
         {priceWarning && <div className="warning-strip">{priceWarning}</div>}
 
+        <div className="form-section-label">
+          <strong>금액 정보</strong>
+        </div>
         <div className="field-grid four-col-fields">
           <label className="field">
             <span>보증금</span>
@@ -272,6 +284,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
           <input value={form.address} onChange={(event) => updateField("address", event.target.value)} placeholder="예: 서울시 강남구 역삼동 ..." />
         </label>
 
+        <div className="form-section-label">
+          <strong>상세 정보</strong>
+        </div>
         <div className="field-grid area-grid">
           <label className="field">
             <span>공급면적</span>
@@ -297,6 +312,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
           </label>
         </div>
 
+        <div className="form-section-label">
+          <strong>소개 문구 / 태그 / 담당자</strong>
+        </div>
         <div className="field-grid">
           <label className="field">
             <span>층수</span>

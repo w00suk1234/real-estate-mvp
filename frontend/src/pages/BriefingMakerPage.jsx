@@ -214,16 +214,32 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     }
   }, [extraImages, form, mainImage, result]);
 
+  const handleOpenFinal = useCallback(() => {
+    if (result?.brochure_url) {
+      window.open(result.brochure_url, "_blank", "noreferrer");
+    }
+  }, [result]);
+
+  const handlePrint = useCallback(() => {
+    if (result?.brochure_url) {
+      const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
+      if (!printWindow) alert("팝업이 차단되면 새 창에서 연 뒤 Ctrl + P로 인쇄해 주세요.");
+      return;
+    }
+    if (result?.success) window.print();
+  }, [result]);
+
   return (
     <>
-      <div className="page-stack briefing-workspace">
+      <div className="page-stack briefing-workspace briefing-redesign">
         <section className="page-header-card briefing-header-card">
-          <span className="section-eyebrow">중개 업무</span>
-          <h1>소개서 작성</h1>
-          <p>매물 정보를 고객용 소개서로 빠르게 정리합니다.</p>
+          <div>
+            <span className="section-eyebrow">중개 업무</span>
+            <h1>소개서 작성</h1>
+            <p>매물 정보를 고객용 소개서로 빠르게 정리합니다.</p>
+          </div>
+          <span className="briefing-header-badge">네이버 URL 가져오기 · 예비 기능</span>
         </section>
-
-        <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
 
         <div className="briefing-grid-v2">
           <div className="grid-card property-card">
@@ -249,13 +265,24 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
               pdfLoading={pdfLoading}
             />
           </div>
+        </div>
 
+        <div className="briefing-support-grid">
+          <div className="grid-card import-card-wrap">
+            <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
+          </div>
           <div className="grid-card brochure-list-card">
             <RecentBrochureList refreshKey={refreshKey} />
           </div>
-
           <div className="grid-card result-card-wrap">
-            <ResultCard result={result} onDownloadPdf={handleDownloadPdf} pdfLoading={pdfLoading} />
+            <ResultCard
+              result={result}
+              onOpenFinal={handleOpenFinal}
+              onDownloadPdf={handleDownloadPdf}
+              onPrint={handlePrint}
+              onOpenNewTab={handleOpenFinal}
+              pdfLoading={pdfLoading}
+            />
           </div>
         </div>
       </div>
