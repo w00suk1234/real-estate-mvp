@@ -57,25 +57,31 @@ function ProfilePage() {
   }
 
   return (
-    <div className="page-stack">
-      <section className="page-header-card">
-        <span className="section-eyebrow">회원정보</span>
-        <h1>내 정보 관리</h1>
-        <p>부동산 이름, 담당자명, 연락처, 이메일은 소개서 하단 연락처 영역에 자동 표시됩니다.</p>
+    <div className="page-stack support-workspace profile-workspace">
+      <section className="page-header-card support-header">
+        <div>
+          <span className="section-eyebrow">회원정보</span>
+          <h1>내 정보 관리</h1>
+          <p>사무소 정보와 소개서 기본 연락처를 관리합니다.</p>
+        </div>
+        <button type="submit" form="profile-info-form" className="primary-btn support-header-action" disabled={saving}>
+          {saving ? "저장 중..." : "저장"}
+        </button>
       </section>
 
-      <section className="profile-grid profile-grid-balanced">
-        <form className="panel profile-edit-card" onSubmit={handleSubmit}>
-          <div className="section-heading">
+      <section className="profile-grid profile-grid-balanced support-split-grid">
+        <form id="profile-info-form" className="panel profile-edit-card support-card" onSubmit={handleSubmit}>
+          <div className="section-heading support-card-heading">
             <div>
-              <span className="section-eyebrow">기본 정보 수정</span>
-              <h2>소개서에 반영될 담당자 정보</h2>
+              <span className="section-eyebrow">기본 프로필</span>
+              <h2>담당자 / 사무소 정보</h2>
+              <p>이 정보는 소개서 하단과 고객 응대 문서에 자동 반영됩니다.</p>
             </div>
           </div>
 
           <div className="form-grid">
             <label className="field span-2">
-              <span>부동산 이름</span>
+              <span>사무소명</span>
               <input
                 value={form.office_name}
                 onChange={(event) => updateField("office_name", event.target.value)}
@@ -84,7 +90,7 @@ function ProfilePage() {
             </label>
 
             <label className="field span-2">
-              <span>담당자명</span>
+              <span>이름 / 담당자명</span>
               <input
                 value={form.manager_name}
                 onChange={(event) => updateField("manager_name", event.target.value)}
@@ -122,11 +128,12 @@ function ProfilePage() {
           {error ? <p className="form-error-message">{error}</p> : null}
         </form>
 
-        <div className="panel profile-preview-card">
-          <div className="section-heading">
+        <div className="panel profile-preview-card support-card">
+          <div className="section-heading support-card-heading">
             <div>
               <span className="section-eyebrow">소개서 반영 미리보기</span>
-              <h2>하단 연락처 표기</h2>
+              <h2>소개서 하단 미리보기</h2>
+              <p>고객에게 전달되는 연락처 영역입니다.</p>
             </div>
           </div>
 

@@ -20,17 +20,37 @@ function CalculatorsPage() {
     return Math.round((r / divisor) * d).toLocaleString();
   }, [rent, days, mode]);
 
+  const resetBrokerage = () => {
+    setPrice("");
+    setRate("0.4");
+  };
+
+  const resetRent = () => {
+    setRent("");
+    setDays("");
+    setMode("30");
+  };
+
   return (
-    <div className="page-stack page-narrow">
-      <section className="page-header-card">
-        <span className="section-eyebrow">계산기</span>
-        <h1>계산기</h1>
-        <p>중개보수와 임대료 일할 계산을 빠르게 확인합니다.</p>
+    <div className="page-stack support-workspace calculator-workspace">
+      <section className="page-header-card support-header">
+        <div>
+          <span className="section-eyebrow">계산기</span>
+          <h1>계산기</h1>
+          <p>중개 업무에 필요한 금액을 빠르게 계산합니다.</p>
+        </div>
       </section>
 
-      <section className="tool-grid">
-        <div className="panel tool-card">
-          <div className="panel-head">
+      <section className="calculator-tab-row" aria-label="계산기 종류">
+        <span className="active">중개보수 계산</span>
+        <span className="active">임대료 일할 계산</span>
+        <span>취득세 · 준비 중</span>
+        <span>면적 변환 · 준비 중</span>
+      </section>
+
+      <section className="tool-grid calculator-grid">
+        <div className="panel tool-card support-card calculator-tool-card">
+          <div className="panel-head support-card-heading">
             <h3>중개보수 계산기</h3>
             <p>거래금액과 요율을 입력해 예상 중개보수를 계산합니다.</p>
           </div>
@@ -56,14 +76,22 @@ function CalculatorsPage() {
               />
             </label>
 
-            <div className="calc-result-box">
-              계산 결과 <strong>{brokerageFee} 원</strong>
+            <div className="calc-result-box calc-result-card">
+              <span>예상 중개보수</span>
+              <strong>{brokerageFee} 원</strong>
+              <small>거래금액 × 요율 기준, 실제 상한요율은 계약 유형과 금액 구간을 확인하세요.</small>
+            </div>
+
+            <div className="support-action-row">
+              <button type="button" className="secondary-btn" onClick={resetBrokerage}>
+                입력 초기화
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="panel tool-card">
-          <div className="panel-head">
+        <div className="panel tool-card support-card calculator-tool-card">
+          <div className="panel-head support-card-heading">
             <h3>임대료 일할 계산기</h3>
             <p>30일법과 365일법 기준의 임대료를 계산합니다.</p>
           </div>
@@ -97,8 +125,16 @@ function CalculatorsPage() {
               </select>
             </label>
 
-            <div className="calc-result-box">
-              계산 결과 <strong>{dailyRent} 원</strong>
+            <div className="calc-result-box calc-result-card">
+              <span>일할 임대료</span>
+              <strong>{dailyRent} 원</strong>
+              <small>{mode === "30" ? "월 임대료 ÷ 30일 × 사용일수" : "월 임대료 × 12 ÷ 365일 × 사용일수"} 기준입니다.</small>
+            </div>
+
+            <div className="support-action-row">
+              <button type="button" className="secondary-btn" onClick={resetRent}>
+                입력 초기화
+              </button>
             </div>
           </div>
         </div>

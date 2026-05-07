@@ -7064,3 +7064,350 @@ h4 {
     justify-content: flex-start;
   }
 }
+
+/* Support workspace polish */
+.support-workspace {
+  width: min(100%, 1320px);
+  max-width: 1320px;
+  gap: 16px !important;
+}
+
+.support-header {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px !important;
+  border-radius: 16px !important;
+}
+
+.support-header h1 {
+  margin: 0 0 4px !important;
+  font-size: clamp(25px, 2.2vw, 30px) !important;
+  line-height: 1.1 !important;
+}
+
+.support-header p {
+  margin: 0 !important;
+  color: #64748b;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+.support-header .section-eyebrow {
+  display: none;
+}
+
+.support-header-action {
+  min-height: 38px !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+
+.support-card {
+  padding: 18px !important;
+  border: 1px solid #dbe7f5 !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  box-shadow: 0 12px 30px rgba(15, 35, 65, 0.06) !important;
+}
+
+.support-card-heading {
+  margin-bottom: 14px !important;
+}
+
+.support-card-heading h2,
+.support-card-heading h3 {
+  margin: 0 0 5px !important;
+  color: #061b3a;
+  font-size: 19px !important;
+  line-height: 1.2;
+}
+
+.support-card-heading p {
+  margin: 0 !important;
+  color: #64748b;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.support-workspace .field {
+  gap: 5px;
+}
+
+.support-workspace .field span {
+  margin-bottom: 0 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em;
+}
+
+.support-workspace input,
+.support-workspace select {
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0 11px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+
+.support-workspace input[type="range"] {
+  height: 28px !important;
+  padding: 0 !important;
+}
+
+.support-workspace .primary-btn,
+.support-workspace .secondary-btn,
+.support-workspace .danger-btn {
+  min-height: 38px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.support-split-grid,
+.calculator-grid,
+.photo-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.profile-workspace .form-grid {
+  gap: 10px;
+}
+
+.profile-workspace .form-actions {
+  margin-top: 12px;
+}
+
+.profile-preview-card {
+  position: sticky;
+  top: 72px;
+}
+
+.profile-preview-block {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e0e9f6;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.profile-preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e6eef8;
+}
+
+.profile-preview-row:last-child {
+  border-bottom: 0;
+}
+
+.profile-workspace .empty-state {
+  min-height: 54px;
+  margin: 0;
+  padding: 12px;
+  font-size: 12px;
+}
+
+.profile-workspace .meta-list {
+  margin-top: 12px;
+}
+
+.calculator-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calculator-tab-row span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid #dbe7f5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.calculator-tab-row span.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #07519f;
+}
+
+.calculator-tool-card .form-box,
+.photo-tool-card .form-box,
+.address-search-card .form-box {
+  gap: 10px;
+}
+
+.calc-result-card {
+  display: grid;
+  gap: 5px;
+  padding: 14px !important;
+  border-radius: 14px !important;
+  background: #f8fbff !important;
+}
+
+.calc-result-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.calc-result-card strong {
+  color: #073b7a;
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.1;
+}
+
+.calc-result-card small {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.support-action-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.photo-editor-grid {
+  grid-template-columns: minmax(320px, 0.55fr) minmax(0, 1.45fr);
+}
+
+.photo-upload-strip {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.photo-upload-strip strong {
+  color: #0f2348;
+  font-size: 14px;
+}
+
+.photo-upload-strip span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.photo-preview-panel {
+  position: sticky;
+  top: 72px;
+}
+
+.photo-preview-panel .editor-preview-card {
+  padding: 10px;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #f8fbff;
+}
+
+.photo-editor-workspace .editor-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 230px);
+  object-fit: contain;
+  border-radius: 13px;
+  background: #ffffff;
+}
+
+.address-hub-workspace {
+  max-width: 1120px;
+}
+
+.address-search-card {
+  padding: 20px !important;
+}
+
+.address-main-search input {
+  min-height: 46px !important;
+  height: 46px !important;
+  font-size: 15px !important;
+}
+
+.address-query-preview {
+  display: grid;
+  gap: 5px;
+  padding: 13px 14px;
+  border: 1px solid #e0e9f6;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.address-query-preview span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.address-query-preview strong {
+  color: #0f2348;
+  font-size: 14px;
+}
+
+.address-query-preview em {
+  color: #047857;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.address-button-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.address-button-grid .primary-btn,
+.address-button-grid .secondary-btn {
+  min-height: 40px;
+  padding: 0 12px;
+  white-space: normal;
+}
+
+@media (max-width: 1180px) {
+  .support-split-grid,
+  .calculator-grid,
+  .photo-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-preview-card,
+  .photo-preview-panel {
+    position: static;
+  }
+
+  .photo-editor-workspace .editor-canvas {
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .support-header {
+    display: grid;
+  }
+
+  .support-header-action {
+    width: fit-content;
+  }
+
+  .profile-workspace .form-grid,
+  .address-button-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

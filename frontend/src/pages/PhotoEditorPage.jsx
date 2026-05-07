@@ -78,21 +78,31 @@ function PhotoEditorPage() {
   };
 
   return (
-    <div className="page-stack page-narrow">
-      <section className="page-header-card">
-        <span className="section-eyebrow">사진 편집기</span>
-        <h1>사진 편집기</h1>
-        <p>밝기, 문구, 도장 합성 1차 버전입니다.</p>
+    <div className="page-stack support-workspace photo-editor-workspace">
+      <section className="page-header-card support-header">
+        <div>
+          <span className="section-eyebrow">사진 편집기</span>
+          <h1>사진 편집기</h1>
+          <p>소개서에 사용할 사진을 보정하고 정리합니다.</p>
+        </div>
+        <button className="primary-btn support-header-action" type="button" onClick={handleDownload} disabled={!imageSrc}>
+          편집 이미지 저장
+        </button>
       </section>
 
-      <section className="tool-grid">
-        <div className="panel tool-card">
-          <div className="panel-head">
-            <h3>편집 옵션</h3>
-            <p>대표 이미지를 간단히 보정하고 문구를 얹을 수 있습니다.</p>
+      <section className="tool-grid photo-editor-grid">
+        <div className="panel tool-card support-card photo-tool-card">
+          <div className="panel-head support-card-heading">
+            <h3>업로드 / 편집 도구</h3>
+            <p>밝기, 문구, 도장 이미지를 빠르게 조정합니다.</p>
           </div>
 
           <div className="form-box">
+            <div className="photo-upload-strip">
+              <strong>{imageSrc ? "원본 이미지 불러옴" : "이미지를 업로드해 주세요"}</strong>
+              <span>{stampSrc ? "도장 이미지 포함" : "도장 이미지는 선택 사항입니다."}</span>
+            </div>
+
             <label className="field">
               <span>원본 이미지</span>
               <input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -134,16 +144,16 @@ function PhotoEditorPage() {
               />
             </label>
 
-            <button className="primary-btn" type="button" onClick={handleDownload}>
+            <button className="primary-btn" type="button" onClick={handleDownload} disabled={!imageSrc}>
               편집 이미지 저장
             </button>
           </div>
         </div>
 
-        <div className="panel tool-card">
-          <div className="panel-head">
-            <h3>미리보기</h3>
-            <p>간단한 편집 결과를 바로 확인합니다.</p>
+        <div className="panel tool-card support-card photo-preview-panel">
+          <div className="panel-head support-card-heading">
+            <h3>편집 미리보기</h3>
+            <p>원본과 보정 결과를 캔버스에서 바로 확인합니다.</p>
           </div>
 
           <div className="editor-preview-card">
