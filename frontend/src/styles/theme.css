@@ -6594,6 +6594,60 @@ h4 {
   line-height: 1.35;
 }
 
+.schedule-page-compact .calendar-events {
+  width: 100%;
+  gap: 4px;
+}
+
+.schedule-page-compact .event-pill,
+.schedule-page-compact .event-more {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 7px;
+  border: 1px solid #dbe7f5;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #0f2348;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-page-compact .event-pill.inflow {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+
+.schedule-page-compact .event-pill.meeting {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.schedule-page-compact .event-pill.deposit,
+.schedule-page-compact .event-pill.contract {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.schedule-page-compact .event-pill.balance {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.schedule-page-compact .event-more {
+  border-style: dashed;
+  color: #64748b;
+}
+
 .schedule-page-compact .schedule-summary-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);

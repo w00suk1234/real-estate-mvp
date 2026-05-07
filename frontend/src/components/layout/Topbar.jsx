@@ -2,7 +2,12 @@ import { useAuth } from "../../auth/AuthContext";
 
 function Topbar({ onNavigate }) {
   const { user, logout, isAuthenticated } = useAuth();
-  const initials = (user?.manager_name || user?.username || user?.email || "AN").slice(0, 3).toUpperCase();
+  const displayName =
+    user?.manager_name ||
+    user?.office_name ||
+    (user?.email ? user.email.split("@")[0] : "") ||
+    user?.username ||
+    "사용자";
 
   return (
     <header className="topbar">
@@ -16,8 +21,7 @@ function Topbar({ onNavigate }) {
             <button type="button" className="topbar-link" onClick={() => onNavigate?.("profile")}>
               내 정보
             </button>
-            <span className="role-pill">{user?.role || "user"}</span>
-            <span className="user-avatar">{initials}</span>
+            <span className="user-avatar">{displayName}</span>
             <button type="button" className="auth-btn logout-clean-btn" onClick={logout}>
               로그아웃
             </button>

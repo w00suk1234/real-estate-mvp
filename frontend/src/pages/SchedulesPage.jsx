@@ -53,20 +53,22 @@ function buildCells(monthDate) {
   const first = new Date(year, month, 1);
   const mondayOffset = (first.getDay() + 6) % 7;
   first.setDate(first.getDate() - mondayOffset);
+  const last = new Date(year, month + 1, 0);
+  const sundayOffset = (7 - last.getDay()) % 7;
+  last.setDate(last.getDate() + sundayOffset);
   const cells = [];
-  for (let i = 0; i < 42; i += 1) {
-    const date = new Date(first);
-    date.setDate(first.getDate() + i);
-    const dateString = toDateValue(date);
+  for (let date = new Date(first); date <= last; date.setDate(date.getDate() + 1)) {
+    const current = new Date(date);
+    const dateString = toDateValue(current);
     const holidayName = getHolidayName(dateString);
     cells.push({
-      date,
+      date: current,
       dateString,
-      day: date.getDate(),
-      dayOfWeek: date.getDay(),
-      isCurrentMonth: date.getMonth() === month,
+      day: current.getDate(),
+      dayOfWeek: current.getDay(),
+      isCurrentMonth: current.getMonth() === month,
       isToday: dateString === toDateValue(today),
-      isWeekend: date.getDay() === 0 || date.getDay() === 6,
+      isWeekend: current.getDay() === 0 || current.getDay() === 6,
       isHoliday: Boolean(holidayName),
       holidayName,
     });
@@ -112,6 +114,22 @@ function mergeMemoOnce(existing, next) {
 function customerLabel(customer) {
   return [customer.name, customer.phone, customer.property_type].filter(Boolean).join(" · ");
 }
+function customerInflowSchedule(customer) {
+  const date = customer.inflow_date || customer.inquiry_date;
+  if (!date) return null;
+  return {
+    id: `customer-inflow-${customer.id || customer.name}-${date}`,
+    title: `${customer.name || "고객"} 고객인입`,
+    customer_id: customer.id || "",
+    linked_customer_id: customer.id || "",
+    customer_name: customer.name || "",
+    schedule_date: date,
+    schedule_time: "",
+    schedule_type: "고객인입",
+    note: customer.memo || customer.notes || "",
+    isCustomerInflow: true,
+  };
+}
 
 export default function SchedulesPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -146,14 +164,30 @@ export default function SchedulesPage() {
   }, [authLoading, isAuthenticated]);
 
   const cells = useMemo(() => buildCells(month), [month]);
+  const displayItems = useMemo(() => {
+    const rows = Array.isArray(items) ? [...items] : [];
+    const existingKeys = new Set(
+      rows.map((item) => `${item.schedule_date || ""}|${item.customer_id || item.linked_customer_id || ""}|${item.schedule_type || ""}`)
+    );
+    customers.forEach((customer) => {
+      const inflowItem = customerInflowSchedule(customer);
+      if (!inflowItem) return;
+      const key = `${inflowItem.schedule_date}|${customer.id || ""}|고객인입`;
+      if (!existingKeys.has(key)) {
+        rows.push(inflowItem);
+        existingKeys.add(key);
+      }
+    });
+    return rows;
+  }, [items, customers]);
   const schedulesByDate = useMemo(() => {
-    return items.reduce((map, item) => {
+    return displayItems.reduce((map, item) => {
       const date = item.schedule_date;
       if (!date) return map;
       map[date] = [...(map[date] || []), item];
       return map;
     }, {});
-  }, [items]);
+  }, [displayItems]);
   const selectedSchedules = schedulesByDate[selectedDate] || [];
   const filteredCustomers = useMemo(() => {
     const keyword = customerSearch.trim().toLowerCase();
@@ -164,8 +198,8 @@ export default function SchedulesPage() {
   }, [customerSearch, customers]);
   const monthSchedules = useMemo(() => {
     const key = toMonthValue(month);
-    return items.filter((item) => String(item.schedule_date || "").startsWith(key));
-  }, [items, month]);
+    return displayItems.filter((item) => String(item.schedule_date || "").startsWith(key));
+  }, [displayItems, month]);
   const contractSchedules = monthSchedules.filter((item) => item.schedule_type === "계약서일정");
   const balanceSchedules = monthSchedules.filter((item) => BALANCE_TYPES.has(item.schedule_type));
 
@@ -177,7 +211,8 @@ export default function SchedulesPage() {
   }
   function openEdit(item) {
     setSelectedDate(item.schedule_date || selectedDate);
-    setForm({ ...emptyForm(item.schedule_date || selectedDate), ...item });
+    const draft = item.isCustomerInflow ? { ...item, id: undefined } : item;
+    setForm({ ...emptyForm(item.schedule_date || selectedDate), ...draft });
     setCustomerSearch(item.customer_name || "");
     setModalOpen(true);
   }
