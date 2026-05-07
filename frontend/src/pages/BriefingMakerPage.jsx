@@ -238,7 +238,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
             <h1>소개서 작성</h1>
             <p>매물 정보를 고객용 소개서로 빠르게 정리합니다.</p>
           </div>
-          <span className="briefing-header-badge">네이버 URL 가져오기 · 예비 기능</span>
+          <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
         </section>
 
         <div className="briefing-grid-v2">
@@ -268,22 +268,25 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
         </div>
 
         <div className="briefing-support-grid">
-          <div className="grid-card import-card-wrap">
-            <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
-          </div>
-          <div className="grid-card brochure-list-card">
-            <RecentBrochureList refreshKey={refreshKey} />
-          </div>
-          <div className="grid-card result-card-wrap">
-            <ResultCard
-              result={result}
-              onOpenFinal={handleOpenFinal}
-              onDownloadPdf={handleDownloadPdf}
-              onPrint={handlePrint}
-              onOpenNewTab={handleOpenFinal}
-              pdfLoading={pdfLoading}
-            />
-          </div>
+          <details className="briefing-support-details">
+            <summary>최근 생성 소개서 보기</summary>
+            <div className="grid-card brochure-list-card">
+              <RecentBrochureList refreshKey={refreshKey} />
+            </div>
+          </details>
+          <details className="briefing-support-details" open={Boolean(result?.success)}>
+            <summary>생성 결과 보기</summary>
+            <div className="grid-card result-card-wrap">
+              <ResultCard
+                result={result}
+                onOpenFinal={handleOpenFinal}
+                onDownloadPdf={handleDownloadPdf}
+                onPrint={handlePrint}
+                onOpenNewTab={handleOpenFinal}
+                pdfLoading={pdfLoading}
+              />
+            </div>
+          </details>
         </div>
       </div>
 

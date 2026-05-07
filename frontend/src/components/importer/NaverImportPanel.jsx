@@ -506,7 +506,13 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
   };
 
   return (
-    <section className="panel import-panel import-panel-compact">
+    <section className="import-panel import-panel-compact import-panel-drawer">
+      <details className="naver-import-drawer">
+        <summary className="naver-import-summary">
+          <span>네이버 URL 가져오기</span>
+          <em>예비 기능</em>
+        </summary>
+        <div className="naver-import-body">
       <div className="panel-head import-panel-head">
         <div>
           <h3>네이버 매물 → 소개서 초안</h3>
@@ -733,6 +739,8 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           )}
         </div>
       )}
+        </div>
+      </details>
     </section>
   );
 }

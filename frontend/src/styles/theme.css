@@ -7411,3 +7411,262 @@ h4 {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Briefing workflow information architecture pass */
+.briefing-redesign .import-panel-drawer {
+  position: relative;
+  flex: none;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.briefing-redesign .naver-import-drawer {
+  position: relative;
+}
+
+.briefing-redesign .naver-import-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #07519f;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.briefing-redesign .naver-import-summary::-webkit-details-marker {
+  display: none;
+}
+
+.briefing-redesign .naver-import-summary em {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.briefing-redesign .naver-import-body {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  z-index: 50;
+  width: min(680px, calc(100vw - 48px));
+  max-height: calc(100vh - 112px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 22px 44px rgba(15, 35, 65, 0.16);
+}
+
+.briefing-redesign .naver-import-body .import-panel-head {
+  margin-bottom: 8px !important;
+}
+
+.briefing-redesign .briefing-accordion-form {
+  gap: 10px !important;
+}
+
+.briefing-redesign .briefing-form-section {
+  overflow: hidden;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.briefing-redesign .briefing-form-section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 13px;
+  color: #0f2348;
+  cursor: pointer;
+  list-style: none;
+}
+
+.briefing-redesign .briefing-form-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.briefing-redesign .briefing-form-section > summary strong {
+  flex: none;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.briefing-redesign .briefing-form-section > summary span {
+  min-width: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.briefing-redesign .briefing-form-section[open] > summary {
+  border-bottom: 1px solid #e7eef8;
+  background: #f8fbff;
+}
+
+.briefing-redesign .briefing-section-body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.briefing-redesign .briefing-section-body .field-grid {
+  gap: 8px 10px !important;
+}
+
+.briefing-redesign .briefing-section-body .field-grid:not(.four-col-fields):not(.area-grid) {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.briefing-redesign .briefing-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 34%);
+}
+
+.briefing-redesign .briefing-sticky-actions .primary-btn,
+.briefing-redesign .briefing-sticky-actions .secondary-btn {
+  min-height: 40px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+}
+
+.briefing-redesign .preview-summary-panel .brochure-cover-v3 {
+  min-height: 180px;
+  aspect-ratio: 16 / 7.2 !important;
+}
+
+.briefing-redesign .preview-summary-panel .brochure-section {
+  margin-bottom: 8px !important;
+}
+
+.briefing-redesign .preview-summary-panel .summary-section p,
+.briefing-redesign .preview-summary-panel .text-section p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.briefing-redesign .preview-summary-panel .list-section ul {
+  gap: 4px;
+}
+
+.briefing-redesign .preview-summary-panel .footer-section {
+  padding-top: 8px;
+  border-top: 1px solid #e7eef8;
+}
+
+.briefing-redesign .preview-action-row {
+  grid-template-columns: 1fr auto auto !important;
+}
+
+.briefing-redesign .briefing-support-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) !important;
+  gap: 12px !important;
+}
+
+.briefing-redesign .briefing-support-details {
+  overflow: hidden;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 35, 65, 0.05);
+}
+
+.briefing-redesign .briefing-support-details > summary {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 14px;
+  color: #0f2348;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  list-style: none;
+}
+
+.briefing-redesign .briefing-support-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.briefing-redesign .briefing-support-details .grid-card,
+.briefing-redesign .briefing-support-details .surface-card {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 1240px) {
+  .briefing-redesign .naver-import-body {
+    right: auto;
+    left: 0;
+  }
+
+  .briefing-redesign .briefing-support-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .briefing-redesign .briefing-header-card {
+    align-items: start;
+  }
+
+  .briefing-redesign .naver-import-body {
+    position: fixed;
+    top: 76px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - 96px);
+  }
+
+  .briefing-redesign .briefing-section-body .field-grid,
+  .briefing-redesign .briefing-section-body .field-grid:not(.four-col-fields):not(.area-grid),
+  .briefing-redesign .briefing-sticky-actions,
+  .briefing-redesign .preview-action-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .briefing-redesign .briefing-form-section > summary {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    padding: 8px 12px;
+  }
+
+  .briefing-redesign .briefing-form-section > summary span {
+    width: 100%;
+    text-align: left;
+  }
+}
