@@ -209,9 +209,6 @@ export default function SchedulesPage() {
       .filter((item) => String(item.schedule_date || "").startsWith(key))
       .sort(sortSchedules);
   }, [displayItems, month]);
-  const contractSchedules = monthSchedules.filter((item) => item.schedule_type === "계약서일정");
-  const balanceSchedules = monthSchedules.filter((item) => BALANCE_TYPES.has(item.schedule_type));
-
   function openCreate(date) {
     setSelectedDate(date);
     setForm(emptyForm(date));
@@ -407,10 +404,6 @@ export default function SchedulesPage() {
         <div className="dashboard-card">
           <h2>이번달 일정내역</h2>
           <ScheduleList items={monthSchedules} onEdit={openEdit} />
-        </div>
-        <div className="dashboard-card">
-          <h2>계약/잔금 일정</h2>
-          <ScheduleList items={[...contractSchedules, ...balanceSchedules]} onEdit={openEdit} />
         </div>
       </section>
 

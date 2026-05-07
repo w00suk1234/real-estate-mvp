@@ -6658,7 +6658,7 @@ h4 {
 
 .schedule-page-compact .schedule-summary-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px !important;
   align-items: start;
 }
