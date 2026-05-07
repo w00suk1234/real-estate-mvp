@@ -7670,3 +7670,208 @@ h4 {
     text-align: left;
   }
 }
+
+/* AgentNote unified page rhythm */
+.content-area {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none !important;
+  padding: 20px clamp(18px, 1.8vw, 28px) 36px !important;
+}
+
+.page-stack,
+.briefing-workspace.briefing-redesign,
+.support-workspace,
+.profile-workspace,
+.calculator-workspace,
+.photo-editor-workspace,
+.address-hub-workspace {
+  box-sizing: border-box;
+  width: min(100%, 1440px) !important;
+  max-width: 1440px !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+  display: grid;
+  gap: 16px !important;
+}
+
+.page-header-card,
+.compact-page-header,
+.briefing-redesign .briefing-header-card,
+.support-header {
+  box-sizing: border-box;
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 18px rgba(15, 35, 65, 0.045) !important;
+}
+
+.page-header-card h1,
+.compact-page-header h1,
+.briefing-redesign .briefing-header-card h1,
+.support-header h1 {
+  margin: 0 0 5px !important;
+  color: #061b3a;
+  font-size: clamp(27px, 2vw, 30px) !important;
+  line-height: 1.08 !important;
+  letter-spacing: 0 !important;
+}
+
+.page-header-card p,
+.compact-page-header p,
+.briefing-redesign .briefing-header-card p,
+.support-header p {
+  max-width: 760px;
+  margin: 0 !important;
+  color: #475569;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+}
+
+.page-header-card .section-eyebrow,
+.compact-page-header .section-eyebrow,
+.briefing-header-card .section-eyebrow,
+.page-header-card > div > .page-eyebrow,
+.compact-page-header > div > .page-eyebrow,
+.support-header .section-eyebrow {
+  display: none !important;
+}
+
+.schedule-page-compact > .schedule-toolbar,
+.schedule-page-compact > .calendar-card,
+.schedule-page-compact > .compact-calendar-card,
+.schedule-page-compact > .schedule-summary-grid,
+.customer-layout,
+.ai-recommend-control-panel,
+.recommend-flow-strip,
+.recommend-results-section,
+.settlement-stat-grid,
+.settlement-layout,
+.briefing-grid-v2,
+.briefing-support-grid {
+  width: 100% !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+.schedule-toolbar,
+.compact-schedule-toolbar {
+  align-items: center !important;
+  gap: 18px !important;
+  margin-bottom: 0 !important;
+}
+
+.schedule-nav-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+}
+
+.schedule-nav-btn,
+.schedule-month-input-ui {
+  min-height: 36px !important;
+  border-radius: 10px !important;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  width: 100% !important;
+}
+
+.customer-layout,
+.ai-recommend-control-panel,
+.settlement-layout,
+.briefing-grid-v2 {
+  gap: 20px !important;
+  align-items: start !important;
+}
+
+.schedule-summary-grid,
+.settlement-stat-grid,
+.briefing-support-grid,
+.recommend-flow-strip {
+  gap: 14px !important;
+}
+
+.customer-list-card,
+.customer-form-card,
+.settlement-table-card,
+.settlement-form-card,
+.recommend-customer-picker,
+.recommend-action-card,
+.recommend-results-section,
+.compact-calendar-card,
+.schedule-summary-grid > .dashboard-card,
+.briefing-redesign .compact-form-card,
+.briefing-redesign .preview-panel,
+.briefing-support-details {
+  box-sizing: border-box;
+}
+
+.customer-list-card > .section-heading-row,
+.customer-form-card > .section-heading-row,
+.settlement-table-card > .section-heading-row,
+.settlement-form-card > .section-heading-row,
+.recommend-results-section > .section-heading-row {
+  align-items: center;
+  margin-bottom: 14px !important;
+}
+
+.customer-filter-grid,
+.settlement-toolbar {
+  margin-top: 0 !important;
+}
+
+.ai-recommend-header .zero-cost-badge,
+.settlement-header .month-input,
+.briefing-header-card .import-panel-drawer {
+  flex: none;
+}
+
+@media (max-width: 1180px) {
+  .content-area {
+    padding: 18px !important;
+  }
+
+  .page-header-card,
+  .compact-page-header,
+  .briefing-redesign .briefing-header-card,
+  .support-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .content-area {
+    padding: 14px !important;
+  }
+
+  .page-stack,
+  .briefing-workspace.briefing-redesign,
+  .support-workspace,
+  .profile-workspace,
+  .calculator-workspace,
+  .photo-editor-workspace,
+  .address-hub-workspace {
+    gap: 14px !important;
+  }
+
+  .page-header-card,
+  .compact-page-header,
+  .briefing-redesign .briefing-header-card,
+  .support-header {
+    min-height: 0;
+    padding: 16px !important;
+  }
+
+  .schedule-nav-actions {
+    justify-content: flex-start !important;
+  }
+}

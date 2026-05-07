@@ -240,8 +240,8 @@ function CustomersPage({ setPage: navigatePage }) {
     <div className="page-stack">
       <section className="page-header-card compact-page-header">
         <div>
-          <h1>고객 목록 중심 관리</h1>
-          <p>고객 목록을 넓게 보고, 오른쪽에서 빠르게 등록합니다. 고객 유입일은 일정관리의 고객인입 일정으로 연결됩니다.</p>
+          <h1>고객관리</h1>
+          <p>고객 목록을 중심으로 상담 상태와 유입 일정을 관리합니다.</p>
         </div>
       </section>
 

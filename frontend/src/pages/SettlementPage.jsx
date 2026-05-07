@@ -448,7 +448,6 @@ function SettlementPage({ setPage } = {}) {
     <div className="page-stack settlement-page">
       <section className="page-header-card compact-page-header settlement-header">
         <div>
-          <span className="page-eyebrow">정산</span>
           <h1>수수료 정산</h1>
           <p>잔금 일정과 고객 정보를 기준으로 임차인·임대인 수수료를 관리합니다.</p>
         </div>

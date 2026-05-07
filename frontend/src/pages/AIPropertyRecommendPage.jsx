@@ -112,7 +112,6 @@ function AIPropertyRecommendPage({ setPage }) {
     <div className="page-stack ai-recommend-page">
       <section className="page-header-card compact-page-header ai-recommend-header">
         <div>
-          <span className="page-eyebrow">AI 매물 추천기</span>
           <h1>AI 매물 추천기</h1>
           <p>고객 희망 조건을 기준으로 등록된 매물 중 적합한 매물을 추천합니다.</p>
         </div>
