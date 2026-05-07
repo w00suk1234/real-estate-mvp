@@ -50,10 +50,18 @@ export async function apiFetch(path, options = {}) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...fetchOptions,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...fetchOptions,
+      headers,
+    });
+  } catch (error) {
+    const localHint = isLocalDev
+      ? " 로컬에서는 백엔드 서버(http://127.0.0.1:8000)가 켜져 있어야 합니다."
+      : "";
+    throw new Error(`서버에 연결할 수 없습니다.${localHint} 이메일 형식 문제는 아닙니다.`);
+  }
 
   const contentType = response.headers.get("content-type") || "";
   const data = contentType.includes("application/json")
