@@ -488,7 +488,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     } catch (err) {
       console.error(err);
       setError(
-        `${err.message || "URL 가져오기 중 오류가 발생했습니다."} URL 방식은 서버가 네이버를 다시 여는 예비 기능이라 실패할 수 있습니다. 가능하면 네이버 화면의 '업무툴로 가져오기' 버튼을 사용해 주세요.`
+        `${err.message || "URL 가져오기 중 오류가 발생했습니다."} URL 직접 입력 방식은 네이버 차단/CORS 때문에 실패할 수 있습니다. 가장 안정적인 방법은 네이버 화면의 '업무툴로 가져오기' 버튼입니다.`
       );
     } finally {
       setLoading(false);
@@ -509,16 +509,16 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
     <section className="import-panel import-panel-compact import-panel-drawer">
       <details className="naver-import-drawer">
         <summary className="naver-import-summary">
-          <span>네이버 URL 가져오기</span>
-          <em>예비 기능</em>
+          <span>네이버 매물 가져오기</span>
+          <em>확장 연동</em>
         </summary>
         <div className="naver-import-body">
       <div className="panel-head import-panel-head">
         <div>
-          <h3>네이버 매물 → 소개서 초안</h3>
-          <p>향후 네이버 매물 URL을 기반으로 입력값을 자동 채우는 보조 기능입니다.</p>
+          <h3>크롬 확장으로 네이버 매물 가져오기</h3>
+          <p>네이버 매물 화면에서 업무툴로 가져오기를 누르면 소개서 입력값에 바로 반영됩니다.</p>
         </div>
-        <span className="import-beta-badge">예비 기능</span>
+        <span className="import-beta-badge">확장 연동</span>
         <div className="import-head-actions" ref={helpRef}>
           <button
             type="button"
@@ -668,7 +668,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           <em>접힘</em>
         </summary>
         <p>
-          향후 네이버 매물 URL을 기반으로 입력값을 자동 채우는 기능입니다. 현재 URL 방식은 예비 기능이라 실패할 수 있습니다.
+          URL 직접 입력은 네이버 차단/CORS 때문에 실패할 수 있습니다. 크롬 확장의 업무툴로 가져오기 버튼이 가장 안정적입니다.
         </p>
         <div className="import-quick-actions">
           <button type="button" className="secondary-btn" onClick={openNaverLand}>

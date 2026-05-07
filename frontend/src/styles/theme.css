@@ -8014,7 +8014,9 @@ h4 {
 
 /* Final surface polish: quieter badges, settlement filters, solid buttons */
 .ai-recommend-header {
-  min-height: 116px !important;
+  min-height: 76px !important;
+  padding-top: 18px !important;
+  padding-bottom: 18px !important;
 }
 
 .zero-cost-badge,
