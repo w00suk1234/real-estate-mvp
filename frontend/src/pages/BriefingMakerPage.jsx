@@ -237,8 +237,9 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
             <h1>소개서 작성</h1>
             <p>매물 정보를 고객용 소개서로 빠르게 정리합니다.</p>
           </div>
-          <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
         </section>
+
+        <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
 
         <div className="briefing-grid-v2">
           <div className="grid-card property-card">

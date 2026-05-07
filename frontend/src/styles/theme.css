@@ -7423,12 +7423,14 @@ h4 {
 /* Briefing workflow information architecture pass */
 .briefing-redesign .import-panel-drawer {
   position: relative;
+  width: 100%;
   flex: none;
   margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  padding: 10px 12px !important;
+  border: 1px solid #dbe7f5 !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(15, 35, 65, 0.04) !important;
 }
 
 .briefing-redesign .naver-import-drawer {
@@ -7436,14 +7438,15 @@ h4 {
 }
 
 .briefing-redesign .naver-import-summary {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid #bfdbfe;
-  border-radius: 999px;
-  background: #eff6ff;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #07519f;
   font-size: 12px;
   font-weight: 900;
@@ -7451,6 +7454,18 @@ h4 {
   cursor: pointer;
   list-style: none;
   white-space: nowrap;
+}
+
+.briefing-redesign .naver-import-summary::after {
+  content: "열기";
+  margin-left: auto;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.briefing-redesign .naver-import-drawer[open] .naver-import-summary::after {
+  content: "접기";
 }
 
 .briefing-redesign .naver-import-summary::-webkit-details-marker {

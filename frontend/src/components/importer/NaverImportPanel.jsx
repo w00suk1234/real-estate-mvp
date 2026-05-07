@@ -665,7 +665,6 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       <details className="url-fallback-box">
         <summary>
           <span>보조 URL 입력</span>
-          <em>실패 가능</em>
         </summary>
         <div className="url-fallback-intro">
           <p>
