@@ -530,110 +530,111 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
             aria-label="네이버 매물 가져오기 안내"
             aria-expanded={helpOpen}
           >
-            i
+            가이드
           </button>
 
-          {helpOpen && (
-            <div className="import-help-popover">
-              <strong>처음 쓰는 분 가이드</strong>
-              <div className="import-help-tabs">
-                <button
-                  type="button"
-                  className={`import-help-tab ${helpTab === "extension" ? "active" : ""}`}
-                  onClick={() => setHelpTab("extension")}
-                >
-                  크롬 확장 설정
-                </button>
-                <button
-                  type="button"
-                  className={`import-help-tab ${helpTab === "usage" ? "active" : ""}`}
-                  onClick={() => setHelpTab("usage")}
-                >
-                  사용 방법
-                </button>
-              </div>
-              <div className="import-help-body">
-                {helpTab === "extension" ? (
-                  <>
-                    <div className="import-help-actions">
-                      <a
-                        className="import-help-download"
-                        href={EXTENSION_DOWNLOAD_URL}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        확장 ZIP 다운로드
-                      </a>
-                      <button
-                        type="button"
-                        className="import-help-copy"
-                        onClick={copyExtensionsPath}
-                      >
-                        {extensionPathCopied ? "주소 복사됨" : "chrome://extensions 복사"}
-                      </button>
-                    </div>
-
-                    <div className="import-help-section">
-                      <span className="import-help-kicker">먼저 알아둘 점</span>
-                      <p>
-                        웹앱에서는 <code>chrome://extensions</code> 주소를 바로 열지 못할 수 있습니다.
-                        그래서 위 버튼으로 주소를 복사한 뒤, 크롬 주소창에 붙여넣는 방식이 가장 안정적입니다.
-                      </p>
-                    </div>
-
-                    <div className="import-help-section">
-                      <span className="import-help-kicker">처음 한 번만</span>
-                      <ol className="import-help-list import-help-list-clean">
-                        <li>위에서 확장 ZIP을 내려받습니다.</li>
-                        <li>내려받은 ZIP 파일의 압축을 풉니다.</li>
-                        <li><code>chrome://extensions</code> 주소를 복사해서 크롬 주소창에 붙여넣고 이동합니다.</li>
-                        <li>오른쪽 위 개발자 모드를 켭니다.</li>
-                        <li>왼쪽 위 압축해제된 확장 프로그램 로드를 누릅니다.</li>
-                        <li>압축을 푼 폴더 안에 있는 <code>chrome-extension</code> 폴더를 선택합니다.</li>
-                        <li>설치가 끝나면 네이버 부동산 탭을 새로고침합니다.</li>
-                      </ol>
-                    </div>
-
-                    <div className="import-help-section">
-                      <span className="import-help-kicker">설치 후 확인</span>
-                      <ul className="import-help-list import-help-bullets">
-                        <li>확장 목록에 업무툴 확장이 보여야 합니다.</li>
-                        <li>네이버 화면 오른쪽 아래에 업무툴로 가져오기 버튼이 보여야 합니다.</li>
-                        <li>버튼이 안 보이면 확장을 새로고침하고 네이버 탭도 다시 새로고침합니다.</li>
-                      </ul>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="import-help-section">
-                      <span className="import-help-kicker">사용 순서</span>
-                      <ol className="import-help-list import-help-list-clean">
-                        <li>네이버 부동산에서 실제 매물 하나를 클릭합니다.</li>
-                        <li>가격, 면적, 사진 등 상세 정보가 보이게 둡니다.</li>
-                        <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
-                        <li>우리 앱으로 돌아와 자동으로 채워진 값을 검토한 뒤 저장합니다.</li>
-                      </ol>
-                    </div>
-
-                    <div className="import-help-section">
-                      <span className="import-help-kicker">버튼이 안 보일 때</span>
-                      <ul className="import-help-list import-help-bullets">
-                        <li>크롬 확장을 아직 설치하지 않았거나 꺼져 있는 경우</li>
-                        <li>확장을 설치한 뒤 네이버 탭을 다시 새로고침하지 않은 경우</li>
-                        <li>매물 상세 패널이 충분히 열려 있지 않은 경우</li>
-                      </ul>
-                    </div>
-
-                    <p className="import-help-footnote">
-                      가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 열려 있는지 먼저 확인해 주세요.
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {helpOpen && (
+        <div className="import-help-popover import-help-panel">
+          <strong>처음 쓰는 분 가이드</strong>
+          <div className="import-help-tabs">
+            <button
+              type="button"
+              className={`import-help-tab ${helpTab === "extension" ? "active" : ""}`}
+              onClick={() => setHelpTab("extension")}
+            >
+              크롬 확장 설정
+            </button>
+            <button
+              type="button"
+              className={`import-help-tab ${helpTab === "usage" ? "active" : ""}`}
+              onClick={() => setHelpTab("usage")}
+            >
+              사용 방법
+            </button>
+          </div>
+          <div className="import-help-body">
+            {helpTab === "extension" ? (
+              <>
+                <div className="import-help-actions">
+                  <a
+                    className="import-help-download"
+                    href={EXTENSION_DOWNLOAD_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    확장 ZIP 다운로드
+                  </a>
+                  <button
+                    type="button"
+                    className="import-help-copy"
+                    onClick={copyExtensionsPath}
+                  >
+                    {extensionPathCopied ? "주소 복사됨" : "chrome://extensions 복사"}
+                  </button>
+                </div>
+
+                <div className="import-help-section">
+                  <span className="import-help-kicker">먼저 알아둘 점</span>
+                  <p>
+                    웹앱에서는 <code>chrome://extensions</code> 주소를 바로 열지 못할 수 있습니다.
+                    그래서 위 버튼으로 주소를 복사한 뒤, 크롬 주소창에 붙여넣는 방식이 가장 안정적입니다.
+                  </p>
+                </div>
+
+                <div className="import-help-section">
+                  <span className="import-help-kicker">처음 한 번만</span>
+                  <ol className="import-help-list import-help-list-clean">
+                    <li>위에서 확장 ZIP을 내려받습니다.</li>
+                    <li>내려받은 ZIP 파일의 압축을 풉니다.</li>
+                    <li><code>chrome://extensions</code> 주소를 복사해서 크롬 주소창에 붙여넣고 이동합니다.</li>
+                    <li>오른쪽 위 개발자 모드를 켭니다.</li>
+                    <li>왼쪽 위 압축해제된 확장 프로그램 로드를 누릅니다.</li>
+                    <li>압축을 푼 폴더 안에 있는 <code>chrome-extension</code> 폴더를 선택합니다.</li>
+                    <li>설치가 끝나면 네이버 부동산 탭을 새로고침합니다.</li>
+                  </ol>
+                </div>
+
+                <div className="import-help-section">
+                  <span className="import-help-kicker">설치 후 확인</span>
+                  <ul className="import-help-list import-help-bullets">
+                    <li>확장 목록에 업무툴 확장이 보여야 합니다.</li>
+                    <li>네이버 화면 오른쪽 아래에 업무툴로 가져오기 버튼이 보여야 합니다.</li>
+                    <li>버튼이 안 보이면 확장을 새로고침하고 네이버 탭도 다시 새로고침합니다.</li>
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="import-help-section">
+                  <span className="import-help-kicker">사용 순서</span>
+                  <ol className="import-help-list import-help-list-clean">
+                    <li>네이버 부동산에서 실제 매물 하나를 클릭합니다.</li>
+                    <li>가격, 면적, 사진 등 상세 정보가 보이게 둡니다.</li>
+                    <li>오른쪽 아래 업무툴로 가져오기 버튼을 누릅니다.</li>
+                    <li>우리 앱으로 돌아와 자동으로 채워진 값을 검토한 뒤 저장합니다.</li>
+                  </ol>
+                </div>
+
+                <div className="import-help-section">
+                  <span className="import-help-kicker">버튼이 안 보일 때</span>
+                  <ul className="import-help-list import-help-bullets">
+                    <li>크롬 확장을 아직 설치하지 않았거나 꺼져 있는 경우</li>
+                    <li>확장을 설치한 뒤 네이버 탭을 다시 새로고침하지 않은 경우</li>
+                    <li>매물 상세 패널이 충분히 열려 있지 않은 경우</li>
+                  </ul>
+                </div>
+
+                <p className="import-help-footnote">
+                  가격이나 면적이 비어 있으면 네이버 쪽 상세 패널이 충분히 열려 있는지 먼저 확인해 주세요.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {snapshotStats && (
         <div className="import-debug-box">

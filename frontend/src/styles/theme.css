@@ -7463,10 +7463,10 @@ h4 {
   top: 42px;
   right: 0;
   z-index: 50;
-  width: min(680px, calc(100vw - 48px));
+  width: min(760px, calc(100vw - 48px));
   max-height: calc(100vh - 112px);
   overflow: auto;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid #dbe7f5;
   border-radius: 16px;
   background: #ffffff;
@@ -8017,6 +8017,65 @@ h4 {
   min-height: 76px !important;
   padding-top: 18px !important;
   padding-bottom: 18px !important;
+}
+
+.briefing-redesign .import-panel-head {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 10px !important;
+}
+
+.briefing-redesign .import-head-actions {
+  position: static !important;
+}
+
+.briefing-redesign .import-help-trigger {
+  width: auto !important;
+  min-width: 62px;
+  height: 30px !important;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.briefing-redesign .import-help-panel {
+  position: static !important;
+  width: 100% !important;
+  margin: 10px 0 12px;
+  padding: 14px !important;
+  border-color: #d7e4f4;
+  border-radius: 14px;
+  background: #f8fbff;
+  box-shadow: none !important;
+}
+
+.briefing-redesign .import-help-panel .import-help-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.briefing-redesign .import-help-panel .import-help-tabs {
+  flex-wrap: wrap;
+}
+
+.briefing-redesign .import-help-panel .import-help-section {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 760px) {
+  .briefing-redesign .import-panel-head {
+    grid-template-columns: 1fr !important;
+  }
+
+  .briefing-redesign .import-beta-badge,
+  .briefing-redesign .import-help-trigger {
+    width: fit-content;
+  }
+
+  .briefing-redesign .import-help-panel .import-help-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .zero-cost-badge,
