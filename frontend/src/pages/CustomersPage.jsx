@@ -5,6 +5,7 @@ const CONTRACT_STATUSES = ["미계약", "계약금입금", "계약서일정", "�
 const PRIORITY_LEVELS = ["낮음", "보통", "높음"];
 const PROPERTY_TYPE_OPTIONS = ["사무실", "상가", "주거", "매매"];
 const ALL = "전체";
+const PAGE_SIZE = 5;
 
 const defaultForm = {
   name: "",
@@ -66,6 +67,7 @@ function CustomersPage({ setPage: navigatePage }) {
   const [priorityFilter, setPriorityFilter] = useState(ALL);
   const [propertyTypeFilter, setPropertyTypeFilter] = useState(ALL);
   const [monthFilter, setMonthFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -108,6 +110,17 @@ function CustomersPage({ setPage: navigatePage }) {
       return matchesSearch && matchesStatus && matchesPriority && matchesPropertyType && matchesMonth;
     });
   }, [items, monthFilter, priorityFilter, propertyTypeFilter, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const pageItems = filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, priorityFilter, propertyTypeFilter, monthFilter]);
+
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -276,8 +289,8 @@ function CustomersPage({ setPage: navigatePage }) {
           </div>
 
           <div className="customer-card-list">
-            {filteredItems.length ? (
-              filteredItems.map((item) => {
+            {pageItems.length ? (
+              pageItems.map((item) => {
                 const status = getCustomerValue(item, "contract_status") || "미계약";
                 return (
                   <article key={item.id} className={`customer-card-item contract-strip-${getStatusClass(status)}`}>
@@ -325,6 +338,33 @@ function CustomersPage({ setPage: navigatePage }) {
               <div className="empty-state">조건에 맞는 고객이 없습니다.</div>
             )}
           </div>
+
+          {filteredItems.length ? (
+            <div className="pagination-row customer-pagination-row" aria-label="고객 목록 페이지">
+              <button type="button" className="secondary-btn small-btn" disabled={page === 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
+                이전
+              </button>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  className={`pagination-page-btn ${page === pageNumber ? "active" : ""}`}
+                  onClick={() => setPage(pageNumber)}
+                  aria-current={page === pageNumber ? "page" : undefined}
+                >
+                  {pageNumber}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="secondary-btn small-btn"
+                disabled={page === totalPages}
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              >
+                다음
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <form className="customer-form-card" onSubmit={handleSubmit}>
