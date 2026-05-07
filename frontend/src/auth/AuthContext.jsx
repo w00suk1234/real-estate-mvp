@@ -57,11 +57,20 @@ function getAuthErrorMessage(error) {
   if (/user already registered|already registered/i.test(message)) {
     return "이미 가입된 계정입니다. 로그인 탭에서 로그인해 주세요.";
   }
+  if (/duplicate|unique|profiles_username|already exists/i.test(message)) {
+    return "이미 사용 중인 아이디입니다. 다른 아이디로 가입해 주세요.";
+  }
+  if (/unable to validate email|invalid email|email address/i.test(message)) {
+    return "인증 서버가 내부 계정 이메일을 거부했습니다. 관리자에게 Supabase 이메일 인증/도메인 설정 확인이 필요합니다.";
+  }
   if (/password/i.test(message)) {
     return "비밀번호는 8자 이상으로 입력해 주세요.";
   }
   if (/network|failed to fetch/i.test(message)) {
     return "네트워크 연결이 불안정합니다. 잠시 후 다시 시도해 주세요.";
+  }
+  if (/요청 처리 중 오류가 발생했습니다/i.test(message)) {
+    return "요청이 실패했습니다. 아이디 중복이거나 인증 서버 설정 문제일 수 있습니다.";
   }
   return message || "로그인 처리 중 오류가 발생했습니다.";
 }
@@ -201,8 +210,23 @@ function AuthProvider({ children }) {
     if (!payload.privacy_agreed) {
       throw new Error("개인정보 수집 및 이용 동의가 필요합니다.");
     }
+    const username = String(payload.username || "").trim();
+    if (username.length < 3) {
+      throw new Error("아이디는 3자 이상으로 입력해 주세요.");
+    }
+    if (String(payload.password || "").trim().length < 8) {
+      throw new Error("비밀번호는 8자 이상으로 입력해 주세요.");
+    }
 
     if (isSupabaseConfigured) {
+      const existingProfile = await withTimeout(
+        getProfileByUsername(username),
+        PROFILE_TIMEOUT_MS,
+        "아이디 중복 확인 시간이 초과되었습니다.",
+      ).catch(() => null);
+      if (existingProfile?.username) {
+        throw new Error("이미 사용 중인 아이디입니다. 다른 아이디로 가입해 주세요.");
+      }
       const email = toAuthEmail(payload.email || payload.username);
       const { data, error } = await withTimeout(
         supabase.auth.signUp({
@@ -224,8 +248,11 @@ function AuthProvider({ children }) {
         "회원가입 요청 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.",
       );
       if (error) throw new Error(getAuthErrorMessage(error));
+      if (Array.isArray(data.user?.identities) && data.user.identities.length === 0) {
+        throw new Error("이미 가입된 계정입니다. 로그인 탭에서 로그인해 주세요.");
+      }
       if (!data.session) {
-        throw new Error("가입이 완료되었습니다. 이메일 인증이 켜져 있다면 인증 후 로그인해 주세요.");
+        throw new Error("가입 요청은 접수됐지만 자동 로그인이 되지 않았습니다. 이메일 인증 설정이 켜져 있으면 관리자 확인이 필요합니다.");
       }
       setUser(normalizeUser(data.user));
       try {

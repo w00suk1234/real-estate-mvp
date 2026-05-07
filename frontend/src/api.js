@@ -1,9 +1,9 @@
-const isViteDev =
-  window.location.hostname === "127.0.0.1" &&
-  window.location.port === "5173";
+const isLocalDev =
+  ["127.0.0.1", "localhost"].includes(window.location.hostname) &&
+  /^517\d$/.test(window.location.port);
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || (isViteDev ? "http://127.0.0.1:8000" : "");
+  import.meta.env.VITE_API_BASE_URL || (isLocalDev ? "http://127.0.0.1:8000" : "");
 
 const TOKEN_KEY = "real_estate_mvp_token";
 const USER_KEY = "real_estate_mvp_user";

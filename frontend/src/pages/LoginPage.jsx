@@ -100,7 +100,10 @@ function LoginPage({ setPage }) {
       await login(loginForm);
       setPage?.("schedules");
     } catch (err) {
-      setError(err.message || "처리 중 오류가 발생했습니다.");
+      const message = err.message || "처리 중 오류가 발생했습니다.";
+      setError(isSignup && /요청 처리 중 오류가 발생했습니다/.test(message)
+        ? "회원가입에 실패했습니다. 아이디 중복 또는 인증 서버 설정 문제일 수 있습니다."
+        : message);
     } finally {
       setLoading(false);
     }
