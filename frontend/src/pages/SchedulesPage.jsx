@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { deleteSchedule, listCustomers, listSchedules, saveCustomer, saveSchedule, upsertSettlementFromSchedule } from "../services/supabaseRepository";
 
-const SCHEDULE_TYPES = ["일정", "고객인입", "미팅", "계약금입금", "계약서일정", "잔금", "잔금날", "기타"];
-const CUSTOMER_PICKER_TYPES = new Set(["미팅", "계약금입금", "계약서일정", "잔금", "잔금날"]);
-const BALANCE_TYPES = new Set(["잔금", "잔금날"]);
+const SCHEDULE_TYPES = ["일정", "고객인입", "미팅", "계약금입금", "계약서일정", "잔금일", "기타"];
+const CUSTOMER_PICKER_TYPES = new Set(["미팅", "계약금입금", "계약서일정", "잔금일"]);
+const BALANCE_TYPES = new Set(["잔금일", "잔금", "잔금날"]);
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const today = new Date();
 const FIXED_HOLIDAYS = {
@@ -63,11 +63,19 @@ function sortSchedules(a, b) {
 }
 function getScheduleCustomerName(item) {
   const title = normalize(item.title);
-  const type = normalize(item.schedule_type);
+  const type = normalizeScheduleType(normalize(item.schedule_type));
   const customer = normalize(item.customer_name);
   if (customer) return customer;
   if (title && type && title.endsWith(type)) return normalize(title.slice(0, -type.length));
+  if (BALANCE_TYPES.has(item.schedule_type) && /(?:잔금날|잔금)$/.test(title)) return normalize(title.replace(/(?:잔금날|잔금)$/, ""));
   return title || "고객 없음";
+}
+function getScheduleDisplayTitle(item) {
+  const title = item.title || "일정";
+  if (BALANCE_TYPES.has(item.schedule_type)) {
+    return title.replace(/(?:잔금날|잔금)$/, "잔금일");
+  }
+  return title;
 }
 function groupSchedulesByDate(items) {
   return [...items].sort(sortSchedules).reduce((groups, item) => {
@@ -122,13 +130,17 @@ function emptyForm(date = toDateValue(today)) {
     note: "",
   };
 }
+function normalizeScheduleType(type) {
+  return type === "잔금" || type === "잔금날" ? "잔금일" : type;
+}
 function typeClass(type) {
-  if (type === "고객인입") return "inflow";
-  if (type === "미팅") return "meeting";
-  if (type === "계약금입금") return "deposit";
-  if (type === "계약서일정") return "contract";
-  if (type === "잔금날" || type === "잔금") return "balance";
-  if (type === "기타") return "etc";
+  const normalizedType = normalizeScheduleType(type);
+  if (normalizedType === "고객인입") return "inflow";
+  if (normalizedType === "미팅") return "meeting";
+  if (normalizedType === "계약금입금") return "deposit";
+  if (normalizedType === "계약서일정") return "contract";
+  if (normalizedType === "잔금일") return "balance";
+  if (normalizedType === "기타") return "etc";
   return "default";
 }
 function normalize(value) {
@@ -217,7 +229,7 @@ export default function SchedulesPage() {
   }
   function openEdit(item) {
     setSelectedDate(item.schedule_date || selectedDate);
-    setForm({ ...emptyForm(item.schedule_date || selectedDate), ...item });
+    setForm({ ...emptyForm(item.schedule_date || selectedDate), ...item, schedule_type: normalizeScheduleType(item.schedule_type) });
     setCustomerSearch("");
     setModalOpen(true);
   }
@@ -389,7 +401,7 @@ export default function SchedulesPage() {
                 <div className="calendar-events">
                   {dayItems.slice(0, 3).map((item) => (
                     <span key={item.id || `${item.title}-${item.schedule_time}`} className={`event-pill ${typeClass(item.schedule_type)}`} onClick={(event) => { event.stopPropagation(); openEdit(item); }}>
-                      {item.title || "일정"}
+                      {getScheduleDisplayTitle(item)}
                     </span>
                   ))}
                   {dayItems.length > 3 && <span className="event-more">+{dayItems.length - 3}</span>}
@@ -472,7 +484,7 @@ function ScheduleList({ items, onEdit }) {
                   <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className="schedule-row" onClick={() => onEdit(item)}>
                     <span className={`event-dot ${typeClass(item.schedule_type)}`} />
                     <strong className="schedule-row-name">{customerName}</strong>
-                    <span className={`schedule-type-badge ${typeClass(item.schedule_type)}`}>{item.schedule_type || "일정"}</span>
+                    <span className={`schedule-type-badge ${typeClass(item.schedule_type)}`}>{normalizeScheduleType(item.schedule_type) || "일정"}</span>
                   </button>
                 );
               })}

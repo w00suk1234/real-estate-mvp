@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { completeSettlement, deleteSettlement, listCustomers, listSchedules, listSettlements, saveCustomer, saveSettlement } from "../services/supabaseRepository";
 
-const BALANCE_TYPES = new Set(["잔금", "잔금날"]);
+const BALANCE_TYPES = new Set(["잔금일", "잔금", "잔금날"]);
 const DONE_STATUS = "정산완료";
 const WAITING_STATUS = "정산대기";
 const today = new Date();

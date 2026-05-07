@@ -459,7 +459,7 @@ export async function deleteSchedule(id) {
 const SETTLEMENT_STORAGE_KEY = "real_estate_mvp_settlements";
 const SETTLEMENT_WAITING_STATUS = "정산대기";
 const SETTLEMENT_DONE_STATUS = "정산완료";
-const BALANCE_SETTLEMENT_TYPES = new Set(["잔금", "잔금날"]);
+const BALANCE_SETTLEMENT_TYPES = new Set(["잔금일", "잔금", "잔금날"]);
 
 function parseSettlementMoney(value) {
   if (value === null || value === undefined || value === "") return 0;
