@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import "../styles/auth.css";
 
@@ -13,11 +13,85 @@ const initialSignupForm = {
   privacy_agreed: false,
 };
 
+const SIGNUP_FIELD_KEYS = [
+  "username",
+  "password",
+  "password_confirm",
+  "office_name",
+  "manager_name",
+  "phone",
+  "privacy_agreed",
+];
+
+const USERNAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+const PHONE_PATTERN = /^01[016789]-\d{3,4}-\d{4}$/;
+
+function formatPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+
+  const middleEnd = digits.length === 10 ? 6 : 7;
+  return `${digits.slice(0, 3)}-${digits.slice(3, middleEnd)}-${digits.slice(middleEnd)}`;
+}
+
+function validateSignupForm(form) {
+  const errors = {};
+  const username = form.username.trim();
+  const password = form.password || "";
+  const phone = form.phone.trim();
+
+  if (!username) {
+    errors.username = "아이디를 입력해 주세요.";
+  } else if (username.length < 4) {
+    errors.username = "아이디는 4자 이상 입력해 주세요.";
+  } else if (username.length > 20) {
+    errors.username = "아이디는 20자 이하로 입력해 주세요.";
+  } else if (!USERNAME_PATTERN.test(username)) {
+    errors.username = "아이디는 영문, 숫자, -, _만 입력해 주세요.";
+  }
+
+  if (!password) {
+    errors.password = "비밀번호를 입력해 주세요.";
+  } else if (password.length < 8) {
+    errors.password = "비밀번호는 8자 이상 입력해 주세요.";
+  } else if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    errors.password = "영문과 숫자를 함께 사용해 주세요.";
+  }
+
+  if (!form.password_confirm) {
+    errors.password_confirm = "비밀번호 확인을 입력해 주세요.";
+  } else if (password && form.password_confirm !== password) {
+    errors.password_confirm = "비밀번호가 일치하지 않습니다.";
+  }
+
+  if (!form.office_name.trim()) {
+    errors.office_name = "부동산 이름을 입력해 주세요.";
+  }
+
+  if (!form.manager_name.trim()) {
+    errors.manager_name = "담당자명을 입력해 주세요.";
+  }
+
+  if (!phone) {
+    errors.phone = "연락처를 입력해 주세요.";
+  } else if (!PHONE_PATTERN.test(phone)) {
+    errors.phone = "연락처 형식을 확인해 주세요. 예: 010-1234-5678";
+  }
+
+  if (!form.privacy_agreed) {
+    errors.privacy_agreed = "개인정보 수집 및 이용에 동의해야 가입할 수 있습니다.";
+  }
+
+  return errors;
+}
+
 function LoginPage({ setPage }) {
   const { login, signup, findUsername, requestPasswordReset, updatePassword } = useAuth();
   const [mode, setMode] = useState("login");
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [signupForm, setSignupForm] = useState(initialSignupForm);
+  const [signupTouched, setSignupTouched] = useState({});
   const [findForm, setFindForm] = useState({ email: "", phone: "" });
   const [resetForm, setResetForm] = useState({ usernameOrEmail: "" });
   const [newPasswordForm, setNewPasswordForm] = useState({ password: "", confirm: "" });
@@ -29,6 +103,9 @@ function LoginPage({ setPage }) {
   const isFindId = mode === "find-id";
   const isResetRequest = mode === "reset-request";
   const isResetPassword = mode === "reset-password";
+  const signupErrors = useMemo(() => validateSignupForm(signupForm), [signupForm]);
+  const hasSignupErrors = Object.keys(signupErrors).length > 0;
+  const isSubmitDisabled = loading || (isSignup && hasSignupErrors);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -41,6 +118,7 @@ function LoginPage({ setPage }) {
     setMode(nextMode);
     setError("");
     setResult("");
+    setSignupTouched({});
   }
 
   function updateLoginField(key, value) {
@@ -48,7 +126,22 @@ function LoginPage({ setPage }) {
   }
 
   function updateSignupField(key, value) {
-    setSignupForm((prev) => ({ ...prev, [key]: value }));
+    const nextValue = key === "phone" ? formatPhone(value) : value;
+    setSignupForm((prev) => ({ ...prev, [key]: nextValue }));
+    setSignupTouched((prev) => ({ ...prev, [key]: true }));
+  }
+
+  function showSignupError(key) {
+    return isSignup && signupTouched[key] ? signupErrors[key] : "";
+  }
+
+  function markAllSignupFieldsTouched() {
+    setSignupTouched(
+      SIGNUP_FIELD_KEYS.reduce((acc, key) => {
+        acc[key] = true;
+        return acc;
+      }, {}),
+    );
   }
 
   async function handleSubmit(event) {
@@ -59,8 +152,10 @@ function LoginPage({ setPage }) {
 
     try {
       if (isSignup) {
-        if (signupForm.password !== signupForm.password_confirm) {
-          throw new Error("비밀번호와 비밀번호 확인이 서로 일치하지 않습니다.");
+        const nextErrors = validateSignupForm(signupForm);
+        if (Object.keys(nextErrors).length > 0) {
+          markAllSignupFieldsTouched();
+          throw new Error("입력값을 다시 확인해 주세요.");
         }
         await signup(signupForm);
         setPage?.("schedules");
@@ -212,6 +307,7 @@ function LoginPage({ setPage }) {
               <label>
                 아이디
                 <input
+                  className={showSignupError("username") ? "is-invalid" : ""}
                   value={isSignup ? signupForm.username : loginForm.username}
                   onChange={(event) =>
                     isSignup
@@ -224,11 +320,14 @@ function LoginPage({ setPage }) {
                   minLength={3}
                   placeholder="예: broker01"
                 />
+                {isSignup ? <span className="field-helper">영문, 숫자, -, _ 사용 가능</span> : null}
+                {showSignupError("username") ? <span className="field-error">{showSignupError("username")}</span> : null}
               </label>
 
               <label>
                 비밀번호
                 <input
+                  className={showSignupError("password") ? "is-invalid" : ""}
                   type="password"
                   value={isSignup ? signupForm.password : loginForm.password}
                   onChange={(event) =>
@@ -241,12 +340,15 @@ function LoginPage({ setPage }) {
                   minLength={8}
                   placeholder="8자 이상 입력"
                 />
+                {isSignup ? <span className="field-helper">8자 이상, 영문과 숫자를 포함해 주세요.</span> : null}
+                {showSignupError("password") ? <span className="field-error">{showSignupError("password")}</span> : null}
               </label>
 
               {isSignup ? (
                 <label>
                   비밀번호 확인
                   <input
+                    className={showSignupError("password_confirm") ? "is-invalid" : ""}
                     type="password"
                     value={signupForm.password_confirm}
                     onChange={(event) => updateSignupField("password_confirm", event.target.value)}
@@ -255,6 +357,9 @@ function LoginPage({ setPage }) {
                     minLength={8}
                     placeholder="한 번 더 입력"
                   />
+                  {showSignupError("password_confirm") ? (
+                    <span className="field-error">{showSignupError("password_confirm")}</span>
+                  ) : null}
                 </label>
               ) : null}
             </>
@@ -266,32 +371,39 @@ function LoginPage({ setPage }) {
                 <label>
                   부동산 이름
                   <input
+                    className={showSignupError("office_name") ? "is-invalid" : ""}
                     value={signupForm.office_name}
                     onChange={(event) => updateSignupField("office_name", event.target.value)}
                     placeholder="예: 역삼 프라임 공인중개사"
                   />
+                  {showSignupError("office_name") ? <span className="field-error">{showSignupError("office_name")}</span> : null}
                 </label>
 
                 <label>
                   담당자명
                   <input
+                    className={showSignupError("manager_name") ? "is-invalid" : ""}
                     value={signupForm.manager_name}
                     onChange={(event) => updateSignupField("manager_name", event.target.value)}
                     placeholder="예: 김중개"
                   />
+                  {showSignupError("manager_name") ? <span className="field-error">{showSignupError("manager_name")}</span> : null}
                 </label>
               </div>
 
               <label>
                 연락처
                 <input
+                  className={showSignupError("phone") ? "is-invalid" : ""}
                   value={signupForm.phone}
                   onChange={(event) => updateSignupField("phone", event.target.value)}
                   placeholder="예: 010-1234-5678"
                 />
+                <span className="field-helper">예: 010-1234-5678</span>
+                {showSignupError("phone") ? <span className="field-error">{showSignupError("phone")}</span> : null}
               </label>
 
-              <label className="auth-checkbox">
+              <label className={`auth-consent-row ${showSignupError("privacy_agreed") ? "is-invalid" : ""}`}>
                 <input
                   type="checkbox"
                   checked={signupForm.privacy_agreed}
@@ -300,15 +412,20 @@ function LoginPage({ setPage }) {
                 />
                 <span>개인정보 수집 및 이용에 동의합니다.</span>
               </label>
+              {showSignupError("privacy_agreed") ? (
+                <p className="field-error auth-consent-error">{showSignupError("privacy_agreed")}</p>
+              ) : null}
             </>
           ) : null}
 
           {error ? <div className="auth-error">{error}</div> : null}
           {result ? <div className="auth-success">{result}</div> : null}
 
-          <button className="auth-submit" type="submit" disabled={loading}>
+          <button className="auth-submit" type="submit" disabled={isSubmitDisabled}>
             {loading
-              ? "처리 중..."
+              ? isSignup
+                ? "가입 중..."
+                : "처리 중..."
               : isSignup
                 ? "가입하기"
                 : isFindId
