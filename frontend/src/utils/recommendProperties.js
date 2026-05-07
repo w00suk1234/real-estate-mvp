@@ -44,6 +44,10 @@ function unique(items) {
   return [...new Set(items.filter(Boolean))];
 }
 
+function extractLocationTokens(value) {
+  return splitKeywords(value).filter((item) => /(동|구|읍|면|리)$/.test(item));
+}
+
 function inferDealType(...values) {
   const text = normalizeText(values.filter(Boolean).join(" "));
   return DEAL_TYPES.find((type) => text.includes(type)) || "";
@@ -111,6 +115,7 @@ export function normalizeCustomerCondition(customer = {}) {
     customer.location,
     customer.preferred_locations,
     ...splitKeywords(customer.preferred_area || ""),
+    ...extractLocationTokens(notes),
   ];
 
   return {
@@ -159,7 +164,7 @@ export function normalizePropertyData(property = {}) {
     price,
     deposit,
     monthlyRent,
-    areaM2: Number(property.area_m2) || parseAreaFromText(`${form.exclusive_area || ""}${form.exclusive_area_unit || ""}`) || parseAreaFromText(`${form.supply_area || ""}${form.supply_area_unit || ""}`),
+    areaM2: Number(property.area_m2) || parseAreaFromText(`${form.exclusive_area || ""}${form.exclusive_area_unit || ""}`) || parseAreaFromText(`${form.supply_area || ""}${form.supply_area_unit || ""}`) || parseAreaFromText(description),
     rooms: Number(property.rooms) || parseRoomsFromText(description),
     bathrooms: Number(property.bathrooms) || 0,
     floor: compactDisplayValue(property.floor || form.floor),
