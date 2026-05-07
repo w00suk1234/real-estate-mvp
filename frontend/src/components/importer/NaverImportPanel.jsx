@@ -510,7 +510,7 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
       <details className="naver-import-drawer">
         <summary className="naver-import-summary">
           <span>네이버 매물 가져오기</span>
-          <em>확장 연동</em>
+          <em>크롬 확장 필요</em>
         </summary>
         <div className="naver-import-body">
       <div className="panel-head import-panel-head">
@@ -518,7 +518,6 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
           <h3>크롬 확장으로 네이버 매물 가져오기</h3>
           <p>네이버 매물 화면에서 업무툴로 가져오기를 누르면 소개서 입력값에 바로 반영됩니다.</p>
         </div>
-        <span className="import-beta-badge">확장 연동</span>
         <div className="import-head-actions" ref={helpRef}>
           <button
             type="button"
@@ -665,19 +664,21 @@ function NaverImportPanel({ initialUrl = "", initialSnapshot = null, onApplyDraf
 
       <details className="url-fallback-box">
         <summary>
-          <span>URL로 가져오기</span>
-          <em>접힘</em>
+          <span>보조 URL 입력</span>
+          <em>실패 가능</em>
         </summary>
-        <p>
-          URL 직접 입력은 네이버 차단/CORS 때문에 실패할 수 있습니다. 크롬 확장의 업무툴로 가져오기 버튼이 가장 안정적입니다.
-        </p>
-        <div className="import-quick-actions">
-          <button type="button" className="secondary-btn" onClick={openNaverLand}>
-            네이버 부동산 열기
-          </button>
-          <button type="button" className="secondary-btn" onClick={pasteFromClipboard}>
-            복사한 URL 붙여넣기
-          </button>
+        <div className="url-fallback-intro">
+          <p>
+            네이버 차단/CORS 때문에 URL 직접 입력은 실패할 수 있습니다. 크롬 확장 버튼을 우선 사용해 주세요.
+          </p>
+          <div className="import-quick-actions">
+            <button type="button" className="secondary-btn" onClick={openNaverLand}>
+              네이버 부동산 열기
+            </button>
+            <button type="button" className="secondary-btn" onClick={pasteFromClipboard}>
+              복사한 URL 붙여넣기
+            </button>
+          </div>
         </div>
         <div className="import-row">
           <input

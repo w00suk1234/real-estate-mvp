@@ -7451,9 +7451,10 @@ h4 {
 
 .briefing-redesign .naver-import-summary em {
   padding: 3px 7px;
+  border: 1px solid #d8e0ec;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #f4f7fb;
+  color: #64748b;
   font-size: 11px;
   font-style: normal;
 }
@@ -8021,10 +8022,33 @@ h4 {
 
 .briefing-redesign .import-panel-head {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center !important;
   gap: 10px !important;
   margin-bottom: 10px !important;
+}
+
+.briefing-redesign .briefing-header-card:has(.naver-import-drawer[open]) {
+  align-items: flex-start !important;
+  flex-wrap: wrap;
+}
+
+.briefing-redesign .import-panel-drawer:has(.naver-import-drawer[open]) {
+  flex: 1 0 100% !important;
+  width: 100%;
+}
+
+.briefing-redesign .naver-import-drawer[open] .naver-import-summary {
+  margin-bottom: 10px;
+}
+
+.briefing-redesign .naver-import-drawer[open] .naver-import-body {
+  position: static !important;
+  width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin-top: 0;
+  box-shadow: 0 8px 18px rgba(15, 35, 65, 0.08) !important;
 }
 
 .briefing-redesign .import-head-actions {
@@ -8063,14 +8087,64 @@ h4 {
   margin-bottom: 10px;
 }
 
+.briefing-redesign .url-fallback-box {
+  border-color: #dbe7f5 !important;
+  background: #fbfdff !important;
+}
+
+.briefing-redesign .url-fallback-box[open] summary {
+  border-bottom: 1px solid #e6edf7;
+}
+
+.briefing-redesign .url-fallback-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 8px;
+}
+
+.briefing-redesign .url-fallback-intro p {
+  margin: 0 !important;
+}
+
+.briefing-redesign .url-fallback-intro .import-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 !important;
+}
+
+.briefing-redesign .url-fallback-box .import-row {
+  margin-top: 8px !important;
+}
+
 @media (max-width: 760px) {
   .briefing-redesign .import-panel-head {
     grid-template-columns: 1fr !important;
   }
 
+  .briefing-redesign .naver-import-drawer[open] .naver-import-body {
+    position: static !important;
+    width: 100% !important;
+  }
+
   .briefing-redesign .import-beta-badge,
   .briefing-redesign .import-help-trigger {
     width: fit-content;
+  }
+
+  .briefing-redesign .url-fallback-intro {
+    grid-template-columns: 1fr;
+  }
+
+  .briefing-redesign .url-fallback-intro .import-quick-actions {
+    justify-content: stretch;
+  }
+
+  .briefing-redesign .url-fallback-intro .secondary-btn {
+    width: 100%;
   }
 
   .briefing-redesign .import-help-panel .import-help-actions {
