@@ -29,9 +29,11 @@ function AIPropertyRecommendPage({ setPage }) {
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [results, setResults] = useState([]);
   const [minScore, setMinScore] = useState(50);
   const [conditionDraft, setConditionDraft] = useState(() => createConditionDraft());
+  const [conditionEditing, setConditionEditing] = useState(false);
   const [message, setMessage] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -72,15 +74,31 @@ function AIPropertyRecommendPage({ setPage }) {
 
   const activeScoreFilter = SCORE_FILTERS.find((item) => item.value === minScore) || SCORE_FILTERS[2];
   const visibleResults = results;
+  const filteredCustomers = useMemo(() => {
+    const keyword = customerSearch.trim().toLowerCase();
+    const filtered = keyword
+      ? customers.filter((customer) =>
+          [customer.name, customer.phone, customer.preferred_area, customer.wanted_condition, customer.property_type]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(keyword),
+        )
+      : customers;
+    const selected = selectedCustomer && !filtered.some((customer) => String(customer.id) === String(selectedCustomer.id)) ? [selectedCustomer] : [];
+    return [...selected, ...filtered].slice(0, keyword ? 30 : 100);
+  }, [customerSearch, customers, selectedCustomer]);
 
   useEffect(() => {
     setConditionDraft(createConditionDraft(selectedCustomer || {}));
+    setConditionEditing(false);
   }, [selectedCustomer]);
 
   const handleCustomerChange = (value) => {
     setSelectedCustomerId(value);
     setResults([]);
     setMessage("");
+    setConditionEditing(false);
     if (value) localStorage.setItem(SELECTED_CUSTOMER_KEY, value);
     else localStorage.removeItem(SELECTED_CUSTOMER_KEY);
   };
@@ -141,12 +159,19 @@ function AIPropertyRecommendPage({ setPage }) {
         prev.map((customer) => (String(customer.id) === String(saved.id) ? { ...customer, ...conditionDraft, ...saved } : customer)),
       );
       setResults([]);
+      setConditionEditing(false);
       setMessage("고객 추천 조건을 저장했습니다. 추천 매물 찾기를 다시 눌러 주세요.");
     } catch (error) {
       setMessage(error.message || "고객 조건 저장에 실패했습니다.");
     } finally {
       setSavingCondition(false);
     }
+  };
+
+  const handleCancelConditionEdit = () => {
+    setConditionDraft(createConditionDraft(selectedCustomer || {}));
+    setConditionEditing(false);
+    setCopyMessage("");
   };
 
   const handleCopy = async (text) => {
@@ -183,9 +208,16 @@ function AIPropertyRecommendPage({ setPage }) {
           </div>
           <label className="field compact-recommend-select">
             <span>고객</span>
+            <input
+              className="recommend-customer-search"
+              value={customerSearch}
+              onChange={(event) => setCustomerSearch(event.target.value)}
+              placeholder="고객명, 연락처, 지역으로 검색"
+              disabled={loading}
+            />
             <select value={selectedCustomerId} onChange={(event) => handleCustomerChange(event.target.value)} disabled={loading}>
-              <option value="">{loading ? "고객 목록을 불러오는 중입니다" : "추천할 고객을 선택해 주세요"}</option>
-              {customers.map((customer) => (
+              <option value="">{loading ? "고객 목록을 불러오는 중입니다" : customerSearch ? "검색 결과에서 고객을 선택해 주세요" : "추천할 고객을 선택해 주세요"}</option>
+              {filteredCustomers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name || "이름 없음"} {customer.phone ? `· ${customer.phone}` : ""}
                 </option>
@@ -198,7 +230,10 @@ function AIPropertyRecommendPage({ setPage }) {
               customer={customerCondition}
               draft={conditionDraft}
               onChange={handleConditionDraftChange}
+              editing={conditionEditing}
+              onEdit={() => setConditionEditing(true)}
               onSave={handleSaveCondition}
+              onCancel={handleCancelConditionEdit}
               saving={savingCondition}
             />
           ) : (
@@ -279,23 +314,34 @@ function AIPropertyRecommendPage({ setPage }) {
   );
 }
 
-function CustomerConditionEditor({ customer, draft, onChange, onSave, saving }) {
+function CustomerConditionEditor({ customer, draft, onChange, editing, onEdit, onSave, onCancel, saving }) {
   return (
     <article className="customer-condition-card condition-editor-card">
       <div className="condition-editor-head">
         <strong>{customer.name} 고객 조건</strong>
-        <button type="button" className="secondary-btn small-btn" onClick={onSave} disabled={saving}>
-          {saving ? "저장 중..." : "조건 저장"}
-        </button>
+        {editing ? (
+          <div className="condition-editor-actions">
+            <button type="button" className="secondary-btn small-btn" onClick={onCancel} disabled={saving}>
+              취소
+            </button>
+            <button type="button" className="primary-btn small-btn" onClick={onSave} disabled={saving}>
+              {saving ? "저장 중..." : "저장"}
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="secondary-btn small-btn" onClick={onEdit}>
+            변경
+          </button>
+        )}
       </div>
       <div className="recommend-edit-grid">
         <label>
           <span>희망지역</span>
-          <input value={draft.preferred_area} onChange={(event) => onChange("preferred_area", event.target.value)} placeholder="예: 역삼동" />
+          <input value={draft.preferred_area} onChange={(event) => onChange("preferred_area", event.target.value)} placeholder="예: 역삼동" disabled={!editing || saving} />
         </label>
         <label>
           <span>매물 종류</span>
-          <select value={draft.property_type} onChange={(event) => onChange("property_type", event.target.value)}>
+          <select value={draft.property_type} onChange={(event) => onChange("property_type", event.target.value)} disabled={!editing || saving}>
             {["사무실", "상가", "주거", "매매"].map((type) => (
               <option key={type} value={type}>{type}</option>
             ))}
@@ -303,14 +349,16 @@ function CustomerConditionEditor({ customer, draft, onChange, onSave, saving }) 
         </label>
         <label className="wide">
           <span>찾는 조건</span>
-          <textarea rows="3" value={draft.wanted_condition} onChange={(event) => onChange("wanted_condition", event.target.value)} placeholder="예: 월세, 보증금 2000만원 이하, 전용 50m2 이상, 주차 필요" />
+          <textarea rows="3" value={draft.wanted_condition} onChange={(event) => onChange("wanted_condition", event.target.value)} placeholder="예: 월세, 보증금 2000만원 이하, 전용 50m2 이상, 주차 필요" disabled={!editing || saving} />
         </label>
         <label className="wide">
           <span>상담 메모</span>
-          <textarea rows="2" value={draft.memo} onChange={(event) => onChange("memo", event.target.value)} placeholder="추천 시 참고할 메모" />
+          <textarea rows="2" value={draft.memo} onChange={(event) => onChange("memo", event.target.value)} placeholder="추천 시 참고할 메모" disabled={!editing || saving} />
         </label>
       </div>
-      <p className="condition-editor-preview">{customer.importantNotes || "조건을 저장하면 고객관리 DB와 추천 조건에 반영됩니다."}</p>
+      <p className="condition-editor-preview">
+        {editing ? "수정 후 저장을 눌러야 고객관리 DB와 추천 조건에 반영됩니다." : customer.importantNotes || "변경을 눌러 추천 조건을 수정할 수 있습니다."}
+      </p>
     </article>
   );
 }
