@@ -49,7 +49,7 @@ function withTimeout(promise, ms, message) {
 function getAuthErrorMessage(error) {
   const message = String(error?.message || "");
   if (/invalid login credentials/i.test(message)) {
-    return "아이디 또는 비밀번호가 맞지 않습니다. 가입할 때 이메일을 입력했다면 이메일로도 로그인해 보세요.";
+    return "아이디 또는 비밀번호가 맞지 않습니다.";
   }
   if (/email not confirmed/i.test(message)) {
     return "이메일 인증이 완료되지 않았습니다. 가입한 이메일의 인증 메일을 확인해 주세요.";

@@ -5,6 +5,7 @@ import "../styles/auth.css";
 const initialSignupForm = {
   username: "",
   password: "",
+  password_confirm: "",
   office_name: "",
   manager_name: "",
   phone: "",
@@ -58,14 +59,17 @@ function LoginPage({ setPage }) {
 
     try {
       if (isSignup) {
+        if (signupForm.password !== signupForm.password_confirm) {
+          throw new Error("비밀번호와 비밀번호 확인이 서로 일치하지 않습니다.");
+        }
         await signup(signupForm);
         setPage?.("schedules");
         return;
       }
 
       if (isFindId) {
-        if (!findForm.email.trim() && !findForm.phone.trim()) {
-          throw new Error("가입할 때 입력한 이메일 또는 연락처를 입력해 주세요.");
+        if (!findForm.phone.trim()) {
+          throw new Error("가입할 때 입력한 연락처를 입력해 주세요.");
         }
         const profile = await findUsername(findForm);
         setResult(`찾은 아이디: ${profile.username}`);
@@ -112,8 +116,8 @@ function LoginPage({ setPage }) {
 
   function getCopy() {
     if (isSignup) return "기본 계정 정보를 입력하면 고객, 일정, 소개서 저장 기능을 사용할 수 있습니다.";
-    if (isFindId) return "가입할 때 입력한 이메일 또는 연락처로 아이디를 확인합니다.";
-    if (isResetRequest) return "아이디 또는 이메일을 입력하면 재설정 메일을 보냅니다.";
+    if (isFindId) return "가입할 때 입력한 연락처로 아이디를 확인합니다.";
+    if (isResetRequest) return "아이디를 입력하면 비밀번호 재설정 가능 여부를 확인합니다.";
     if (isResetPassword) return "메일 링크 인증이 끝난 계정의 비밀번호를 새로 설정합니다.";
     return "계정으로 로그인하고 고객, 일정, 소개서 데이터를 관리하세요.";
   }
@@ -144,17 +148,7 @@ function LoginPage({ setPage }) {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           {isFindId ? (
-            <div className="auth-grid two">
-              <label>
-                이메일
-                <input
-                  type="email"
-                  value={findForm.email}
-                  onChange={(event) => setFindForm((prev) => ({ ...prev, email: event.target.value }))}
-                  placeholder="예: broker@example.com"
-                  autoFocus
-                />
-              </label>
+            <div className="auth-grid one">
               <label>
                 연락처
                 <input
@@ -168,14 +162,14 @@ function LoginPage({ setPage }) {
 
           {isResetRequest ? (
             <label>
-              아이디 또는 이메일
+              아이디
               <input
                 value={resetForm.usernameOrEmail}
                 onChange={(event) => setResetForm({ usernameOrEmail: event.target.value })}
                 autoComplete="username"
                 autoFocus
                 required
-                placeholder="예: broker01 또는 broker@example.com"
+                placeholder="예: broker01"
               />
             </label>
           ) : null}
@@ -213,7 +207,7 @@ function LoginPage({ setPage }) {
           {!isFindId && !isResetRequest && !isResetPassword ? (
             <>
               <label>
-                아이디 또는 이메일
+                아이디
                 <input
                   value={isSignup ? signupForm.username : loginForm.username}
                   onChange={(event) =>
@@ -225,7 +219,7 @@ function LoginPage({ setPage }) {
                   autoFocus
                   required
                   minLength={3}
-                  placeholder="예: broker01 또는 broker@example.com"
+                  placeholder="예: broker01"
                 />
               </label>
 
@@ -245,6 +239,21 @@ function LoginPage({ setPage }) {
                   placeholder="8자 이상 입력"
                 />
               </label>
+
+              {isSignup ? (
+                <label>
+                  비밀번호 확인
+                  <input
+                    type="password"
+                    value={signupForm.password_confirm}
+                    onChange={(event) => updateSignupField("password_confirm", event.target.value)}
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    placeholder="한 번 더 입력"
+                  />
+                </label>
+              ) : null}
             </>
           ) : null}
 
@@ -270,26 +279,14 @@ function LoginPage({ setPage }) {
                 </label>
               </div>
 
-              <div className="auth-grid two">
-                <label>
-                  연락처
-                  <input
-                    value={signupForm.phone}
-                    onChange={(event) => updateSignupField("phone", event.target.value)}
-                    placeholder="예: 010-1234-5678"
-                  />
-                </label>
-
-                <label>
-                  이메일
-                  <input
-                    type="email"
-                    value={signupForm.email}
-                    onChange={(event) => updateSignupField("email", event.target.value)}
-                    placeholder="예: broker@example.com"
-                  />
-                </label>
-              </div>
+              <label>
+                연락처
+                <input
+                  value={signupForm.phone}
+                  onChange={(event) => updateSignupField("phone", event.target.value)}
+                  placeholder="예: 010-1234-5678"
+                />
+              </label>
 
               <label className="auth-checkbox">
                 <input
