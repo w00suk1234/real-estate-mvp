@@ -341,9 +341,10 @@ function LoginPage({ setPage }) {
                   className={showFindError("phone") ? "is-invalid" : ""}
                   value={findForm.phone}
                   onChange={(event) => updateFindField("phone", event.target.value)}
-                  placeholder="예: 010-1234-5678"
+                  inputMode="numeric"
+                  placeholder="숫자만 입력: 01012345678"
                 />
-                <span className="field-helper">예: 010-1234-5678</span>
+                <span className="field-helper">숫자만 입력해 주세요. 하이픈은 자동으로 붙습니다.</span>
                 {showFindError("phone") ? <span className="field-error">{showFindError("phone")}</span> : null}
               </label>
             </div>
@@ -373,9 +374,10 @@ function LoginPage({ setPage }) {
                   className={showResetError("phone") ? "is-invalid" : ""}
                   value={resetForm.phone}
                   onChange={(event) => updateResetField("phone", event.target.value)}
-                  placeholder="예: 010-1234-5678"
+                  inputMode="numeric"
+                  placeholder="숫자만 입력: 01012345678"
                 />
-                <span className="field-helper">가입할 때 입력한 연락처를 입력해 주세요.</span>
+                <span className="field-helper">숫자만 입력해 주세요. 가입할 때 입력한 연락처와 비교합니다.</span>
                 {showResetError("phone") ? <span className="field-error">{showResetError("phone")}</span> : null}
               </label>
             </div>
@@ -506,9 +508,10 @@ function LoginPage({ setPage }) {
                   className={showSignupError("phone") ? "is-invalid" : ""}
                   value={signupForm.phone}
                   onChange={(event) => updateSignupField("phone", event.target.value)}
-                  placeholder="예: 010-1234-5678"
+                  inputMode="numeric"
+                  placeholder="숫자만 입력: 01012345678"
                 />
-                <span className="field-helper">예: 010-1234-5678</span>
+                <span className="field-helper">숫자만 입력해 주세요. 하이픈은 자동으로 붙습니다.</span>
                 {showSignupError("phone") ? <span className="field-error">{showSignupError("phone")}</span> : null}
               </label>
 
