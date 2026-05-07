@@ -480,11 +480,12 @@ function ScheduleList({ items, onEdit }) {
             <div className="schedule-group-items">
               {group.items.map((item) => {
                 const customerName = getScheduleCustomerName(item);
+                const scheduleClass = typeClass(item.schedule_type);
                 return (
-                  <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className="schedule-row" onClick={() => onEdit(item)}>
-                    <span className={`event-dot ${typeClass(item.schedule_type)}`} />
+                  <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className={`schedule-row ${scheduleClass}`} onClick={() => onEdit(item)}>
+                    <span className={`event-dot ${scheduleClass}`} />
                     <strong className="schedule-row-name">{customerName}</strong>
-                    <span className={`schedule-type-badge ${typeClass(item.schedule_type)}`}>{normalizeScheduleType(item.schedule_type) || "일정"}</span>
+                    <span className={`schedule-type-badge ${scheduleClass}`}>{normalizeScheduleType(item.schedule_type) || "일정"}</span>
                   </button>
                 );
               })}
