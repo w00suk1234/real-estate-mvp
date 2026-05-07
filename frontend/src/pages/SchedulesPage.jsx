@@ -61,6 +61,14 @@ function sortSchedules(a, b) {
   if (dateCompare !== 0) return dateCompare;
   return String(a.schedule_time || "").localeCompare(String(b.schedule_time || ""));
 }
+function getScheduleCustomerName(item) {
+  const title = normalize(item.title);
+  const type = normalize(item.schedule_type);
+  const customer = normalize(item.customer_name);
+  if (customer) return customer;
+  if (title && type && title.endsWith(type)) return normalize(title.slice(0, -type.length));
+  return title || "고객 없음";
+}
 function buildCells(monthDate) {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -446,17 +454,13 @@ function ScheduleList({ items, onEdit }) {
     <div className="schedule-list compact-list">
       {[...items].sort(sortSchedules).map((item) => {
         const scheduleDate = formatScheduleDate(item.schedule_date);
+        const customerName = getScheduleCustomerName(item);
         return (
           <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className="schedule-row" onClick={() => onEdit(item)}>
             <span className={`event-dot ${typeClass(item.schedule_type)}`} />
-            <span className="schedule-row-date">
-              <strong>{scheduleDate.date}</strong>
-              <small>{scheduleDate.day}</small>
-            </span>
-            <span className="schedule-row-main">
-              <strong>{item.title || "일정"}</strong>
-              <small>{item.customer_name || item.note || "고객 연결 없음"}</small>
-            </span>
+            <span className="schedule-row-date">{scheduleDate.date}</span>
+            <span className="schedule-row-day">{scheduleDate.day}</span>
+            <strong className="schedule-row-name">{customerName}</strong>
             <span className={`schedule-type-badge ${typeClass(item.schedule_type)}`}>{item.schedule_type || "일정"}</span>
           </button>
         );

@@ -6668,7 +6668,7 @@ h4 {
 
 .schedule-page-compact .schedule-list.compact-list {
   display: grid;
-  gap: 10px;
+  gap: 7px;
   max-height: 430px;
   overflow: auto;
   padding-right: 4px;
@@ -6676,14 +6676,14 @@ h4 {
 
 .schedule-page-compact .schedule-row {
   display: grid;
-  grid-template-columns: 8px 58px minmax(0, 1fr) auto;
+  grid-template-columns: 8px 44px 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   width: 100%;
-  min-height: 58px;
-  padding: 10px 12px;
+  min-height: 42px;
+  padding: 8px 11px;
   border: 1px solid #dbe7f5;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #ffffff;
   color: #0f2348;
   font: inherit;
@@ -6696,9 +6696,9 @@ h4 {
   background: #f7fbff;
 }
 
-.schedule-page-compact .schedule-row-main,
-.schedule-page-compact .schedule-row-main strong,
-.schedule-page-compact .schedule-row-main small,
+.schedule-page-compact .schedule-row-date,
+.schedule-page-compact .schedule-row-day,
+.schedule-page-compact .schedule-row-name,
 .schedule-page-compact .schedule-type-badge {
   min-width: 0;
   overflow: hidden;
@@ -6706,39 +6706,28 @@ h4 {
   white-space: nowrap;
 }
 
-.schedule-page-compact .schedule-row-date,
-.schedule-page-compact .schedule-row-main {
-  display: grid;
-  gap: 3px;
-}
-
 .schedule-page-compact .schedule-row-date {
-  justify-items: start;
-}
-
-.schedule-page-compact .schedule-row-date strong {
-  color: #0f2348;
-  font-size: 14px;
-  font-weight: 900;
-}
-
-.schedule-page-compact .schedule-row-main strong {
   color: #0f2348;
   font-size: 13px;
   font-weight: 900;
 }
 
-.schedule-page-compact .schedule-row-date small,
-.schedule-page-compact .schedule-row-main small {
+.schedule-page-compact .schedule-row-day {
   color: #64748b;
   font-size: 12px;
   font-weight: 800;
 }
 
+.schedule-page-compact .schedule-row-name {
+  color: #0f2348;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .schedule-page-compact .schedule-type-badge {
-  min-width: 74px;
-  max-width: 96px;
-  padding: 5px 8px;
+  min-width: 62px;
+  max-width: 86px;
+  padding: 4px 8px;
   border: 1px solid #dbe7f5;
   border-radius: 999px;
   background: #f8fbff;
