@@ -6668,19 +6668,22 @@ h4 {
 
 .schedule-page-compact .schedule-list.compact-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .schedule-page-compact .schedule-row {
   display: grid;
-  grid-template-columns: 10px 100px minmax(140px, 1fr) minmax(120px, 0.8fr);
+  grid-template-columns: 8px 58px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  min-height: 42px;
-  padding: 9px 11px;
+  min-height: 58px;
+  padding: 10px 12px;
   border: 1px solid #dbe7f5;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #ffffff;
   color: #0f2348;
   font: inherit;
@@ -6693,28 +6696,81 @@ h4 {
   background: #f7fbff;
 }
 
-.schedule-page-compact .schedule-row span,
-.schedule-page-compact .schedule-row strong,
-.schedule-page-compact .schedule-row small {
+.schedule-page-compact .schedule-row-main,
+.schedule-page-compact .schedule-row-main strong,
+.schedule-page-compact .schedule-row-main small,
+.schedule-page-compact .schedule-type-badge {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.schedule-page-compact .schedule-row span:not(.event-dot) {
+.schedule-page-compact .schedule-row-date,
+.schedule-page-compact .schedule-row-main {
+  display: grid;
+  gap: 3px;
+}
+
+.schedule-page-compact .schedule-row-date {
+  justify-items: start;
+}
+
+.schedule-page-compact .schedule-row-date strong {
+  color: #0f2348;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.schedule-page-compact .schedule-row-main strong {
+  color: #0f2348;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.schedule-page-compact .schedule-row-date small,
+.schedule-page-compact .schedule-row-main small {
   color: #64748b;
   font-size: 12px;
   font-weight: 800;
 }
 
-.schedule-page-compact .schedule-row strong {
-  font-size: 13px;
+.schedule-page-compact .schedule-type-badge {
+  min-width: 74px;
+  max-width: 96px;
+  padding: 5px 8px;
+  border: 1px solid #dbe7f5;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
 }
 
-.schedule-page-compact .schedule-row small {
-  color: #64748b;
-  font-size: 12px;
+.schedule-page-compact .schedule-type-badge.inflow {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+
+.schedule-page-compact .schedule-type-badge.meeting {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.schedule-page-compact .schedule-type-badge.deposit,
+.schedule-page-compact .schedule-type-badge.contract {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.schedule-page-compact .schedule-type-badge.balance {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
 }
 
 .schedule-page-compact .event-dot {

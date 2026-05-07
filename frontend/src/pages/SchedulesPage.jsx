@@ -47,6 +47,20 @@ function formatDate(value) {
   const [y, m, d] = value.split("-");
   return `${Number(y)}년 ${Number(m)}월 ${Number(d)}일`;
 }
+function formatScheduleDate(value) {
+  if (!value) return { date: "날짜 없음", day: "" };
+  const [y, m, d] = String(value).split("-").map(Number);
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  return {
+    date: `${Number(m)}.${Number(d)}`,
+    day: WEEKDAYS[(date.getDay() + 6) % 7],
+  };
+}
+function sortSchedules(a, b) {
+  const dateCompare = String(a.schedule_date || "").localeCompare(String(b.schedule_date || ""));
+  if (dateCompare !== 0) return dateCompare;
+  return String(a.schedule_time || "").localeCompare(String(b.schedule_time || ""));
+}
 function buildCells(monthDate) {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -198,7 +212,9 @@ export default function SchedulesPage() {
   }, [customerSearch, customers]);
   const monthSchedules = useMemo(() => {
     const key = toMonthValue(month);
-    return displayItems.filter((item) => String(item.schedule_date || "").startsWith(key));
+    return displayItems
+      .filter((item) => String(item.schedule_date || "").startsWith(key))
+      .sort(sortSchedules);
   }, [displayItems, month]);
   const contractSchedules = monthSchedules.filter((item) => item.schedule_type === "계약서일정");
   const balanceSchedules = monthSchedules.filter((item) => BALANCE_TYPES.has(item.schedule_type));
@@ -436,14 +452,23 @@ function ScheduleList({ items, onEdit }) {
   if (!items.length) return <div className="empty-state">등록된 일정이 없습니다.</div>;
   return (
     <div className="schedule-list compact-list">
-      {items.map((item) => (
-        <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className="schedule-row" onClick={() => onEdit(item)}>
-          <span className={`event-dot ${typeClass(item.schedule_type)}`} />
-          <span>{item.schedule_date}</span>
-          <strong>{item.title || "일정"}</strong>
-          <small>{item.schedule_type}{item.customer_name ? ` · ${item.customer_name}` : ""}</small>
-        </button>
-      ))}
+      {[...items].sort(sortSchedules).map((item) => {
+        const scheduleDate = formatScheduleDate(item.schedule_date);
+        return (
+          <button type="button" key={item.id || `${item.title}-${item.schedule_date}`} className="schedule-row" onClick={() => onEdit(item)}>
+            <span className={`event-dot ${typeClass(item.schedule_type)}`} />
+            <span className="schedule-row-date">
+              <strong>{scheduleDate.date}</strong>
+              <small>{scheduleDate.day}</small>
+            </span>
+            <span className="schedule-row-main">
+              <strong>{item.title || "일정"}</strong>
+              <small>{item.customer_name || item.note || "고객 연결 없음"}</small>
+            </span>
+            <span className={`schedule-type-badge ${typeClass(item.schedule_type)}`}>{item.schedule_type || "일정"}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
