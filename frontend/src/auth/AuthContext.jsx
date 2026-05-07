@@ -12,11 +12,18 @@ const AuthContext = createContext(null);
 const AUTH_EMAIL_MAP_KEY = "agentnote_auth_email_map";
 const AUTH_TIMEOUT_MS = 12000;
 const PROFILE_TIMEOUT_MS = 3500;
+const INTERNAL_AUTH_EMAIL_DOMAIN = "accounts.agentnote.co.kr";
+const LEGACY_INTERNAL_AUTH_EMAIL_DOMAIN = "agentnote.local";
 
 function toAuthEmail(usernameOrEmail) {
   const value = String(usernameOrEmail || "").trim();
   if (value.includes("@")) return value;
-  return `${value || "user"}@agentnote.local`;
+  return `${value || "user"}@${INTERNAL_AUTH_EMAIL_DOMAIN}`;
+}
+
+function isInternalAuthEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  return value.endsWith(`@${INTERNAL_AUTH_EMAIL_DOMAIN}`) || value.endsWith(`@${LEGACY_INTERNAL_AUTH_EMAIL_DOMAIN}`);
 }
 
 function unique(values) {
@@ -318,7 +325,7 @@ function AuthProvider({ children }) {
           ).catch(() => null);
       const email = value.includes("@") ? value : profile?.email || readAuthEmailMap()[value] || "";
 
-      if (!email || email.endsWith("@agentnote.local")) {
+      if (!email || isInternalAuthEmail(email)) {
         throw new Error("재설정 메일을 받을 이메일을 찾지 못했습니다. 가입 시 입력한 이메일로 다시 시도해 주세요.");
       }
 
