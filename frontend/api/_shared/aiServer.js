@@ -213,6 +213,11 @@ export const SYSTEM_PROMPT = `
 - 법률/계약 관련 판단은 단정하지 않는다.
 - 고객을 압박하는 표현을 피한다.
 - '무조건', '확실히', '보장', '수익 보장', '계약 확정' 같은 표현을 피한다.
+- summary는 80자 안팎의 한 문장으로만 쓴다.
+- recommendationComment는 2문장 이내로, 중개사가 먼저 봐야 할 비교 요지만 쓴다.
+- rankings[].shortReason은 60자 이내로 쓴다.
+- strengths, concerns, talkingPoints는 항목당 짧은 명사구 또는 한 문장으로 쓴다.
+- brokerNote와 고객용 문안은 실제 복사해서 쓸 수 있게 간결하게 쓴다.
 - 출력은 지정된 JSON schema만 반환한다.
 `;
 

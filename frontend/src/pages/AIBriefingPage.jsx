@@ -331,14 +331,17 @@ function BriefingResult({ result, properties, feedback, setFeedback, onCopy, onF
   return (
     <section className="ai-briefing-result">
       <div className="ai-briefing-result-head">
-        <div>
+        <div className="ai-briefing-result-titlebar">
           <span className={`ai-briefing-mode mode-${result.mode}`}>{MODE_LABELS[result.mode] || result.mode}</span>
-          <h2>{briefing.summary}</h2>
+          {result.estimatedCostUsd !== undefined ? (
+            <small>예상 ${Number(result.estimatedCostUsd || 0).toFixed(5)}{result.actualCostUsd ? ` · 실제 ${Number(result.actualCostUsd).toFixed(5)}` : ""}</small>
+          ) : null}
+        </div>
+        <div className="ai-briefing-conclusion">
+          <span>한 줄 결론</span>
+          <strong>{briefing.summary}</strong>
           <p>{briefing.recommendationComment}</p>
         </div>
-        {result.estimatedCostUsd !== undefined ? (
-          <small>예상 비용 ${Number(result.estimatedCostUsd || 0).toFixed(5)}{result.actualCostUsd ? ` · 실제 $${Number(result.actualCostUsd).toFixed(5)}` : ""}</small>
-        ) : null}
       </div>
 
       <div className="ai-briefing-ranking-list">

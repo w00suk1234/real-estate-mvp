@@ -24,6 +24,10 @@ function truncate(value, max = 500) {
   return source.length > max ? `${source.slice(0, max).trim()}...` : source;
 }
 
+function truncateList(items, maxItems, maxChars) {
+  return unique(items).slice(0, maxItems).map((item) => truncate(item, maxChars));
+}
+
 function unique(items) {
   return [...new Set((items || []).map(text).filter(Boolean))];
 }
@@ -557,9 +561,11 @@ export function sanitizeForLlmPayload({ customer, properties, ruleBasedResults }
       maxTalkingPointsPerProperty: 3,
       maxBrochureBullets: 4,
       maxMissingChecks: 8,
+      maxSummaryChars: 90,
+      maxRecommendationChars: 260,
       maxShortMessageChars: 250,
-      maxNormalMessageChars: 700,
-      maxBrokerNoteChars: 900,
+      maxNormalMessageChars: 520,
+      maxBrokerNoteChars: 650,
     },
   };
 }
@@ -580,9 +586,10 @@ export function validateAndRepairBriefing(llmBriefing, ruleBriefing, scoredResul
         rank: rule.rank,
         score: rule.score,
         grade: rule.grade,
-        strengths: unique(item.strengths).slice(0, 3),
-        concerns: unique(item.concerns).slice(0, 3),
-        talkingPoints: unique(item.talkingPoints).slice(0, 3),
+        shortReason: truncate(item.shortReason || fallback.shortReason, 90),
+        strengths: truncateList(item.strengths, 3, 70),
+        concerns: truncateList(item.concerns, 3, 70),
+        talkingPoints: truncateList(item.talkingPoints, 3, 90),
       };
     })
     .sort((a, b) => a.rank - b.rank);
@@ -590,14 +597,14 @@ export function validateAndRepairBriefing(llmBriefing, ruleBriefing, scoredResul
   if (!text(llmBriefing.summary) || !repairedRankings.length) return null;
 
   return sanitizeBriefingLanguage({
-    summary: truncate(llmBriefing.summary, 220),
-    recommendationComment: truncate(llmBriefing.recommendationComment || ruleBriefing.recommendationComment, 500),
+    summary: truncate(llmBriefing.summary, 90),
+    recommendationComment: truncate(llmBriefing.recommendationComment || ruleBriefing.recommendationComment, 260),
     rankings: repairedRankings,
-    brokerNote: truncate(llmBriefing.brokerNote || ruleBriefing.brokerNote, 900),
+    brokerNote: truncate(llmBriefing.brokerNote || ruleBriefing.brokerNote, 650),
     customerMessages: {
       short: truncate(llmBriefing.customerMessages?.short || ruleBriefing.customerMessages.short, 250),
-      normal: truncate(llmBriefing.customerMessages?.normal || ruleBriefing.customerMessages.normal, 700),
-      softPersuasive: truncate(llmBriefing.customerMessages?.softPersuasive || ruleBriefing.customerMessages.softPersuasive, 700),
+      normal: truncate(llmBriefing.customerMessages?.normal || ruleBriefing.customerMessages.normal, 520),
+      softPersuasive: truncate(llmBriefing.customerMessages?.softPersuasive || ruleBriefing.customerMessages.softPersuasive, 520),
     },
     brochureCopy: {
       title: truncate(llmBriefing.brochureCopy?.title || ruleBriefing.brochureCopy.title, 80),
