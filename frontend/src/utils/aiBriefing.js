@@ -11,7 +11,7 @@ export const AI_BRIEFING_FOCUS_OPTIONS = [
 const EMPTY = "미입력";
 const CHECK = "확인 필요";
 const NEGATIVE_WORDS = ["불가", "없음", "없습니다", "안됨", "무"];
-const POSITIVE_WORDS = ["가능", "있음", "있습니다", "완비", "제공", "협의"];
+const POSITIVE_WORDS = ["가능", "있음", "있습니다", "완비", "제공"];
 
 function text(value) {
   if (value === null || value === undefined) return "";
@@ -102,6 +102,18 @@ function booleanFromText(value) {
   if (NEGATIVE_WORDS.some((word) => source.includes(word))) return false;
   if (POSITIVE_WORDS.some((word) => source.includes(word))) return true;
   return null;
+}
+
+function availabilityStatus(value) {
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  if (typeof value === "number") return value > 0 ? "yes" : "no";
+  const source = text(value);
+  if (!source) return "unknown";
+  if (/협의|미정|확인|문의/.test(source)) return "unknown";
+  if (/^[0-9]+(\.[0-9]+)?$/.test(source)) return Number(source) > 0 ? "yes" : "no";
+  if (NEGATIVE_WORDS.some((word) => source.includes(word))) return "no";
+  if (POSITIVE_WORDS.some((word) => source.includes(word))) return "yes";
+  return "unknown";
 }
 
 export function formatAvailability(value) {
@@ -281,6 +293,16 @@ function scoreBudget(customer, property, matched, concerns, missingChecks) {
   return 4;
 }
 
+function getBudgetOverrunRatio(customer, property) {
+  const budget = customer.budget || {};
+  const isMonthly = property.dealType === "월세" || property.price.monthlyRent;
+  const targetPrice = isMonthly ? property.price.deposit : property.price.salePrice || property.price.deposit;
+  const maxPrice = isMonthly ? budget.maxDeposit || budget.maxPrice : budget.maxPrice || budget.maxDeposit;
+  const rentRatio = isMonthly && budget.maxMonthlyRent && property.price.monthlyRent ? property.price.monthlyRent / budget.maxMonthlyRent : 1;
+  const priceRatio = maxPrice && targetPrice ? targetPrice / maxPrice : 1;
+  return Math.max(priceRatio, rentRatio);
+}
+
 function scoreLocation(customer, property, matched, concerns, missingChecks) {
   const locationText = [property.addressOrArea, property.transport, property.brokerMemo].join(" ");
   if (!locationText.trim()) {
@@ -396,6 +418,77 @@ function scoreRisk(property, missingChecks) {
   return Math.max(0, score);
 }
 
+function calculateInfoCompleteness(property) {
+  const checks = [
+    Boolean(formatPropertyPrice(property) && formatPropertyPrice(property) !== CHECK),
+    Boolean(property.sizeM2 || property.sizeLabel),
+    Boolean(property.addressOrArea),
+    availabilityStatus(property.parking) !== "unknown",
+    availabilityStatus(property.elevator) !== "unknown",
+    Boolean(property.raw?.maintenance_fee || property.raw?.data?.form?.maintenance_fee),
+    Boolean(property.moveInDate),
+    Boolean(property.brokerMemo),
+  ];
+  const filled = checks.filter(Boolean).length;
+  return Math.round((filled / checks.length) * 100);
+}
+
+function applyScoreCaps(score, customer, property, concerns, missingChecks) {
+  const capsApplied = [];
+  let cappedScore = score;
+  const addCap = (maxScore, reason) => {
+    if (cappedScore > maxScore) cappedScore = maxScore;
+    capsApplied.push(reason);
+  };
+
+  if (customer.dealType && property.dealType && customer.dealType !== property.dealType) {
+    addCap(40, "거래 유형 불일치로 40점 상한");
+    concerns.push("희망 거래 유형과 명확히 다릅니다.");
+  }
+
+  const parking = availabilityStatus(property.parking);
+  if (customer.parkingRequired) {
+    if (parking === "no") {
+      addCap(60, "주차 필수 조건 불일치로 60점 상한");
+      concerns.push("주차 필수 조건과 맞지 않습니다.");
+    } else if (parking === "unknown") {
+      addCap(80, "주차 필수 조건 확인 필요로 80점 상한");
+      missingChecks.push("주차 가능 여부 확인 필요");
+    }
+  }
+
+  const elevator = availabilityStatus(property.elevator);
+  if (customer.elevatorRequired && elevator === "no") {
+    addCap(65, "엘리베이터 필수 조건 불일치로 65점 상한");
+    concerns.push("엘리베이터 필수 조건과 맞지 않습니다.");
+  }
+
+  const budgetRatio = getBudgetOverrunRatio(customer, property);
+  if (budgetRatio >= 1.4) {
+    addCap(50, "예산 40% 이상 초과로 50점 상한");
+  } else if (budgetRatio >= 1.2) {
+    addCap(65, "예산 20% 이상 초과로 65점 상한");
+  }
+
+  if (customer.minSizeM2 && property.sizeM2 && property.sizeM2 / customer.minSizeM2 <= 0.8) {
+    addCap(65, "최소 면적 20% 이상 부족으로 65점 상한");
+  }
+
+  const missingCore = [
+    !property.addressOrArea && "주소/지역 정보 부족",
+    formatPropertyPrice(property) === CHECK && "가격 정보 부족",
+    !property.sizeM2 && !property.sizeLabel && "면적 정보 부족",
+  ].filter(Boolean);
+  if (missingCore.length >= 2) {
+    addCap(65, "핵심 정보 2개 이상 부족으로 65점 상한");
+  } else if (missingCore.length === 1) {
+    addCap(75, "핵심 정보 부족으로 75점 상한");
+  }
+  missingCore.forEach((item) => missingChecks.push(item));
+
+  return { score: Math.max(0, Math.min(100, cappedScore)), capsApplied: unique(capsApplied) };
+}
+
 export function calculatePropertyFitScore(customerInput, propertyInput, options = {}) {
   const customer = customerInput?.budget ? customerInput : normalizeBriefingCustomer(customerInput);
   const property = propertyInput?.price ? propertyInput : normalizeBriefingProperty(propertyInput);
@@ -419,16 +512,21 @@ export function calculatePropertyFitScore(customerInput, propertyInput, options 
   if (focus.has("parking") && customer.parkingRequired) rawBreakdown.requirements = Math.min(20, rawBreakdown.requirements + 1);
   if (focus.has("elevator") && customer.elevatorRequired) rawBreakdown.requirements = Math.min(20, rawBreakdown.requirements + 1);
 
-  const score = Math.max(0, Math.min(100, Math.round(Object.values(rawBreakdown).reduce((sum, value) => sum + value, 0))));
-  const grade = score >= 85 ? "excellent" : score >= 70 ? "good" : score >= 50 ? "fair" : "risky";
+  const baseScore = Math.max(0, Math.min(100, Math.round(Object.values(rawBreakdown).reduce((sum, value) => sum + value, 0))));
+  const capped = applyScoreCaps(baseScore, customer, property, concerns, missingChecks);
+  const score = capped.score;
+  const grade = score >= 85 ? "excellent" : score >= 70 ? "good" : score >= 55 ? "fair" : "risky";
+  const infoCompleteness = calculateInfoCompleteness(property);
 
   return {
     propertyId: property.id,
     score,
+    infoCompleteness,
     grade,
     matched: unique(matched).slice(0, 6),
     concerns: unique(concerns).slice(0, 6),
     missingChecks: unique(missingChecks).slice(0, 8),
+    capsApplied: capped.capsApplied,
     rawBreakdown,
     normalizedProperty: property,
   };
@@ -436,10 +534,10 @@ export function calculatePropertyFitScore(customerInput, propertyInput, options 
 
 function gradeLabel(grade) {
   return {
-    excellent: "강력 추천",
-    good: "추천",
-    fair: "검토 가능",
-    risky: "주의 필요",
+    excellent: "우선 추천",
+    good: "검토 추천",
+    fair: "조건 일부 불일치",
+    risky: "추천 주의",
   }[grade] || "검토";
 }
 
@@ -450,11 +548,15 @@ function buildRankingCopy(scored, property) {
     propertyId: scored.propertyId,
     rank: scored.rank,
     score: scored.score,
+    infoCompleteness: scored.infoCompleteness,
     grade: scored.grade,
+    gradeLabel: gradeLabel(scored.grade),
     displayName: property.displayName,
     shortReason: `${gradeLabel(scored.grade)}: ${strengths[0]}`,
     strengths,
     concerns: concerns.length ? concerns : ["특별한 주의점은 크지 않지만 현장 확인은 필요합니다."],
+    missingChecks: scored.missingChecks || [],
+    capsApplied: scored.capsApplied || [],
     talkingPoints: [
       `${property.displayName}은 ${formatPropertyPrice(property)} 조건으로 정리됩니다.`,
       property.addressOrArea ? `위치는 ${property.addressOrArea} 기준으로 안내하면 좋습니다.` : "주소/위치 정보는 상담 전 확인이 필요합니다.",
@@ -549,11 +651,15 @@ export function sanitizeForLlmPayload({ customer, properties, ruleBasedResults }
     ruleBasedResults: (ruleBasedResults || []).map((item) => ({
       propertyId: item.propertyId,
       rank: item.rank,
-      score: item.score,
+      matchScore: item.score,
+      fitScore: item.score,
+      infoCompleteness: item.infoCompleteness,
       grade: item.grade,
+      gradeLabel: item.gradeLabel,
       matched: item.matched,
       concerns: item.concerns,
       missingChecks: item.missingChecks,
+      capsApplied: item.capsApplied,
     })),
     outputLimits: {
       maxStrengthsPerProperty: 3,
@@ -585,10 +691,14 @@ export function validateAndRepairBriefing(llmBriefing, ruleBriefing, scoredResul
         propertyId: rule.propertyId,
         rank: rule.rank,
         score: rule.score,
+        infoCompleteness: rule.infoCompleteness,
         grade: rule.grade,
+        gradeLabel: rule.gradeLabel || fallback.gradeLabel,
         shortReason: truncate(item.shortReason || fallback.shortReason, 90),
         strengths: truncateList(item.strengths, 3, 70),
         concerns: truncateList(item.concerns, 3, 70),
+        missingChecks: truncateList(fallback.missingChecks || [], 5, 70),
+        capsApplied: truncateList(fallback.capsApplied || [], 4, 90),
         talkingPoints: truncateList(item.talkingPoints, 3, 90),
       };
     })
@@ -619,6 +729,9 @@ export function sanitizeBriefingLanguage(value) {
   const replacements = [
     [/무조건/g, "우선"],
     [/확실히/g, "상대적으로"],
+    [/신뢰도/g, "조건 적합도"],
+    [/추천\s*확률/g, "추천 참고 점수"],
+    [/확률/g, "참고 점수"],
     [/보장/g, "참고"],
     [/수익\s*보장/g, "수익 관련 확인"],
     [/계약\s*확정/g, "계약 검토"],

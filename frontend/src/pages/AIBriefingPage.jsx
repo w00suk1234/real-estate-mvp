@@ -344,6 +344,10 @@ function BriefingResult({ result, properties, feedback, setFeedback, onCopy, onF
         </div>
       </div>
 
+      <div className="ai-score-disclaimer">
+        조건 적합도는 입력된 고객 조건과 매물 정보를 기준으로 계산한 참고 점수입니다. 정보가 부족한 항목은 현장 확인이 필요합니다.
+      </div>
+
       <div className="ai-briefing-ranking-list">
         {briefing.rankings.map((ranking) => {
           const property = propertyById.get(String(ranking.propertyId));
@@ -352,11 +356,17 @@ function BriefingResult({ result, properties, feedback, setFeedback, onCopy, onF
               <div className="ai-ranking-head">
                 <span>{ranking.rank}위</span>
                 <strong>{ranking.displayName}</strong>
-                <em>{ranking.score}점</em>
+                <em>조건 적합도 {ranking.score}점</em>
+              </div>
+              <div className="ai-ranking-meta">
+                <b>{ranking.gradeLabel || gradeLabel(ranking.grade)}</b>
+                {ranking.infoCompleteness !== undefined ? <small>정보 완성도 {ranking.infoCompleteness}점</small> : null}
               </div>
               <p>{ranking.shortReason}</p>
-              <InfoList title="추천 이유" items={ranking.strengths} />
+              <InfoList title="좋은 점" items={ranking.strengths} />
               <InfoList title="주의점" items={ranking.concerns} />
+              <InfoList title="확인 필요" items={ranking.missingChecks} />
+              <InfoList title="적용된 상한선" items={ranking.capsApplied} empty="적용된 상한선 없음" />
               <InfoList title="상담 포인트" items={ranking.talkingPoints} />
               {property ? <small>{property.addressOrArea || "위치 확인 필요"} · {formatPropertyPrice(property)}</small> : null}
             </article>
@@ -395,15 +405,24 @@ function BriefingResult({ result, properties, feedback, setFeedback, onCopy, onF
   );
 }
 
-function InfoList({ title, items = [] }) {
+function InfoList({ title, items = [], empty = "확인 필요" }) {
   return (
     <div>
       <strong>{title}</strong>
       <ul>
-        {(items.length ? items : ["확인 필요"]).map((item) => <li key={item}>{item}</li>)}
+        {(items.length ? items : [empty]).map((item) => <li key={item}>{item}</li>)}
       </ul>
     </div>
   );
+}
+
+function gradeLabel(grade) {
+  return {
+    excellent: "우선 추천",
+    good: "검토 추천",
+    fair: "조건 일부 불일치",
+    risky: "추천 주의",
+  }[grade] || "검토";
 }
 
 function CopyBlock({ title, text, onCopy }) {

@@ -116,10 +116,15 @@ export function buildRuleResult(customer, properties, focus = [], mode = "rule_b
     propertyId: ranking.propertyId,
     rank: ranking.rank,
     score: ranking.score,
+    matchScore: ranking.score,
+    fitScore: ranking.score,
+    infoCompleteness: ranking.infoCompleteness,
     grade: ranking.grade,
+    gradeLabel: ranking.gradeLabel,
     matched: ranking.strengths || [],
     concerns: ranking.concerns || [],
-    missingChecks: ruleResult.briefing.missingChecks || [],
+    missingChecks: ranking.missingChecks || ruleResult.briefing.missingChecks || [],
+    capsApplied: ranking.capsApplied || [],
   }));
   return { normalizedCustomer, normalizedProperties, ruleResult, scoredResults };
 }
@@ -203,7 +208,7 @@ export const SYSTEM_PROMPT = `
 중요 규칙:
 - 점수와 순위는 이미 계산된 값을 그대로 사용한다.
 - 순위를 바꾸지 않는다.
-- propertyId, rank, score는 입력값과 동일해야 한다.
+- propertyId, rank, fitScore, matchScore는 입력값과 동일하게 해석한다.
 - 없는 정보를 만들어내지 않는다.
 - 이동시간, 월세 조정 가능성, 주차 가능 대수, 업종 가능 여부는 데이터가 없으면 단정하지 않는다.
 - 불확실한 내용은 “확인 필요”로 표시한다.
@@ -212,7 +217,8 @@ export const SYSTEM_PROMPT = `
 - 공정거래/허위매물 오해가 생길 표현은 피한다.
 - 법률/계약 관련 판단은 단정하지 않는다.
 - 고객을 압박하는 표현을 피한다.
-- '무조건', '확실히', '보장', '수익 보장', '계약 확정' 같은 표현을 피한다.
+- '확률', '신뢰도', '무조건', '확실히', '보장', '수익 보장', '계약 확정' 같은 표현을 피한다.
+- 고객용 문안에서는 "조건 기준으로는", "입력된 정보 기준으로는", "확인 필요" 같은 표현을 사용한다.
 - summary는 80자 안팎의 한 문장으로만 쓴다.
 - recommendationComment는 2문장 이내로, 중개사가 먼저 봐야 할 비교 요지만 쓴다.
 - rankings[].shortReason은 60자 이내로 쓴다.

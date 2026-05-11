@@ -11,9 +11,9 @@ import {
 
 const SELECTED_CUSTOMER_KEY = "agentnote_recommend_customer_id";
 const SCORE_FILTERS = [
-  { label: "90% 이상", value: 90, limit: 5 },
-  { label: "70% 이상", value: 70, limit: 5 },
-  { label: "50% 이상", value: 50, limit: 5 },
+  { label: "90점 이상", value: 90, limit: 5 },
+  { label: "70점 이상", value: 70, limit: 5 },
+  { label: "55점 이상", value: 55, limit: 5 },
   { label: "전체보기", value: 30, limit: 30 },
 ];
 
@@ -33,7 +33,7 @@ function AIPropertyRecommendPage({ setPage }) {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [results, setResults] = useState([]);
-  const [minScore, setMinScore] = useState(50);
+  const [minScore, setMinScore] = useState(55);
   const [conditionDraft, setConditionDraft] = useState(() => createConditionDraft());
   const [conditionEditing, setConditionEditing] = useState(false);
   const [message, setMessage] = useState("");
@@ -142,11 +142,11 @@ function AIPropertyRecommendPage({ setPage }) {
       }
 
       if (!summarized.length) {
-        setMessage(`${activeScoreFilter.label} 조건에 맞는 매물이 없습니다. 신뢰도 기준을 낮춰 보세요.`);
+        setMessage(`${activeScoreFilter.label} 조건에 맞는 매물이 없습니다. 조건 적합도 기준을 낮춰 보세요.`);
         return;
       }
 
-      setMessage(`${activeScoreFilter.label} 기준으로 ${summarized.length}개의 추천 매물을 찾았습니다.`);
+      setMessage(`${activeScoreFilter.label} 기준으로 ${summarized.length}개의 매물을 찾았습니다.`);
     } catch (error) {
       setMessage(error.message || "추천 중 오류가 발생했습니다. 다시 시도해 주세요.");
     } finally {
@@ -262,7 +262,7 @@ function AIPropertyRecommendPage({ setPage }) {
             </p>
           </div>
           {selectedCustomer ? <ConditionSummary customer={customerCondition} /> : <div className="condition-waiting-box">고객을 선택하면 거래유형, 예산, 지역, 면적 조건이 여기에 정리됩니다.</div>}
-          <div className="recommend-score-control" aria-label="추천 신뢰도 기준">
+          <div className="recommend-score-control" aria-label="조건 적합도 기준">
             {SCORE_FILTERS.map((item) => (
               <button
                 key={item.value}
@@ -278,7 +278,7 @@ function AIPropertyRecommendPage({ setPage }) {
             ))}
           </div>
           <div className="recommend-option-row">
-            <span className="recommend-score-note">{activeScoreFilter.label} 매물 {activeScoreFilter.limit === 5 ? "상위 5개" : "전체"} 추천</span>
+            <span className="recommend-score-note">추천 참고 점수 {activeScoreFilter.label} · {activeScoreFilter.limit === 5 ? "상위 5개" : "전체"} 보기</span>
             <button type="button" className="primary-btn" onClick={handleRecommend} disabled={!selectedCustomer || loading || recommending}>
               {recommending ? "추천 중..." : "추천 매물 찾기"}
             </button>
@@ -293,7 +293,7 @@ function AIPropertyRecommendPage({ setPage }) {
         <div className="section-heading-row">
           <div>
             <h2>추천 결과</h2>
-            <p>{activeScoreFilter.label} 기준에서 점수 높은 순으로 표시합니다.</p>
+            <p>조건 적합도는 입력된 고객 조건과 매물 정보를 기준으로 계산한 참고 점수입니다. 정보가 부족한 항목은 현장 확인이 필요합니다.</p>
           </div>
         </div>
 
@@ -319,7 +319,7 @@ function AIPropertyRecommendPage({ setPage }) {
             ))}
           </div>
         ) : (
-          <div className="recommend-empty-state">현재 신뢰도 기준에 맞는 매물이 없습니다. 70%, 50%, 전체보기 순서로 조건을 낮춰 보세요.</div>
+          <div className="recommend-empty-state">현재 조건 적합도 기준에 맞는 매물이 없습니다. 70점, 55점, 전체보기 순서로 조건을 낮춰 보세요.</div>
         )}
       </section>
     </div>
@@ -443,14 +443,23 @@ function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
             <h3>{property.title}</h3>
             <p>{property.address || "주소 정보 확인 필요"}</p>
           </div>
-          <strong>{result.matchPercent}%</strong>
+          <div className="recommend-score-box">
+            <span>조건 적합도</span>
+            <strong>{result.score}점</strong>
+            <small>{result.gradeLabel || gradeLabel(result.grade)}</small>
+          </div>
         </div>
 
         <div className="recommend-price-line">{property.priceSummary || "가격 확인 필요"}</div>
+        <div className="recommend-score-meta">
+          <span>정보 완성도 {result.infoCompleteness ?? 0}점</span>
+          <em>추천 참고 점수입니다. 실제 조건은 확인이 필요합니다.</em>
+        </div>
 
         <div className="recommend-reason-grid">
-          <ReasonList title="추천 이유" items={result.matchedReasons} empty="추천 이유를 계산하려면 조건 정보가 더 필요합니다." />
+          <ReasonList title="좋은 점" items={result.matchedReasons} empty="좋은 점을 계산하려면 조건 정보가 더 필요합니다." />
           <ReasonList title="주의사항" items={result.warnings} empty="특별한 주의사항이 없습니다." />
+          <ReasonList title="적용된 상한선" items={result.capsApplied} empty="적용된 상한선 없음" />
         </div>
 
         <div className="customer-message-box">
@@ -492,6 +501,15 @@ function ReasonList({ title, items, empty }) {
       )}
     </div>
   );
+}
+
+function gradeLabel(grade) {
+  return {
+    excellent: "우선 추천",
+    good: "검토 추천",
+    fair: "조건 일부 불일치",
+    risky: "추천 주의",
+  }[grade] || "검토";
 }
 
 function formatBudget(customer) {

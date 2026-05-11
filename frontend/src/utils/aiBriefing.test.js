@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   calculatePropertyFitScore,
@@ -10,6 +11,7 @@ import {
   validateAndRepairBriefing,
 } from "./aiBriefing.js";
 import { prepareLlmBudget } from "../../api/_shared/aiServer.js";
+import { calculatePropertyMatchScore } from "./recommendProperties.js";
 
 function customer(overrides = {}) {
   return {
@@ -194,4 +196,62 @@ test("blocks OpenAI call when monthly, daily, per-request, or input limits are e
     }).blocked,
     true,
   );
+});
+
+test("caps AI briefing score when required parking is unavailable", () => {
+  const result = calculatePropertyFitScore(customer({ parking_required: true }), property({ parking: false }));
+
+  assert.ok(result.score <= 60);
+  assert.ok(result.capsApplied.some((item) => item.includes("주차")));
+});
+
+test("caps AI briefing score when budget is over by 40 percent or more", () => {
+  const result = calculatePropertyFitScore(customer({ max_price: 10000 }), property({ sale_price: 15000 }));
+
+  assert.ok(result.score <= 50);
+  assert.ok(result.capsApplied.some((item) => item.includes("예산 40%")));
+});
+
+test("caps AI briefing score when minimum size is short by 20 percent or more", () => {
+  const result = calculatePropertyFitScore(customer({ min_area_m2: 100 }), property({ area_m2: 70 }));
+
+  assert.ok(result.score <= 65);
+  assert.ok(result.capsApplied.some((item) => item.includes("면적")));
+});
+
+test("caps AI briefing score when at least two core fields are missing", () => {
+  const result = calculatePropertyFitScore(customer(), property({ address: "", sale_price: "", price_summary: "", area_m2: 0 }));
+
+  assert.ok(result.score <= 65);
+  assert.ok(result.infoCompleteness < 80);
+  assert.ok(result.capsApplied.some((item) => item.includes("핵심 정보 2개")));
+});
+
+test("uses matchScore and fitScore, not confidence, in LLM payload", () => {
+  const scored = calculatePropertyFitScore(customer(), property());
+  const payload = sanitizeForLlmPayload({
+    customer: customer(),
+    properties: [property()],
+    ruleBasedResults: [{ ...scored, rank: 1 }],
+  });
+  const serialized = JSON.stringify(payload);
+
+  assert.ok(serialized.includes("matchScore"));
+  assert.ok(serialized.includes("fitScore"));
+  assert.ok(!serialized.includes("confidence"));
+});
+
+test("AI recommendation UI text does not use trust/probability wording", () => {
+  const source = readFileSync(new URL("../pages/AIPropertyRecommendPage.jsx", import.meta.url), "utf8");
+
+  assert.ok(!source.includes("신뢰도"));
+  assert.ok(!source.includes("추천 확률"));
+  assert.ok(!source.includes("matchPercent}%"));
+});
+
+test("caps AI property recommendation score for required parking mismatch", () => {
+  const result = calculatePropertyMatchScore(customer({ parking_required: true }), property({ parking: false }));
+
+  assert.ok(result.score <= 60);
+  assert.ok(result.capsApplied.some((item) => item.includes("주차")));
 });

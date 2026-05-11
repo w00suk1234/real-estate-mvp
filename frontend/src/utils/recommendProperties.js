@@ -1,4 +1,4 @@
-import { buildPriceSummary, cleanNumber, compactDisplayValue, normalizeText } from "./brochure";
+import { buildPriceSummary, cleanNumber, compactDisplayValue, normalizeText } from "./brochure.js";
 
 const DEAL_TYPES = ["월세", "전세", "매매"];
 const LOCATION_STOP_WORDS = new Set([
@@ -58,6 +58,18 @@ function inferBoolean(text, positiveTokens, explicitField) {
   const source = normalizeText([text, explicitField].filter(Boolean).join(" "));
   if (!source) return false;
   return positiveTokens.some((token) => source.includes(token));
+}
+
+function inferAvailability(text, explicitField) {
+  if (typeof explicitField === "boolean") return explicitField ? "yes" : "no";
+  if (typeof explicitField === "number") return explicitField > 0 ? "yes" : "no";
+  const source = normalizeText([text, explicitField].filter(Boolean).join(" "));
+  if (!source) return "unknown";
+  if (/협의|미정|확인|문의/.test(source)) return "unknown";
+  if (/^[0-9]+(\.[0-9]+)?$/.test(source)) return Number(source) > 0 ? "yes" : "no";
+  if (/불가|없음|없습니다|안됨|무/.test(source)) return "no";
+  if (/가능|있음|있습니다|완비|제공|주차|엘리베이터|엘베/.test(source)) return "yes";
+  return "unknown";
 }
 
 function parseBudgetFromText(text) {
@@ -140,6 +152,7 @@ export function normalizeCustomerCondition(customer = {}) {
 
 export function normalizePropertyData(property = {}) {
   const form = property.data?.form || property.form || property.data || {};
+  const priceObject = property.price && typeof property.price === "object" ? property.price : {};
   const description = normalizeText([
     property.description,
     property.tags,
@@ -152,7 +165,13 @@ export function normalizePropertyData(property = {}) {
   const dealType = property.deal_type || form.deal_type || inferDealType(property.title, description);
   const deposit = amountToManwon(property.deposit ?? form.deposit, unit);
   const monthlyRent = amountToManwon(property.monthly_rent ?? form.monthly_rent, unit);
-  const price = amountToManwon(property.price ?? form.price ?? (dealType === "매매" ? form.deposit : ""), unit) || deposit;
+  const price =
+    amountToManwon(property.sale_price ?? form.sale_price ?? priceObject.salePrice ?? priceObject.sale_price, unit) ||
+    amountToManwon(typeof property.price === "string" ? property.price : form.price ?? (dealType === "매매" ? form.deposit : ""), unit) ||
+    deposit;
+
+  const parkingStatus = inferAvailability(description, property.parking ?? form.parking_count ?? form.parking);
+  const elevatorStatus = inferAvailability(description, property.elevator ?? form.elevator);
 
   return {
     id: property.id || property.property_id,
@@ -168,15 +187,94 @@ export function normalizePropertyData(property = {}) {
     rooms: Number(property.rooms) || parseRoomsFromText(description),
     bathrooms: Number(property.bathrooms) || 0,
     floor: compactDisplayValue(property.floor || form.floor),
-    parking: inferBoolean(description, ["주차", "주차 가능"], property.parking ?? form.parking_count),
-    elevator: inferBoolean(description, ["엘리베이터 있음", "엘리베이터", "엘베"], property.elevator ?? form.elevator),
+    parking: parkingStatus === "yes",
+    elevator: elevatorStatus === "yes",
+    parkingStatus,
+    elevatorStatus,
+    maintenanceFee: compactDisplayValue(property.maintenance_fee || form.maintenance_fee),
     moveInDate: property.move_in_date || form.move_in_date || "",
     description,
     tags: Array.isArray(property.tags) ? property.tags : splitKeywords(property.tags || description),
     imageUrl: property.main_image_url || property.image_url || form.main_image_url || property.data?.main_image_url || "",
-    priceSummary: property.price_summary || property.price || buildPriceSummary(form),
+    priceSummary: property.price_summary || priceObject.summary || (typeof property.price === "string" ? property.price : "") || buildPriceSummary(form),
     raw: property,
   };
+}
+
+function gradeForScore(score) {
+  if (score >= 85) return { grade: "excellent", gradeLabel: "우선 추천" };
+  if (score >= 70) return { grade: "good", gradeLabel: "검토 추천" };
+  if (score >= 55) return { grade: "fair", gradeLabel: "조건 일부 불일치" };
+  return { grade: "risky", gradeLabel: "추천 주의" };
+}
+
+function calculateInfoCompleteness(property) {
+  const checks = [
+    Boolean(property.priceSummary || property.price || property.deposit || property.monthlyRent),
+    Boolean(property.areaM2),
+    Boolean(property.address || property.dong || property.location),
+    property.parkingStatus !== "unknown",
+    property.elevatorStatus !== "unknown",
+    Boolean(property.maintenanceFee),
+    Boolean(property.moveInDate),
+    Boolean(property.description),
+  ];
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+}
+
+function budgetOverrunRatio(customer, property) {
+  const isMonthly = property.dealType === "월세";
+  const maxPrice = isMonthly ? customer.maxDeposit || customer.maxPrice : customer.maxPrice || customer.maxDeposit;
+  const targetPrice = isMonthly ? property.deposit : property.price || property.deposit;
+  const priceRatio = maxPrice && targetPrice ? targetPrice / maxPrice : 1;
+  const rentRatio = isMonthly && customer.maxMonthlyRent && property.monthlyRent ? property.monthlyRent / customer.maxMonthlyRent : 1;
+  return Math.max(priceRatio, rentRatio);
+}
+
+function applyRecommendationCaps(score, customer, property, warnings) {
+  const capsApplied = [];
+  let cappedScore = score;
+  const addCap = (maxScore, reason) => {
+    if (cappedScore > maxScore) cappedScore = maxScore;
+    capsApplied.push(reason);
+  };
+
+  if (customer.dealType && property.dealType && customer.dealType !== property.dealType) {
+    addCap(40, "거래 유형 불일치로 40점 상한");
+    warnings.push("희망 거래유형과 명확히 다릅니다.");
+  }
+  if (customer.parkingRequired) {
+    if (property.parkingStatus === "no") {
+      addCap(60, "주차 필수 조건 불일치로 60점 상한");
+      warnings.push("주차 필수 조건과 맞지 않습니다.");
+    } else if (property.parkingStatus === "unknown") {
+      addCap(80, "주차 필수 조건 확인 필요로 80점 상한");
+      warnings.push("주차 가능 여부 확인 필요");
+    }
+  }
+  if (customer.elevatorRequired && property.elevatorStatus === "no") {
+    addCap(65, "엘리베이터 필수 조건 불일치로 65점 상한");
+    warnings.push("엘리베이터 필수 조건과 맞지 않습니다.");
+  }
+
+  const ratio = budgetOverrunRatio(customer, property);
+  if (ratio >= 1.4) addCap(50, "예산 40% 이상 초과로 50점 상한");
+  else if (ratio >= 1.2) addCap(65, "예산 20% 이상 초과로 65점 상한");
+
+  if (customer.minAreaM2 && property.areaM2 && property.areaM2 / customer.minAreaM2 <= 0.8) {
+    addCap(65, "최소 면적 20% 이상 부족으로 65점 상한");
+  }
+
+  const missingCore = [
+    !(property.address || property.dong || property.location) && "주소/지역 정보 부족",
+    !(property.priceSummary || property.price || property.deposit || property.monthlyRent) && "가격 정보 부족",
+    !property.areaM2 && "면적 정보 부족",
+  ].filter(Boolean);
+  if (missingCore.length >= 2) addCap(65, "핵심 정보 2개 이상 부족으로 65점 상한");
+  else if (missingCore.length === 1) addCap(75, "핵심 정보 부족으로 75점 상한");
+  missingCore.forEach((item) => warnings.push(item));
+
+  return { score: Math.max(0, Math.min(100, cappedScore)), capsApplied: unique(capsApplied) };
 }
 
 function scoreBudget(customer, property, matchedReasons, warnings) {
@@ -316,13 +414,21 @@ export function calculatePropertyMatchScore(customerInput, propertyInput) {
     score += 2;
   }
 
-  const finalScore = Math.max(0, Math.min(100, Math.round(score)));
+  const baseScore = Math.max(0, Math.min(100, Math.round(score)));
+  const capped = applyRecommendationCaps(baseScore, customer, property, warnings);
+  const finalScore = capped.score;
+  const grade = gradeForScore(finalScore);
 
   return {
     property: property.raw,
     normalizedProperty: property,
     score: finalScore,
     matchPercent: finalScore,
+    matchScore: finalScore,
+    fitScore: finalScore,
+    infoCompleteness: calculateInfoCompleteness(property),
+    capsApplied: capped.capsApplied,
+    ...grade,
     matchedReasons: matchedReasons.slice(0, 6),
     warnings: unique(warnings).slice(0, 5),
     customerMessage: buildCustomerMessage(customer, property, matchedReasons, warnings),
