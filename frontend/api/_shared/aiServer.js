@@ -43,7 +43,7 @@ export function getAiConfig() {
     maxPropertyCount: Number(env.AI_MAX_PROPERTY_COUNT || 5),
     minPropertyCount: Number(env.AI_MIN_PROPERTY_COUNT || 2),
     memoMaxChars: Number(env.AI_MEMO_MAX_CHARS || 500),
-    timeoutMs: Number(env.AI_TIMEOUT_MS || 15000),
+    timeoutMs: Number(env.AI_TIMEOUT_MS || 60000),
     retryCount: Math.min(1, Number(env.AI_RETRY_COUNT || 0)),
     showCostToAdmin: String(env.AI_SHOW_COST_TO_ADMIN ?? "true").toLowerCase() !== "false",
   };
@@ -316,7 +316,16 @@ export async function callOpenAiBriefing({ config, llmPayload, ruleBriefing, sco
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(errorText || `OpenAI API error ${response.status}`);
+    let detail = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      detail = parsed?.error?.message || parsed?.message || errorText;
+      const code = parsed?.error?.code || parsed?.error?.type || "";
+      if (code) detail = `${code}: ${detail}`;
+    } catch {
+      // Keep the raw text if OpenAI returned a non-JSON error body.
+    }
+    throw new Error(`OpenAI ${response.status}: ${detail || response.statusText}`);
   }
 
   const data = await response.json();
@@ -336,10 +345,13 @@ export async function callOpenAiBriefing({ config, llmPayload, ruleBriefing, sco
 }
 
 export function getPublicFallbackReason(error) {
-  const message = String(error?.message || error || "");
+  const message = String(error?.message || error || "").replace(/sk-[A-Za-z0-9_-]+/g, "sk-***");
   if (!message) return "OpenAI 호출 실패";
   if (/timeout|timed out|초과|AbortError/i.test(message)) {
     return "OpenAI 응답 시간이 초과되어 룰베이스로 대체했습니다. Vercel 환경변수 AI_TIMEOUT_MS를 60000으로 늘리면 해결될 수 있습니다.";
+  }
+  if (/unsupported|unknown parameter|invalid_request_error|400/i.test(message)) {
+    return `OpenAI 요청 형식 오류로 룰베이스로 대체했습니다. ${message.slice(0, 220)}`;
   }
   if (/model|does not exist|not found|invalid_model/i.test(message)) {
     return "OpenAI 모델명을 확인해야 합니다. Vercel의 OPENAI_MODEL 값이 사용 가능한 모델인지 확인해 주세요.";
@@ -351,9 +363,9 @@ export function getPublicFallbackReason(error) {
     return "OpenAI API 키 인증에 실패했습니다. OPENAI_API_KEY 값을 다시 확인해 주세요.";
   }
   if (/json|schema|validation|검증/i.test(message)) {
-    return "OpenAI 응답 형식 검증에 실패해 룰베이스로 대체했습니다.";
+    return `OpenAI 응답 형식 검증에 실패해 룰베이스로 대체했습니다. ${message.slice(0, 180)}`;
   }
-  return "OpenAI 호출이 실패해 룰베이스로 대체했습니다. Vercel Function Logs 또는 ai_usage_logs.error_message에서 상세 원인을 확인할 수 있습니다.";
+  return `OpenAI 호출이 실패해 룰베이스로 대체했습니다. ${message.slice(0, 220)}`;
 }
 
 export function prepareLlmBudget({ config, llmPayload, usageSums }) {

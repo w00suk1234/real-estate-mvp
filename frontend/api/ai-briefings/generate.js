@@ -16,6 +16,10 @@ import {
   sendJson,
 } from "../_shared/aiServer.js";
 
+export const config = {
+  maxDuration: 60,
+};
+
 function methodNotAllowed(res) {
   res.setHeader("Allow", "POST");
   sendJson(res, 405, { error: "Method not allowed" });
