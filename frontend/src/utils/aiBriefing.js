@@ -15,6 +15,7 @@ const POSITIVE_WORDS = ["가능", "있음", "있습니다", "완비", "제공", 
 
 function text(value) {
   if (value === null || value === undefined) return "";
+  if (typeof value === "object") return "";
   return String(value).trim();
 }
 
@@ -90,11 +91,20 @@ function splitKeywords(value = "") {
 
 function booleanFromText(value) {
   if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value > 0;
   const source = text(value);
   if (!source) return null;
+  if (/^[0-9]+(\.[0-9]+)?$/.test(source)) return Number(source) > 0;
   if (NEGATIVE_WORDS.some((word) => source.includes(word))) return false;
   if (POSITIVE_WORDS.some((word) => source.includes(word))) return true;
   return null;
+}
+
+export function formatAvailability(value) {
+  const parsed = booleanFromText(value);
+  if (parsed === true) return "O";
+  if (parsed === false) return "X";
+  return CHECK;
 }
 
 function includesAny(source, tokens) {
@@ -161,7 +171,9 @@ export function normalizeBriefingCustomer(customer = {}) {
 }
 
 export function normalizeBriefingProperty(property = {}) {
-  const form = property.data?.form || property.form || property.data || {};
+  const data = property.data && typeof property.data === "object" ? property.data : {};
+  const form = data.form || property.form || data || {};
+  const priceObject = property.price && typeof property.price === "object" ? property.price : {};
   const mergedMemo = [
     property.description,
     property.memo,
@@ -173,11 +185,12 @@ export function normalizeBriefingProperty(property = {}) {
     form.recommended_use,
     form.options,
   ].map(text).filter(Boolean).join(" ");
-  const dealType = getNested(property, ["deal_type", "dealType"]) || form.deal_type || inferDealType(mergedMemo, property.title);
-  const deposit = amountToManwon(property.deposit ?? form.deposit);
-  const monthlyRent = amountToManwon(property.monthly_rent ?? form.monthly_rent);
-  const salePrice = amountToManwon(property.sale_price ?? property.price ?? form.price);
+  const dealType = getNested(property, ["deal_type", "dealType"]) || form.deal_type || inferDealType(mergedMemo, property.title, property.displayName);
+  const deposit = amountToManwon(property.deposit ?? form.deposit ?? priceObject.deposit);
+  const monthlyRent = amountToManwon(property.monthly_rent ?? form.monthly_rent ?? priceObject.monthlyRent ?? priceObject.monthly_rent);
+  const salePrice = amountToManwon(property.sale_price ?? form.sale_price ?? form.price ?? priceObject.salePrice ?? priceObject.sale_price ?? (typeof property.price === "string" ? property.price : ""));
   const areaM2 =
+    toNumber(property.sizeM2) ||
     toNumber(property.area_m2) ||
     parseAreaM2(property.area || property.size || "") ||
     parseAreaM2(`${form.exclusive_area || ""}${form.exclusive_area_unit || ""}`) ||
@@ -186,22 +199,22 @@ export function normalizeBriefingProperty(property = {}) {
 
   return {
     id: getPropertyId(property),
-    displayName: compact(property.title || form.title, "매물명 미입력"),
-    addressOrArea: compact(property.address || form.address || property.location || form.location || property.dong || form.dong, ""),
+    displayName: compact(property.displayName || property.title || form.title, "매물명 미입력"),
+    addressOrArea: compact(property.addressOrArea || property.address || form.address || property.location || form.location || property.dong || form.dong, ""),
     dealType,
     price: {
       salePrice,
       deposit,
       monthlyRent,
-      summary: compact(property.price_summary || property.price || form.price_summary || "", ""),
+      summary: compact(property.price_summary || priceObject.summary || (typeof property.price === "string" ? property.price : "") || form.price_summary || "", ""),
     },
     sizeM2: areaM2,
-    sizeLabel: compact(property.size || property.area || form.exclusive_area || form.supply_area || "", ""),
+    sizeLabel: compact(property.sizeLabel || property.size || property.area || form.exclusive_area || form.supply_area || "", ""),
     floor: compact(property.floor || form.floor, ""),
     parking: property.parking ?? form.parking ?? form.parking_count ?? "",
     elevator: property.elevator ?? form.elevator ?? "",
     transport: compact(property.transport || form.transport || form.subway || "", ""),
-    brokerMemo: truncate(mergedMemo, 500),
+    brokerMemo: truncate(property.brokerMemo || mergedMemo, 500),
     moveInDate: text(property.move_in_date || form.move_in_date),
     raw: property,
   };
@@ -524,8 +537,8 @@ export function sanitizeForLlmPayload({ customer, properties, ruleBasedResults }
       price: formatPropertyPrice(property),
       size: property.sizeM2 ? `${property.sizeM2}㎡` : property.sizeLabel,
       floor: property.floor,
-      parking: text(property.parking),
-      elevator: text(property.elevator),
+      parking: formatAvailability(property.parking),
+      elevator: formatAvailability(property.elevator),
       transport: truncate(property.transport, 160),
       brokerMemo: truncate(property.brokerMemo, 500),
     })),

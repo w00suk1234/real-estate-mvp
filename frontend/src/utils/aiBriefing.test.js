@@ -3,6 +3,9 @@ import test from "node:test";
 import {
   calculatePropertyFitScore,
   createRuleBasedBriefing,
+  formatAvailability,
+  formatPropertyPrice,
+  normalizeBriefingProperty,
   sanitizeForLlmPayload,
   validateAndRepairBriefing,
 } from "./aiBriefing.js";
@@ -96,6 +99,44 @@ test("does not include customer phone or email in LLM payload", () => {
 
   assert.ok(!serialized.includes("010-1111-2222"));
   assert.ok(!serialized.includes("secret@example.com"));
+});
+
+test("keeps normalized property display data on repeated normalization and formats availability", () => {
+  const once = normalizeBriefingProperty(property({ parking: true, elevator: false }));
+  const twice = normalizeBriefingProperty(once);
+
+  assert.equal(twice.displayName, "Gangnam Office");
+  assert.equal(twice.addressOrArea, "Gangnam station");
+  assert.equal(formatAvailability(twice.parking), "O");
+  assert.equal(formatAvailability(twice.elevator), "X");
+  assert.notEqual(formatPropertyPrice(twice), "확인 필요");
+});
+
+test("reads saved brochure form fields from Supabase property data", () => {
+  const saved = normalizeBriefingProperty({
+    id: "property-form",
+    price_summary: "보증금 6,200만원 / 월세 130만원",
+    data: {
+      form: {
+        title: "아탑동 상가 월세 추천매물 29",
+        address: "서울 송파구 아탑동 128-29",
+        deal_type: "월세",
+        deposit: "6200",
+        monthly_rent: "130",
+        exclusive_area: "36",
+        exclusive_area_unit: "㎡",
+        floor: "4층",
+        parking_count: "1",
+        elevator: "있음",
+      },
+    },
+  });
+
+  assert.equal(saved.displayName, "아탑동 상가 월세 추천매물 29");
+  assert.equal(saved.addressOrArea, "서울 송파구 아탑동 128-29");
+  assert.equal(saved.sizeM2, 36);
+  assert.equal(formatAvailability(saved.parking), "O");
+  assert.equal(formatAvailability(saved.elevator), "O");
 });
 
 test("repairs LLM rank and score back to deterministic server values", () => {

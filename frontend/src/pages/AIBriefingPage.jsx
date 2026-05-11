@@ -5,6 +5,7 @@ import { listCustomers, listProperties } from "../services/supabaseRepository";
 import {
   AI_BRIEFING_FOCUS_OPTIONS,
   createRuleBasedBriefing,
+  formatAvailability,
   formatCustomerBudget,
   formatPropertyPrice,
   normalizeBriefingCustomer,
@@ -295,8 +296,8 @@ function AIBriefingPage() {
                   <div><dt>면적</dt><dd>{property.sizeM2 ? `${property.sizeM2}㎡` : property.sizeLabel || "확인 필요"}</dd></div>
                   <div><dt>주소</dt><dd>{property.addressOrArea || "확인 필요"}</dd></div>
                   <div><dt>층수</dt><dd>{property.floor || "확인 필요"}</dd></div>
-                  <div><dt>주차</dt><dd>{String(property.parking || "확인 필요")}</dd></div>
-                  <div><dt>엘리베이터</dt><dd>{String(property.elevator || "확인 필요")}</dd></div>
+                  <div><dt>주차</dt><dd>{formatAvailability(property.parking)}</dd></div>
+                  <div><dt>엘리베이터</dt><dd>{formatAvailability(property.elevator)}</dd></div>
                   <div><dt>교통</dt><dd>{property.transport || "확인 필요"}</dd></div>
                   <div><dt>메모</dt><dd>{property.brokerMemo || "확인 필요"}</dd></div>
                 </dl>
