@@ -3,6 +3,7 @@ import icon1 from "../../assets/icon1.png";
 const primaryItems = [
   { id: "schedules", label: "일정관리" },
   { id: "customers", label: "고객관리" },
+  { id: "ai-briefing", label: "AI 브리핑", icon: "AI" },
   { id: "ai-recommend", label: "AI 매물 추천기", icon: "AI" },
   { id: "settlement", label: "정산" },
   { id: "briefing", label: "소개서 작성" },

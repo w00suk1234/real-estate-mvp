@@ -4,6 +4,7 @@ import CustomersPage from "./pages/CustomersPage";
 import SchedulesPage from "./pages/SchedulesPage";
 import SettlementPage from "./pages/SettlementPage";
 import AIPropertyRecommendPage from "./pages/AIPropertyRecommendPage";
+import AIBriefingPage from "./pages/AIBriefingPage";
 import CalculatorsPage from "./pages/CalculatorsPage";
 import PhotoEditorPage from "./pages/PhotoEditorPage";
 import AddressHubPage from "./pages/AddressHubPage";
@@ -18,6 +19,7 @@ const NAVER_IMPORT_SNAPSHOT_KEY = "naver_import_snapshot";
 
 const PATH_PAGE_MAP = {
   "/ai-recommend": "ai-recommend",
+  "/ai-briefing": "ai-briefing",
   "/recommendations": "ai-recommend",
 };
 
@@ -203,6 +205,7 @@ function App() {
   if (page === "schedules") currentPage = <SchedulesPage setPage={setPage} />;
   if (page === "settlement") currentPage = <SettlementPage setPage={setPage} />;
   if (page === "ai-recommend") currentPage = <AIPropertyRecommendPage setPage={setPage} />;
+  if (page === "ai-briefing") currentPage = <AIBriefingPage setPage={setPage} />;
   if (page === "calculators") currentPage = <CalculatorsPage setPage={setPage} />;
   if (page === "photo-editor") currentPage = <PhotoEditorPage setPage={setPage} />;
   if (page === "address-hub") currentPage = <AddressHubPage setPage={setPage} />;
