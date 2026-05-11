@@ -5,6 +5,7 @@ import {
   createAuthedSupabase,
   estimateCostUsd,
   getAiConfig,
+  getPublicFallbackReason,
   getRequestUser,
   getUsageSums,
   loadCustomerAndProperties,
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
   let estimatedCostUsd = 0;
   let actualCostUsd = null;
   let errorForLog = null;
+  let fallbackReason = "";
 
   try {
     const body = await readJson(req);
@@ -107,6 +109,11 @@ export default async function handler(req, res) {
           };
         } catch (error) {
           errorForLog = error;
+          fallbackReason = getPublicFallbackReason(error);
+          console.error("[ai-briefing] OpenAI fallback", {
+            reason: fallbackReason,
+            error: String(error?.message || error).slice(0, 1000),
+          });
           result.mode = "fallback";
         }
       }
@@ -139,8 +146,13 @@ export default async function handler(req, res) {
     return sendJson(res, 200, {
       ...result,
       briefingId: saved?.id || null,
+      fallbackReason,
       fallbackMessage:
-        result.mode === "llm" ? "" : "AI 호출을 사용하지 않고 룰베이스 브리핑으로 생성했습니다.",
+        result.mode === "llm"
+          ? ""
+          : fallbackReason
+            ? `AI 호출을 사용하지 않고 룰베이스 브리핑으로 생성했습니다. (${fallbackReason})`
+            : "AI 호출을 사용하지 않고 룰베이스 브리핑으로 생성했습니다.",
     });
   } catch (error) {
     if (supabase && user) {

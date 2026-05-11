@@ -269,40 +269,50 @@ const RESPONSE_SCHEMA = {
 export async function callOpenAiBriefing({ config, llmPayload, ruleBriefing, scoredResults }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    signal: controller.signal,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.openaiApiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.model,
-      instructions: SYSTEM_PROMPT,
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: JSON.stringify(llmPayload),
-            },
-          ],
-        },
-      ],
-      max_output_tokens: config.maxOutputTokens,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "agentnote_ai_briefing",
-          strict: true,
-          schema: RESPONSE_SCHEMA,
-        },
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.openaiApiKey}`,
       },
-      tools: [],
-      store: false,
-    }),
-  }).finally(() => clearTimeout(timer));
+      body: JSON.stringify({
+        model: config.model,
+        instructions: SYSTEM_PROMPT,
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: JSON.stringify(llmPayload),
+              },
+            ],
+          },
+        ],
+        max_output_tokens: config.maxOutputTokens,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "agentnote_ai_briefing",
+            strict: true,
+            schema: RESPONSE_SCHEMA,
+          },
+        },
+        tools: [],
+        store: false,
+      }),
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`OpenAI 응답 시간이 ${config.timeoutMs}ms를 초과했습니다.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
@@ -323,6 +333,27 @@ export async function callOpenAiBriefing({ config, llmPayload, ruleBriefing, sco
   const validated = validateAndRepairBriefing(parsed, ruleBriefing, scoredResults);
   if (!validated) throw new Error("LLM 응답 검증에 실패했습니다.");
   return { briefing: validated, usage: data.usage || {} };
+}
+
+export function getPublicFallbackReason(error) {
+  const message = String(error?.message || error || "");
+  if (!message) return "OpenAI 호출 실패";
+  if (/timeout|timed out|초과|AbortError/i.test(message)) {
+    return "OpenAI 응답 시간이 초과되어 룰베이스로 대체했습니다. Vercel 환경변수 AI_TIMEOUT_MS를 60000으로 늘리면 해결될 수 있습니다.";
+  }
+  if (/model|does not exist|not found|invalid_model/i.test(message)) {
+    return "OpenAI 모델명을 확인해야 합니다. Vercel의 OPENAI_MODEL 값이 사용 가능한 모델인지 확인해 주세요.";
+  }
+  if (/quota|billing|insufficient_quota|exceeded/i.test(message)) {
+    return "OpenAI 결제/크레딧/쿼터 문제로 호출이 실패했습니다. OpenAI 계정 Billing과 Usage limit을 확인해 주세요.";
+  }
+  if (/invalid_api_key|incorrect api key|401|unauthorized/i.test(message)) {
+    return "OpenAI API 키 인증에 실패했습니다. OPENAI_API_KEY 값을 다시 확인해 주세요.";
+  }
+  if (/json|schema|validation|검증/i.test(message)) {
+    return "OpenAI 응답 형식 검증에 실패해 룰베이스로 대체했습니다.";
+  }
+  return "OpenAI 호출이 실패해 룰베이스로 대체했습니다. Vercel Function Logs 또는 ai_usage_logs.error_message에서 상세 원인을 확인할 수 있습니다.";
 }
 
 export function prepareLlmBudget({ config, llmPayload, usageSums }) {
