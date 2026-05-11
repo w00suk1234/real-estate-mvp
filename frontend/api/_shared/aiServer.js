@@ -38,7 +38,7 @@ export function getAiConfig() {
     dailyLimit: Number(env.AI_DAILY_USD_HARD_LIMIT || 0.5),
     perRequestLimit: Number(env.AI_PER_REQUEST_USD_HARD_LIMIT || 0.02),
     maxInputTokens: Number(env.AI_MAX_INPUT_TOKENS || 6000),
-    maxOutputTokens: Number(env.AI_MAX_OUTPUT_TOKENS || 1200),
+    maxOutputTokens: Number(env.AI_MAX_OUTPUT_TOKENS || 2500),
     maxInputChars: Number(env.AI_MAX_INPUT_CHARS || 16000),
     maxPropertyCount: Number(env.AI_MAX_PROPERTY_COUNT || 5),
     minPropertyCount: Number(env.AI_MIN_PROPERTY_COUNT || 2),
@@ -293,7 +293,11 @@ export async function callOpenAiBriefing({ config, llmPayload, ruleBriefing, sco
           },
         ],
         max_output_tokens: config.maxOutputTokens,
+        reasoning: {
+          effort: "minimal",
+        },
         text: {
+          verbosity: "low",
           format: {
             type: "json_schema",
             name: "agentnote_ai_briefing",
@@ -329,14 +333,25 @@ export async function callOpenAiBriefing({ config, llmPayload, ruleBriefing, sco
   }
 
   const data = await response.json();
+  if (data.error) {
+    throw new Error(`OpenAI response error: ${data.error.message || JSON.stringify(data.error)}`);
+  }
+  if (data.incomplete_details) {
+    throw new Error(`OpenAI 응답이 완료되지 않았습니다: ${JSON.stringify(data.incomplete_details)}`);
+  }
   const outputText =
     data.output_text ||
     (data.output || [])
       .flatMap((item) => item.content || [])
       .filter((item) => item.type === "output_text" || item.type === "text")
-      .map((item) => item.text)
+      .map((item) => item.text || item.output_text || "")
       .join("");
-  if (!outputText) throw new Error("OpenAI 응답이 비어 있습니다.");
+  if (!outputText) {
+    const outputTypes = (data.output || [])
+      .map((item) => [item.type, item.status, ...(item.content || []).map((content) => content.type)].filter(Boolean).join("/"))
+      .join(", ");
+    throw new Error(`OpenAI 응답이 비어 있습니다. output=${outputTypes || "none"}`);
+  }
 
   const parsed = JSON.parse(outputText);
   const validated = validateAndRepairBriefing(parsed, ruleBriefing, scoredResults);
