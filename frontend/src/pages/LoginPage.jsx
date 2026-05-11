@@ -96,7 +96,7 @@ function validateSignupForm(form) {
 }
 
 function LoginPage({ setPage }) {
-  const { login, signup, findUsername, requestPasswordReset, updatePassword } = useAuth();
+  const { login, logout, signup, findUsername, requestPasswordReset, updatePassword } = useAuth();
   const [mode, setMode] = useState("login");
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [signupForm, setSignupForm] = useState(initialSignupForm);
@@ -109,6 +109,7 @@ function LoginPage({ setPage }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState("");
+  const [authNotice, setAuthNotice] = useState(null);
 
   const isSignup = mode === "signup";
   const isFindId = mode === "find-id";
@@ -128,15 +129,32 @@ function LoginPage({ setPage }) {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
+    const authType = hashParams.get("type");
+
+    if (authType === "signup" || authType === "email_confirmation") {
+      setMode("login");
+      setError("");
+      setResult("");
+      setAuthNotice({
+        title: "이메일 인증이 완료되었습니다.",
+        body: "회원가입이 정상 처리되었습니다. 보안을 위해 다시 로그인해 주세요.",
+      });
+      logout?.().catch((err) => console.error(err));
+      window.history.replaceState({}, "", `${window.location.pathname}?page=login`);
+      return;
+    }
+
     if (params.get("reset") === "1" || window.location.hash.includes("type=recovery")) {
       setMode("reset-password");
     }
-  }, []);
+  }, [logout]);
 
   function switchMode(nextMode) {
     setMode(nextMode);
     setError("");
     setResult("");
+    setAuthNotice(null);
     setSignupTouched({});
     setFindTouched({});
     setResetTouched({});
@@ -208,7 +226,10 @@ function LoginPage({ setPage }) {
         }
         const signupResult = await signup(signupForm);
         if (signupResult?.needsEmailConfirmation) {
-          setResult(`${signupResult.email}로 인증 메일을 보냈습니다. 메일의 인증 링크를 누른 뒤 로그인해 주세요.`);
+          setAuthNotice({
+            title: "회원가입 신청이 완료되었습니다.",
+            body: `${signupResult.email}로 인증 메일을 보냈습니다. 메일의 인증 링크를 누른 뒤 다시 로그인해 주세요.`,
+          });
           setLoginForm((prev) => ({ ...prev, username: signupResult.email }));
           setMode("login");
           return;
@@ -322,6 +343,16 @@ function LoginPage({ setPage }) {
         <p className="auth-eyebrow">부동산 업무 통합툴</p>
         <h1>{getTitle()}</h1>
         <p className="auth-copy">{getCopy()}</p>
+
+        {authNotice ? (
+          <div className="auth-notice" role="status" aria-live="polite">
+            <strong>{authNotice.title}</strong>
+            <p>{authNotice.body}</p>
+            <button type="button" onClick={() => switchMode("login")}>
+              로그인하기
+            </button>
+          </div>
+        ) : null}
 
         {!isAccountRecovery && !isResetPassword ? (
           <div className="auth-tabs">
