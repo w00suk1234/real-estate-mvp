@@ -162,7 +162,7 @@ function customerLabel(customer) {
 }
 
 export default function SchedulesPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(toDateValue(today));
   const [items, setItems] = useState([]);
@@ -191,7 +191,7 @@ export default function SchedulesPage() {
     }
 
     load().catch((error) => setMessage(error.message || "일정 데이터를 불러오지 못했습니다."));
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, user?.id]);
 
   const cells = useMemo(() => buildCells(month), [month]);
   const displayItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { listCustomers, listProperties, saveCustomer } from "../services/supabaseRepository";
 import { generateRecommendationSummary } from "../services/aiRecommendationService";
 import {
@@ -26,6 +27,7 @@ function createConditionDraft(customer = {}) {
 }
 
 function AIPropertyRecommendPage({ setPage }) {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -41,6 +43,16 @@ function AIPropertyRecommendPage({ setPage }) {
   const [savingCondition, setSavingCondition] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setCustomers([]);
+      setProperties([]);
+      setSelectedCustomerId("");
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
     async function loadData() {
       try {
         setLoading(true);
@@ -60,7 +72,7 @@ function AIPropertyRecommendPage({ setPage }) {
     }
 
     loadData();
-  }, []);
+  }, [authLoading, isAuthenticated, user?.id]);
 
   const selectedCustomer = useMemo(
     () => customers.find((customer) => String(customer.id) === String(selectedCustomerId)) || null,

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { deleteCustomer, listCustomers, listSchedules, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 
 const CONTRACT_STATUSES = ["미계약", "계약금입금", "계약서일정", "잔금완료", "정산완료", "파토", "삭제"];
@@ -59,6 +60,7 @@ function mergeMemoOnce(baseMemo, nextMemo) {
 const RECOMMEND_CUSTOMER_KEY = "agentnote_recommend_customer_id";
 
 function CustomersPage({ setPage: navigatePage }) {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [editingId, setEditingId] = useState(null);
@@ -81,8 +83,16 @@ function CustomersPage({ setPage: navigatePage }) {
   }
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setItems([]);
+      resetForm();
+      setMessage("");
+      return;
+    }
+
     fetchCustomers();
-  }, []);
+  }, [authLoading, isAuthenticated, user?.id]);
 
   const filteredItems = useMemo(() => {
     const keyword = search.trim().toLowerCase();

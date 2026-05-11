@@ -16,7 +16,7 @@ function formatDate(value) {
 function RecentBrochureList({ refreshKey = 0 }) {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const pageSize = 5;
 
   const fetchBrochures = async () => {
@@ -47,7 +47,7 @@ function RecentBrochureList({ refreshKey = 0 }) {
 
   useEffect(() => {
     fetchBrochures();
-  }, [refreshKey, isAuthenticated]);
+  }, [refreshKey, isAuthenticated, user?.id]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const pagedItems = useMemo(() => {

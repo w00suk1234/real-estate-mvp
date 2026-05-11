@@ -46,6 +46,19 @@ function writeLocal(key, items) {
   localStorage.setItem(key, JSON.stringify(items));
 }
 
+function getLocalUserScope() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("auth_user") || "null");
+    return saved?.id || saved?.email || saved?.username || "anonymous";
+  } catch {
+    return "anonymous";
+  }
+}
+
+function getScopedLocalKey(key) {
+  return `${key}:${getLocalUserScope()}`;
+}
+
 function createLocalId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -71,7 +84,7 @@ function pickFields(source, fields) {
   );
 }
 
-async function writeCustomerWithFallback(query, customer, payload) {
+async function writeCustomerWithFallback(customer, payload, userId) {
   const variants = [
     payload,
     stripEmpty({
@@ -132,8 +145,14 @@ async function writeCustomerWithFallback(query, customer, payload) {
   let lastError = null;
   for (const variant of variants) {
     const response = customer.id
-      ? await query.update(variant).eq("id", customer.id).select().single()
-      : await query.insert(variant).select().single();
+      ? await supabase
+          .from("customers")
+          .update(variant)
+          .eq("id", customer.id)
+          .eq("user_id", userId)
+          .select()
+          .single()
+      : await supabase.from("customers").insert(variant).select().single();
 
     if (!response.error) return response.data;
     lastError = response.error;
@@ -153,7 +172,7 @@ function buildScheduleFallbackNote(schedule) {
     .join("\n");
 }
 
-async function writeScheduleWithFallback(query, schedule, payload) {
+async function writeScheduleWithFallback(schedule, payload, userId) {
   const fallbackNote = buildScheduleFallbackNote(schedule);
   const variants = [
     payload,
@@ -193,8 +212,14 @@ async function writeScheduleWithFallback(query, schedule, payload) {
   let lastError = null;
   for (const variant of variants) {
     const response = schedule.id
-      ? await query.update(variant).eq("id", schedule.id).select().single()
-      : await query.insert(variant).select().single();
+      ? await supabase
+          .from("schedules")
+          .update(variant)
+          .eq("id", schedule.id)
+          .eq("user_id", userId)
+          .select()
+          .single()
+      : await supabase.from("schedules").insert(variant).select().single();
 
     if (!response.error) return response.data;
     lastError = response.error;
@@ -347,11 +372,15 @@ export async function getCurrentUserId() {
 }
 
 export async function listCustomers() {
-  if (!isSupabaseConfigured) return readLocal(STORAGE_KEYS.customers);
+  if (!isSupabaseConfigured) return readLocal(getScopedLocalKey(STORAGE_KEYS.customers));
+
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
 
   const { data, error } = await supabase
     .from("customers")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -360,12 +389,13 @@ export async function listCustomers() {
 
 export async function saveCustomer(customer) {
   if (!isSupabaseConfigured) {
-    const items = readLocal(STORAGE_KEYS.customers);
+    const storageKey = getScopedLocalKey(STORAGE_KEYS.customers);
+    const items = readLocal(storageKey);
     const now = new Date().toISOString();
     const next = customer.id
       ? items.map((item) => (item.id === customer.id ? { ...item, ...customer } : item))
       : [{ ...customer, id: createLocalId(), created_at: now }, ...items];
-    writeLocal(STORAGE_KEYS.customers, next);
+    writeLocal(storageKey, next);
     return customer.id ? next.find((item) => item.id === customer.id) : next[0];
   }
 
@@ -379,29 +409,36 @@ export async function saveCustomer(customer) {
     inflow_date: customerPayload.inflow_date || null,
     user_id: userId,
   });
-  const query = supabase.from("customers");
-  return writeCustomerWithFallback(query, customer, payload);
+  return writeCustomerWithFallback(customer, payload, userId);
 }
 
 export async function deleteCustomer(id) {
   if (!isSupabaseConfigured) {
+    const storageKey = getScopedLocalKey(STORAGE_KEYS.customers);
     writeLocal(
-      STORAGE_KEYS.customers,
-      readLocal(STORAGE_KEYS.customers).filter((item) => item.id !== id)
+      storageKey,
+      readLocal(storageKey).filter((item) => item.id !== id)
     );
     return;
   }
 
-  const { error } = await supabase.from("customers").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("로그인이 필요합니다.");
+
+  const { error } = await supabase.from("customers").delete().eq("id", id).eq("user_id", userId);
   if (error) throw error;
 }
 
 export async function listSchedules() {
-  if (!isSupabaseConfigured) return readLocal(STORAGE_KEYS.schedules);
+  if (!isSupabaseConfigured) return readLocal(getScopedLocalKey(STORAGE_KEYS.schedules));
+
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
 
   const { data, error } = await supabase
     .from("schedules")
     .select("*")
+    .eq("user_id", userId)
     .order("schedule_date", { ascending: true })
     .order("schedule_time", { ascending: true });
 
@@ -409,6 +446,7 @@ export async function listSchedules() {
     const fallback = await supabase
       .from("schedules")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (fallback.error) throw error;
@@ -420,12 +458,13 @@ export async function listSchedules() {
 
 export async function saveSchedule(schedule) {
   if (!isSupabaseConfigured) {
-    const items = readLocal(STORAGE_KEYS.schedules);
+    const storageKey = getScopedLocalKey(STORAGE_KEYS.schedules);
+    const items = readLocal(storageKey);
     const now = new Date().toISOString();
     const next = schedule.id
       ? items.map((item) => (item.id === schedule.id ? { ...item, ...schedule } : item))
       : [{ ...schedule, id: createLocalId(), created_at: now }, ...items];
-    writeLocal(STORAGE_KEYS.schedules, next);
+    writeLocal(storageKey, next);
     return schedule.id ? next.find((item) => item.id === schedule.id) : next[0];
   }
 
@@ -439,20 +478,23 @@ export async function saveSchedule(schedule) {
     schedule_time: schedulePayload.schedule_time || null,
     user_id: userId,
   });
-  const query = supabase.from("schedules");
-  return writeScheduleWithFallback(query, schedule, payload);
+  return writeScheduleWithFallback(schedule, payload, userId);
 }
 
 export async function deleteSchedule(id) {
   if (!isSupabaseConfigured) {
+    const storageKey = getScopedLocalKey(STORAGE_KEYS.schedules);
     writeLocal(
-      STORAGE_KEYS.schedules,
-      readLocal(STORAGE_KEYS.schedules).filter((item) => item.id !== id)
+      storageKey,
+      readLocal(storageKey).filter((item) => item.id !== id)
     );
     return;
   }
 
-  const { error } = await supabase.from("schedules").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("로그인이 필요합니다.");
+
+  const { error } = await supabase.from("schedules").delete().eq("id", id).eq("user_id", userId);
   if (error) throw error;
 }
 
@@ -515,7 +557,8 @@ function normalizeSettlementRow(row = {}) {
 }
 
 function upsertLocalSettlement(settlement) {
-  const rows = readLocal(SETTLEMENT_STORAGE_KEY, []).map(normalizeSettlementRow);
+  const storageKey = getScopedLocalKey(SETTLEMENT_STORAGE_KEY);
+  const rows = readLocal(storageKey).map(normalizeSettlementRow);
   const next = normalizeSettlementRow({
     ...settlement,
     id: settlement.id || createLocalId(),
@@ -528,13 +571,13 @@ function upsertLocalSettlement(settlement) {
     return false;
   });
   const merged = index >= 0 ? rows.map((item, itemIndex) => (itemIndex === index ? { ...item, ...next } : item)) : [next, ...rows];
-  writeLocal(SETTLEMENT_STORAGE_KEY, merged);
+  writeLocal(storageKey, merged);
   return next;
 }
 
 export async function listSettlements() {
   if (!isSupabaseConfigured) {
-    return readLocal(SETTLEMENT_STORAGE_KEY, []).map(normalizeSettlementRow);
+    return readLocal(getScopedLocalKey(SETTLEMENT_STORAGE_KEY)).map(normalizeSettlementRow);
   }
 
   const userId = await getCurrentUserId();
@@ -623,8 +666,9 @@ export async function completeSettlement(settlementId) {
 
 export async function deleteSettlement(settlementId) {
   if (!isSupabaseConfigured) {
-    const rows = readLocal(SETTLEMENT_STORAGE_KEY, []).filter((item) => String(item.id) !== String(settlementId));
-    writeLocal(SETTLEMENT_STORAGE_KEY, rows);
+    const storageKey = getScopedLocalKey(SETTLEMENT_STORAGE_KEY);
+    const rows = readLocal(storageKey).filter((item) => String(item.id) !== String(settlementId));
+    writeLocal(storageKey, rows);
     return true;
   }
 
@@ -645,11 +689,15 @@ export async function getSettlementRevenueSummary() {
   };
 }
 export async function listBrochures() {
-  if (!isSupabaseConfigured) return readLocal(STORAGE_KEYS.brochures);
+  if (!isSupabaseConfigured) return readLocal(getScopedLocalKey(STORAGE_KEYS.brochures));
+
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
 
   const { data, error } = await supabase
     .from("brochures")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -657,11 +705,15 @@ export async function listBrochures() {
 }
 
 export async function listProperties() {
-  if (!isSupabaseConfigured) return readLocal(STORAGE_KEYS.brochures);
+  if (!isSupabaseConfigured) return readLocal(getScopedLocalKey(STORAGE_KEYS.brochures));
+
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
 
   const { data, error } = await supabase
     .from("properties")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -670,14 +722,18 @@ export async function listProperties() {
 
 export async function deleteBrochure(id) {
   if (!isSupabaseConfigured) {
+    const storageKey = getScopedLocalKey(STORAGE_KEYS.brochures);
     writeLocal(
-      STORAGE_KEYS.brochures,
-      readLocal(STORAGE_KEYS.brochures).filter((item) => item.id !== id)
+      storageKey,
+      readLocal(storageKey).filter((item) => item.id !== id)
     );
     return;
   }
 
-  const { error } = await supabase.from("brochures").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("로그인이 필요합니다.");
+
+  const { error } = await supabase.from("brochures").delete().eq("id", id).eq("user_id", userId);
   if (error) throw error;
 }
 
@@ -762,14 +818,15 @@ export async function savePropertyAndBrochure({ form, mainImage, extraImages, br
   };
 
   if (!isSupabaseConfigured) {
-    const items = readLocal(STORAGE_KEYS.brochures);
+    const storageKey = getScopedLocalKey(STORAGE_KEYS.brochures);
+    const items = readLocal(storageKey);
     const item = {
       id: createLocalId(),
       ...payload,
       price: priceSummary,
       created_at: new Date().toISOString(),
     };
-    writeLocal(STORAGE_KEYS.brochures, [item, ...items]);
+    writeLocal(storageKey, [item, ...items]);
     return item;
   }
 

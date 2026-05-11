@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { completeSettlement, deleteSettlement, listCustomers, listSchedules, listSettlements, saveCustomer, saveSettlement } from "../services/supabaseRepository";
 
 const BALANCE_TYPES = new Set(["잔금일", "잔금", "잔금날"]);
@@ -217,6 +218,7 @@ function mergeScheduleSettlements(ledgerRows, scheduleRows, customerRows) {
 }
 
 function SettlementPage({ setPage } = {}) {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [month, setMonth] = useState(toMonthInputValue(today));
   const [customers, setCustomers] = useState([]);
   const [schedules, setSchedules] = useState([]);
@@ -230,6 +232,15 @@ function SettlementPage({ setPage } = {}) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setCustomers([]);
+      setSchedules([]);
+      setLedger([]);
+      setMessage("");
+      return;
+    }
+
     async function load() {
       try {
         const [customerRows, scheduleRows, settlementRows] = await Promise.all([
@@ -250,7 +261,7 @@ function SettlementPage({ setPage } = {}) {
     }
 
     load();
-  }, []);
+  }, [authLoading, isAuthenticated, user?.id]);
 
   const selectedCustomer = useMemo(
     () => customers.find((customer) => String(customer.id) === String(form.customer_id)),
