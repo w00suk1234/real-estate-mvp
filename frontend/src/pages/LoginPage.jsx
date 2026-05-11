@@ -206,7 +206,13 @@ function LoginPage({ setPage }) {
           markAllSignupFieldsTouched();
           throw new Error("입력값을 다시 확인해 주세요.");
         }
-        await signup(signupForm);
+        const signupResult = await signup(signupForm);
+        if (signupResult?.needsEmailConfirmation) {
+          setResult(`${signupResult.email}로 인증 메일을 보냈습니다. 메일의 인증 링크를 누른 뒤 로그인해 주세요.`);
+          setLoginForm((prev) => ({ ...prev, username: signupResult.email }));
+          setMode("login");
+          return;
+        }
         setPage?.("schedules");
         return;
       }

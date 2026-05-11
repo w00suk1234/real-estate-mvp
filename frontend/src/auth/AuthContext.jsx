@@ -234,6 +234,7 @@ function AuthProvider({ children }) {
           email,
           password: payload.password,
           options: {
+            emailRedirectTo: `${window.location.origin}/?page=login`,
             data: {
               username: email,
               office_name: payload.office_name,
@@ -253,7 +254,12 @@ function AuthProvider({ children }) {
         throw new Error("이미 가입된 계정입니다. 로그인 탭에서 로그인해 주세요.");
       }
       if (!data.session) {
-        throw new Error("가입 요청은 접수됐지만 자동 로그인이 되지 않았습니다. 이메일 인증 설정이 켜져 있으면 관리자 확인이 필요합니다.");
+        rememberAuthEmail(email, email);
+        return {
+          needsEmailConfirmation: true,
+          email,
+          user: normalizeUser(data.user),
+        };
       }
       setUser(normalizeUser(data.user));
       try {
