@@ -43,6 +43,27 @@ const TABS = [
   ["payroll", "급여명세서"],
 ];
 
+const ROLE_OPTIONS = [
+  ["member", "팀원"],
+  ["viewer", "조회 전용"],
+  ["admin", "관리자"],
+];
+
+const MEMBER_ROLE_OPTIONS = [
+  ["owner", "팀장"],
+  ["admin", "관리자"],
+  ["member", "팀원"],
+  ["viewer", "조회 전용"],
+];
+
+const SUBSCRIPTION_STATUS_LABELS = {
+  trialing: "체험 사용 중",
+  active: "사용 중",
+  past_due: "결제 확인 필요",
+  canceled: "해지됨",
+  expired: "만료됨",
+};
+
 const today = new Date();
 
 function toMonthInputValue(date) {
@@ -55,6 +76,14 @@ function formatWon(value) {
 
 function memberLabel(member) {
   return member.display_name || member.name || member.email || member.user_id || "팀원";
+}
+
+function roleLabel(role) {
+  return Object.fromEntries(MEMBER_ROLE_OPTIONS)[role] || role || "권한 없음";
+}
+
+function subscriptionStatusLabel(status) {
+  return SUBSCRIPTION_STATUS_LABELS[status] || status || "구독 상태 없음";
 }
 
 function getCustomerName(customer) {
@@ -414,7 +443,7 @@ function TeamModePage() {
       <section className="page-header-card compact-page-header team-mode-header">
         <div>
           <h1>팀플모드</h1>
-          <p>{state.team.name} · {state.membership.role} · {state.subscription?.status || "구독 상태 없음"}</p>
+          <p>{state.team.name} · {roleLabel(state.membership.role)} · {subscriptionStatusLabel(state.subscription?.status)}</p>
         </div>
         <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
       </section>
@@ -465,10 +494,9 @@ function TeamModePage() {
                     <span>{member.email || member.user_id}</span>
                   </div>
                   <select value={member.role} disabled={!isManager || state.membership.role !== "owner" || saving} onChange={(event) => handleMemberChange(member, { role: event.target.value, status: member.status })}>
-                    <option value="owner">owner</option>
-                    <option value="admin">admin</option>
-                    <option value="member">member</option>
-                    <option value="viewer">viewer</option>
+                    {MEMBER_ROLE_OPTIONS.map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
                   </select>
                   <button type="button" className="danger-btn small-btn" disabled={!isManager || member.role === "owner"} onClick={() => handleMemberChange(member, { role: member.role, status: "suspended" })}>
                     비활성화
@@ -482,9 +510,9 @@ function TeamModePage() {
               <h2>초대 링크 생성</h2>
               <input value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="이메일 선택 입력" />
               <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>
-                <option value="member">member</option>
-                <option value="viewer">viewer</option>
-                <option value="admin">admin</option>
+                {ROLE_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
               <button type="submit" className="primary-btn" disabled={saving}>초대 링크 생성</button>
               {inviteLink ? (
@@ -493,6 +521,7 @@ function TeamModePage() {
                   <button type="button" className="secondary-btn small-btn" onClick={() => navigator.clipboard?.writeText(inviteLink)}>복사</button>
                 </div>
               ) : null}
+              <p>현재는 이메일 자동 발송 없이 초대 링크를 복사해서 전달합니다. 초대받은 계정은 로그인 후 링크를 열어 수락하면 됩니다.</p>
               <p>기본 플랜은 팀장 포함 5명까지 사용할 수 있습니다. 추가 인원 플랜은 준비 중입니다.</p>
             </form>
           ) : null}
