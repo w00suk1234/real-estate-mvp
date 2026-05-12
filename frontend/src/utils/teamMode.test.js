@@ -5,8 +5,10 @@ import {
   buildTeamMonthlySummary,
   calculatePayrollTotal,
   canInviteSeat,
+  getPendingInvitationCount,
   getTeamModeErrorMessage,
   getSeatCapacity,
+  getSeatUsage,
   isRawSupabaseError,
   isTeamSchemaMissingError,
   isSubscriptionActive,
@@ -23,6 +25,18 @@ test("team subscription and seat limit helpers gate team mode", () => {
     members: [{ status: "active" }],
     invitations: [{ status: "pending" }],
   }), false);
+});
+
+test("team seat usage counts duplicate pending email invitations once", () => {
+  const members = [{ status: "active" }];
+  const invitations = [
+    { id: "i1", status: "pending", email: "test2@test2.com" },
+    { id: "i2", status: "pending", email: "TEST2@test2.com" },
+    { id: "i3", status: "revoked", email: "test3@test3.com" },
+  ];
+
+  assert.equal(getPendingInvitationCount(invitations), 1);
+  assert.equal(getSeatUsage({ members, invitations }), 2);
 });
 
 test("team schedule counters map business aliases", () => {

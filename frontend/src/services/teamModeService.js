@@ -368,16 +368,6 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
 
   if (!isSupabaseConfigured || !supabase) {
     const data = getLocalData();
-    const normalizedEmail = normalizeEmail(email);
-    const nextInvitations = normalizedEmail
-      ? data.invitations.map((invite) => (
-        String(invite.team_id) === String(teamId) &&
-        invite.status === "pending" &&
-        normalizeEmail(invite.email) === normalizedEmail
-          ? { ...invite, status: "revoked" }
-          : invite
-      ))
-      : data.invitations;
     const invitation = {
       id: createId("invite"),
       team_id: teamId,
@@ -389,18 +379,8 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
       expires_at: expiresAt,
       created_at: nowIso(),
     };
-    saveLocalData({ ...data, invitations: [invitation, ...nextInvitations] });
+    saveLocalData({ ...data, invitations: [invitation, ...data.invitations] });
     return { invitation, inviteUrl: inviteUrlForToken(token), token };
-  }
-
-  const normalizedEmail = normalizeEmail(email);
-  if (normalizedEmail) {
-    await supabase
-      .from("team_invitations")
-      .update({ status: "revoked" })
-      .eq("team_id", teamId)
-      .eq("status", "pending")
-      .ilike("email", normalizedEmail);
   }
 
   const { data: invitation, error } = await supabase
@@ -458,7 +438,12 @@ export async function acceptTeamInvitation(token) {
     saveLocalData({
       ...data,
       members: [...data.members.filter((item) => !(item.team_id === invitation.team_id && item.user_id === userId)), member],
-      invitations: data.invitations.map((item) => item.id === invitation.id ? { ...item, status: "accepted", accepted_at: nowIso(), accepted_by: userId } : item),
+      invitations: data.invitations.map((item) => {
+        const isSameInvite = item.id === invitation.id;
+        const isSameEmailInvite = invitedEmail && normalizeEmail(item.email) === invitedEmail && String(item.team_id) === String(invitation.team_id) && item.status === "pending";
+        if (!isSameInvite && !isSameEmailInvite) return item;
+        return { ...item, status: isSameInvite ? "accepted" : "revoked", accepted_at: isSameInvite ? nowIso() : item.accepted_at, accepted_by: isSameInvite ? userId : item.accepted_by };
+      }),
     });
     return member;
   }
@@ -470,7 +455,7 @@ export async function acceptTeamInvitation(token) {
     .eq("status", "pending")
     .maybeSingle();
   if (error) throwTeamModeError(error, "team_invitations");
-  if (!invitation) throw new Error("유효하지 않은 초대 링크입니다.");
+  if (!invitation) throw new Error("초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 최신 초대 링크를 다시 요청해 주세요.");
   if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 링크가 만료되었습니다.");
 
   const currentUser = await getCurrentAuthUser();
@@ -521,10 +506,25 @@ export async function acceptTeamInvitation(token) {
     .single();
   if (memberError) throwTeamModeError(memberError, "team_members");
 
-  await supabase
+  const { error: acceptError } = await supabase
     .from("team_invitations")
     .update({ status: "accepted", accepted_at: nowIso(), accepted_by: userId })
     .eq("id", invitation.id);
+  if (acceptError) {
+    console.warn("[team-mode] invitation accepted but status update failed", acceptError);
+  }
+
+  if (invitedEmail) {
+    const { error: revokeDuplicateError } = await supabase
+      .from("team_invitations")
+      .update({ status: "revoked" })
+      .eq("team_id", invitation.team_id)
+      .eq("status", "pending")
+      .ilike("email", invitedEmail);
+    if (revokeDuplicateError) {
+      console.warn("[team-mode] duplicate invitation cleanup failed", revokeDuplicateError);
+    }
+  }
 
   return member;
 }

@@ -278,6 +278,24 @@ as $$
   );
 $$;
 
+create or replace function public.has_pending_team_invitation(target_team_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.team_invitations
+    where team_id = target_team_id
+      and status = 'pending'
+      and expires_at > now()
+      and (
+        email is null
+        or lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      )
+  );
+$$;
+
 -- ---------------------------------------------------------------------------
 -- RLS for team-mode tables
 -- ---------------------------------------------------------------------------
@@ -308,16 +326,47 @@ for select using (public.is_team_member(team_id) or user_id = auth.uid());
 
 drop policy if exists "users can create own membership" on public.team_members;
 create policy "users can create own membership" on public.team_members
-for insert with check (user_id = auth.uid());
+for insert with check (
+  user_id = auth.uid()
+  and (
+    exists (
+      select 1 from public.teams
+      where teams.id = team_members.team_id
+        and teams.owner_user_id = auth.uid()
+    )
+    or public.has_pending_team_invitation(team_id)
+  )
+);
 
 drop policy if exists "owners admins update members" on public.team_members;
 create policy "owners admins update members" on public.team_members
 for update using (public.has_team_role(team_id, array['owner','admin']));
 
 drop policy if exists "owners admins manage invitations" on public.team_invitations;
-create policy "owners admins manage invitations" on public.team_invitations
-for all using (public.has_team_role(team_id, array['owner','admin']))
-with check (public.has_team_role(team_id, array['owner','admin']));
+drop policy if exists "team invitations scoped select" on public.team_invitations;
+create policy "team invitations scoped select" on public.team_invitations
+for select using (
+  public.has_team_role(team_id, array['owner','admin'])
+  or public.has_pending_team_invitation(team_id)
+);
+
+drop policy if exists "owners admins insert invitations" on public.team_invitations;
+create policy "owners admins insert invitations" on public.team_invitations
+for insert with check (public.has_team_role(team_id, array['owner','admin']));
+
+drop policy if exists "team invitations scoped update" on public.team_invitations;
+create policy "team invitations scoped update" on public.team_invitations
+for update using (
+  public.has_team_role(team_id, array['owner','admin'])
+  or public.has_pending_team_invitation(team_id)
+)
+with check (
+  public.has_team_role(team_id, array['owner','admin'])
+  or (
+    accepted_by = auth.uid()
+    and status in ('accepted', 'revoked')
+  )
+);
 
 drop policy if exists "members can view subscriptions" on public.team_subscriptions;
 create policy "members can view subscriptions" on public.team_subscriptions

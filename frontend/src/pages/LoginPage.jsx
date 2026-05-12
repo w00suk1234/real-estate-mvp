@@ -25,6 +25,29 @@ const SIGNUP_FIELD_KEYS = [
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^01[016789]-\d{3,4}-\d{4}$/;
+const PENDING_TEAM_INVITE_TOKEN_KEY = "agentnote_pending_team_invite_token";
+
+function extractTeamInviteToken(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+  try {
+    const parsed = new URL(rawValue);
+    return parsed.searchParams.get("token") || rawValue;
+  } catch {
+    return rawValue;
+  }
+}
+
+function getPendingTeamInviteToken() {
+  const params = new URLSearchParams(window.location.search);
+  return extractTeamInviteToken(params.get("token")) || extractTeamInviteToken(sessionStorage.getItem(PENDING_TEAM_INVITE_TOKEN_KEY));
+}
+
+function preserveTeamInviteToken() {
+  const token = getPendingTeamInviteToken();
+  if (token) sessionStorage.setItem(PENDING_TEAM_INVITE_TOKEN_KEY, token);
+  return token;
+}
 
 function formatPhone(value) {
   const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -129,6 +152,8 @@ function LoginPage({ setPage }) {
     (isResetRequest && Boolean(resetUsernameError || resetPhoneError));
 
   useEffect(() => {
+    preserveTeamInviteToken();
+
     const params = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
     const authType = hashParams.get("type");
@@ -150,6 +175,16 @@ function LoginPage({ setPage }) {
       setMode("reset-password");
     }
   }, [logout]);
+
+  function goAfterAuth(defaultPage = "schedules") {
+    const teamInviteToken = preserveTeamInviteToken();
+    if (teamInviteToken) {
+      window.history.replaceState({}, "", `/team?token=${encodeURIComponent(teamInviteToken)}`);
+      setPage?.("team-mode");
+      return;
+    }
+    setPage?.(defaultPage);
+  }
 
   function switchMode(nextMode) {
     setMode(nextMode);
@@ -235,7 +270,7 @@ function LoginPage({ setPage }) {
           setMode("login");
           return;
         }
-        setPage?.("schedules");
+        goAfterAuth("schedules");
         return;
       }
 
@@ -297,7 +332,7 @@ function LoginPage({ setPage }) {
       }
 
       await login({ ...loginForm, rememberLogin });
-      setPage?.("schedules");
+      goAfterAuth("schedules");
     } catch (err) {
       const message = err.message || "처리 중 오류가 발생했습니다.";
       setError(isSignup && /요청 처리 중 오류가 발생했습니다/.test(message)

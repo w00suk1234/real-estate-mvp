@@ -65,6 +65,7 @@ const SUBSCRIPTION_STATUS_LABELS = {
   expired: "만료됨",
 };
 
+const PENDING_TEAM_INVITE_TOKEN_KEY = "agentnote_pending_team_invite_token";
 const today = new Date();
 
 function toMonthInputValue(date) {
@@ -98,6 +99,27 @@ function extractInviteToken(value) {
   }
 }
 
+function getInviteTokenFromUrl() {
+  return extractInviteToken(new URLSearchParams(window.location.search).get("token"));
+}
+
+function getPendingInviteToken() {
+  return getInviteTokenFromUrl() || extractInviteToken(sessionStorage.getItem(PENDING_TEAM_INVITE_TOKEN_KEY));
+}
+
+function storePendingInviteToken(token) {
+  const cleanToken = extractInviteToken(token);
+  if (cleanToken) sessionStorage.setItem(PENDING_TEAM_INVITE_TOKEN_KEY, cleanToken);
+  return cleanToken;
+}
+
+function clearPendingInviteToken() {
+  sessionStorage.removeItem(PENDING_TEAM_INVITE_TOKEN_KEY);
+  if (window.location.pathname === "/team" && new URLSearchParams(window.location.search).has("token")) {
+    window.history.replaceState({}, "", "/team");
+  }
+}
+
 function getCustomerName(customer) {
   return customer.name || customer.customer_name || "이름 없음";
 }
@@ -126,6 +148,8 @@ function TeamModePage() {
   const [payrollForm, setPayrollForm] = useState({ userId: "", basePay: "", commissionPay: "", bonusPay: "", deductionAmount: "", memo: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoAccepting, setAutoAccepting] = useState(false);
+  const [autoAcceptAttemptedToken, setAutoAcceptAttemptedToken] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
 
@@ -168,9 +192,11 @@ function TeamModePage() {
     if (authLoading) return;
     if (!isAuthenticated) {
       resetTeamState();
-      if (extractInviteToken(new URLSearchParams(window.location.search).get("token"))) {
+      if (storePendingInviteToken(getInviteTokenFromUrl())) {
         setMessageType("warning");
-        setMessage("팀 초대는 로그인 후 수락할 수 있습니다. 초대받은 계정으로 로그인한 뒤 링크를 다시 열어 주세요.");
+        setMessage("초대 링크를 확인했습니다. 초대받은 계정으로 로그인하면 자동으로 팀에 참여합니다.");
+      } else {
+        setMessage("");
       }
       setLoading(false);
       return;
@@ -188,7 +214,11 @@ function TeamModePage() {
         return;
       }
       if (messageType === "warning") setMessage("");
-      if (!currentState.team) return;
+      if (!currentState.team) {
+        setMembers([]);
+        setInvitations([]);
+        return;
+      }
       const [memberRows, inviteRows] = await Promise.all([
         listTeamMembers(currentState.team.id),
         listPendingInvitations(currentState.team.id),
@@ -245,14 +275,42 @@ function TeamModePage() {
   }
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    const token = storePendingInviteToken(getInviteTokenFromUrl());
     if (token) setAcceptToken(token);
   }, []);
 
   useEffect(() => {
     loadTeam();
   }, [authLoading, isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    async function acceptPendingInvite() {
+      if (authLoading || !isAuthenticated || loading || state.team?.id || autoAccepting) return;
+      const token = getPendingInviteToken();
+      if (!token) return;
+      if (token === autoAcceptAttemptedToken) return;
+
+      setAutoAcceptAttemptedToken(token);
+      setAutoAccepting(true);
+      setSaving(true);
+      setMessageType("warning");
+      setMessage("초대 링크를 확인하고 있습니다.");
+      try {
+        await acceptTeamInvitation(token);
+        clearPendingInviteToken();
+        setAcceptToken("");
+        showSuccess("초대를 수락했습니다. 팀에 참여되었습니다.");
+        await loadTeam();
+      } catch (error) {
+        showError(error, "초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 새 초대 링크를 다시 요청해 주세요.");
+      } finally {
+        setSaving(false);
+        setAutoAccepting(false);
+      }
+    }
+
+    acceptPendingInvite();
+  }, [authLoading, isAuthenticated, loading, state.team?.id, autoAccepting, autoAcceptAttemptedToken]);
 
   useEffect(() => {
     if (state.team?.id) {
@@ -284,6 +342,7 @@ function TeamModePage() {
     setMessage("");
     try {
       await acceptTeamInvitation(extractInviteToken(acceptToken));
+      clearPendingInviteToken();
       setAcceptToken("");
       showSuccess("초대를 수락했습니다.");
       await loadTeam();
@@ -428,14 +487,10 @@ function TeamModePage() {
         <section className="page-header-card compact-page-header">
           <div>
             <h1>팀플모드</h1>
-            <p>팀 생성과 초대 수락은 로그인 후 사용할 수 있습니다.</p>
+            <p>초대받은 계정으로 로그인하면 팀 참여가 이어집니다.</p>
           </div>
         </section>
         {message ? <div className={`schedule-inline-alert team-mode-alert ${messageType}`}>{message}</div> : null}
-        <section className="dashboard-card team-mode-locked">
-          <h2>로그인이 필요합니다</h2>
-          <p>초대 링크를 받은 계정으로 로그인한 뒤 같은 링크를 다시 열어 주세요.</p>
-        </section>
       </div>
     );
   }
@@ -468,8 +523,8 @@ function TeamModePage() {
           </form>
           <form className="dashboard-card team-onboarding-card" onSubmit={handleAcceptInvitation}>
             <h2>초대 링크로 참여</h2>
-            <p>팀장이 전달한 초대 링크의 token 값을 붙여 넣으면 팀에 참여할 수 있습니다.</p>
-            <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} placeholder="초대 token" />
+            <p>초대 링크를 열면 자동으로 수락을 시도합니다. 필요하면 전체 링크를 그대로 붙여 넣어도 됩니다.</p>
+            <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} placeholder="초대 링크 또는 token" />
             <button type="submit" className="secondary-btn" disabled={saving || !acceptToken.trim()}>
               초대 수락
             </button>
