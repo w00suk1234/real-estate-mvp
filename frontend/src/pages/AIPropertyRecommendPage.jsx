@@ -307,17 +307,23 @@ function AIPropertyRecommendPage({ setPage }) {
         ) : !properties.length ? (
           <div className="recommend-empty-state">등록된 매물이 없어 추천할 수 없습니다.</div>
         ) : visibleResults.length ? (
-          <div className="recommend-card-list">
-            {visibleResults.map((result, index) => (
-              <RecommendationCard
-                key={`${result.normalizedProperty.id || index}-${result.score}`}
-                rank={index + 1}
-                result={result}
-                onCopy={handleCopy}
-                onOpenBriefing={() => setPage?.("briefing")}
-              />
-            ))}
-          </div>
+          <>
+            <div className="recommend-results-summary">
+              <strong>입력한 고객 조건 기준으로 우선 검토할 매물 {visibleResults.length}개를 찾았습니다.</strong>
+              <span>점수는 참고용이며, 정보가 부족한 항목은 현장 확인이 필요합니다.</span>
+            </div>
+            <div className="recommend-card-list">
+              {visibleResults.map((result, index) => (
+                <RecommendationCard
+                  key={`${result.normalizedProperty.id || index}-${result.score}`}
+                  rank={index + 1}
+                  result={result}
+                  onCopy={handleCopy}
+                  onOpenBriefing={() => setPage?.("ai-briefing")}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           <div className="recommend-empty-state">현재 조건 적합도 기준에 맞는 매물이 없습니다. 70점, 55점, 전체보기 순서로 조건을 낮춰 보세요.</div>
         )}
@@ -425,9 +431,21 @@ function CustomerSummary({ customer }) {
 }
 
 function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
+  const [expanded, setExpanded] = useState(false);
   const property = result.normalizedProperty || normalizePropertyData(result.property);
   const imageUrl = property.imageUrl;
   const brochureUrl = result.property?.brochure_url || "";
+  const goodPoints = (result.matchedReasons || []).slice(0, 3);
+  const warnings = (result.warnings || []).slice(0, 3);
+  const caps = result.capsApplied || [];
+  const tags = [
+    result.gradeLabel || gradeLabel(result.grade),
+    ...goodPoints.slice(0, 2),
+    ...(warnings.length ? [shortLabel(warnings[0])] : []),
+  ].slice(0, 3);
+  const oneLine = warnings.length
+    ? `${goodPoints[0] || "조건 기준으로 검토 가능"} · ${shortLabel(warnings[0])}`
+    : `${goodPoints[0] || "입력된 조건 기준으로 검토 가능한 매물입니다."}`;
 
   return (
     <article className="recommend-card">
@@ -450,6 +468,10 @@ function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
           </div>
         </div>
 
+        <p className="recommend-card-summary">{oneLine}</p>
+        <div className="recommend-tag-row">
+          {tags.map((tag) => <span key={tag}>{tag}</span>)}
+        </div>
         <div className="recommend-price-line">{property.priceSummary || "가격 확인 필요"}</div>
         <div className="recommend-score-meta">
           <span>정보 완성도 {result.infoCompleteness ?? 0}점</span>
@@ -457,27 +479,45 @@ function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
         </div>
 
         <div className="recommend-reason-grid">
-          <ReasonList title="좋은 점" items={result.matchedReasons} empty="좋은 점을 계산하려면 조건 정보가 더 필요합니다." />
-          <ReasonList title="주의사항" items={result.warnings} empty="특별한 주의사항이 없습니다." />
-          <ReasonList title="적용된 상한선" items={result.capsApplied} empty="적용된 상한선 없음" />
+          <ReasonList title="좋은 점" items={goodPoints} empty="좋은 점을 계산하려면 조건 정보가 더 필요합니다." />
+          <ReasonList title="주의점" items={warnings} empty="특별한 주의사항이 없습니다." />
         </div>
 
-        <div className="customer-message-box">
-          <span>고객용 문구</span>
-          <p>{result.customerMessage}</p>
-        </div>
+        {expanded ? (
+          <div className="recommend-detail-panel">
+            <ReasonList title="확인 필요 항목" items={warnings.map(shortLabel)} empty="추가 확인 필요 항목 없음" />
+            <ReasonList title="적용된 상한선" items={caps} empty="적용된 상한선 없음" />
+            <div className="customer-message-box">
+              <div>
+                <span>고객용 문구</span>
+                <button type="button" className="secondary-btn small-btn" onClick={() => onCopy(result.customerMessage)}>
+                  복사
+                </button>
+              </div>
+              <p>{result.customerMessage}</p>
+            </div>
+            <div className="recommend-detail-info">
+              <span>{property.address || "주소 확인 필요"}</span>
+              <span>{property.areaM2 ? `${property.areaM2}㎡` : "면적 확인 필요"}</span>
+              <span>{property.floor || "층수 확인 필요"}</span>
+            </div>
+          </div>
+        ) : null}
 
         <div className="recommend-actions">
-          <button type="button" className="secondary-btn" onClick={() => onCopy(result.customerMessage)}>
-            고객용 문구 복사
+          <button type="button" className="secondary-btn" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? "상세 접기" : "상세 보기"}
+          </button>
+          <button type="button" className="secondary-btn" onClick={onOpenBriefing}>
+            AI 브리핑으로 보내기
           </button>
           {brochureUrl ? (
             <a className="primary-btn recommend-link-btn" href={brochureUrl} target="_blank" rel="noreferrer">
               소개서 보기
             </a>
           ) : (
-            <button type="button" className="primary-btn" onClick={onOpenBriefing}>
-              소개서 보기
+            <button type="button" className="primary-btn" disabled>
+              소개서 없음
             </button>
           )}
         </div>
@@ -501,6 +541,18 @@ function ReasonList({ title, items, empty }) {
       )}
     </div>
   );
+}
+
+function shortLabel(item = "") {
+  return String(item)
+    .replace(/고객\s*/g, "")
+    .replace(/매물\s*/g, "")
+    .replace(/정보\s*/g, "")
+    .replace(/확인\s*필요/g, "확인 필요")
+    .replace(/주소\/지역.*부족/g, "위치 확인 필요")
+    .replace(/가격.*부족/g, "가격 확인 필요")
+    .replace(/면적.*부족/g, "면적 확인 필요")
+    .trim();
 }
 
 function gradeLabel(grade) {

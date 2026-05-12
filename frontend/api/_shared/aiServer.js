@@ -223,7 +223,11 @@ export const SYSTEM_PROMPT = `
 - recommendationComment는 2문장 이내로, 중개사가 먼저 봐야 할 비교 요지만 쓴다.
 - rankings[].shortReason은 60자 이내로 쓴다.
 - strengths, concerns, talkingPoints는 항목당 짧은 명사구 또는 한 문장으로 쓴다.
-- brokerNote와 고객용 문안은 실제 복사해서 쓸 수 있게 간결하게 쓴다.
+- brokerNote는 5문장 이내로 상담 순서와 확인 포인트만 쓴다.
+- 고객용 카톡은 설명문이 아니라 실제 메시지처럼 쓴다.
+- customerMessages.short는 180자 안팎, normal은 350자 안팎, softPersuasive는 250자 안팎으로 쓴다.
+- "AI가 추천", "한번 보시면 좋을 것 같습니다", "강력 추천"처럼 어색하거나 부담 주는 표현을 피한다.
+- 고객 행동 유도는 "확인되면 다시 정리해드리겠습니다", "원하시면 우선순위 다시 추려드릴게요"처럼 부드럽게 쓴다.
 - 출력은 지정된 JSON schema만 반환한다.
 `;
 

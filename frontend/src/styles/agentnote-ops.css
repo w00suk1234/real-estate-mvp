@@ -463,12 +463,158 @@
   align-items: center;
 }
 
+.ai-briefing-summary-shell,
+.ai-briefing-tab-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.ai-briefing-summary-shell {
+  padding: 18px;
+  border: 1px solid #dbe7f5;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.ai-cost-note {
+  opacity: 0.72;
+}
+
+.ai-check-summary,
+.recommend-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ai-check-summary strong {
+  color: #0f274d;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ai-check-summary span,
+.recommend-tag-row span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-check-summary.slim span {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.ai-check-expanded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-check-expanded span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.text-link-btn {
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ai-briefing-tabs,
+.ai-message-segment {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #dbe7f5;
+  border-radius: 999px;
+  background: #f8fafc;
+  justify-self: start;
+}
+
+.ai-briefing-tabs button,
+.ai-message-segment button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: transparent;
+  color: #475569;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ai-briefing-tabs button.active,
+.ai-message-segment button.active {
+  background: #061b3a;
+  color: #ffffff;
+}
+
+.ai-briefing-ranking-list.compact article {
+  align-content: start;
+  padding: 16px;
+}
+
+.ai-ranking-two-col,
+.ai-briefing-tab-panel.two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ai-copy-panel,
+.ai-broker-workflow {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.ai-copy-panel > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.ai-copy-panel p {
+  margin: 0;
+  color: #24364f;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.ai-broker-workflow ol {
+  margin: 0;
+  padding-left: 20px;
+  color: #475569;
+  line-height: 1.7;
+}
+
 @media (max-width: 920px) {
   .ai-briefing-grid,
   .ai-briefing-selected-list,
   .ai-briefing-ranking-list,
   .ai-briefing-copy-grid,
-  .ai-briefing-feedback {
+  .ai-briefing-feedback,
+  .ai-ranking-two-col,
+  .ai-briefing-tab-panel.two-column {
     grid-template-columns: 1fr;
   }
 
@@ -810,6 +956,42 @@
   color: #1d4ed8;
 }
 
+.recommend-results-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.recommend-results-summary strong {
+  color: #0f274d;
+}
+
+.recommend-results-summary span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.recommend-card-summary {
+  margin: 0;
+  color: #0f274d;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.55;
+}
+
+.recommend-tag-row span {
+  background: #eef6ff;
+  color: #1d4ed8;
+}
+
 .recommend-price-line,
 .customer-message-box {
   padding: 10px 12px;
@@ -817,6 +999,46 @@
   background: #f8fbff;
   color: #0f2348;
   font-weight: 900;
+}
+
+.recommend-detail-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #fbfdff;
+}
+
+.recommend-detail-panel .recommend-reason-list {
+  background: #ffffff;
+}
+
+.recommend-detail-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recommend-detail-info span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.customer-message-box {
+  display: grid;
+  gap: 8px;
+}
+
+.customer-message-box > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .recommend-reason-grid {

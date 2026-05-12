@@ -32,6 +32,19 @@ const FEEDBACK_OPTIONS = [
   ["other", "기타"],
 ];
 
+const BRIEFING_TABS = [
+  ["summary", "추천 요약"],
+  ["broker", "중개사용 메모"],
+  ["customer", "고객용 문구"],
+  ["brochure", "소개서 문구"],
+];
+
+const CUSTOMER_MESSAGE_TABS = [
+  ["short", "짧게 보내기"],
+  ["normal", "기본 안내"],
+  ["softPersuasive", "부드러운 제안"],
+];
+
 function AIBriefingPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
@@ -327,14 +340,23 @@ function AIBriefingPage() {
 
 function BriefingResult({ result, properties, feedback, setFeedback, onCopy, onFeedbackSave }) {
   const briefing = result.briefing;
+  const [activeTab, setActiveTab] = useState("summary");
+  const [messageType, setMessageType] = useState("normal");
+  const [checksOpen, setChecksOpen] = useState(false);
   const propertyById = new Map(properties.map((property) => [property.id, property]));
+  const compactChecks = compactCheckLabels(briefing.missingChecks);
+  const visibleChecks = compactChecks.slice(0, 3);
+  const hiddenChecks = compactChecks.slice(3);
+  const activeMessageTitle = CUSTOMER_MESSAGE_TABS.find(([key]) => key === messageType)?.[1] || "고객용 문구";
+  const activeMessage = briefing.customerMessages?.[messageType] || "";
+
   return (
     <section className="ai-briefing-result">
-      <div className="ai-briefing-result-head">
+      <div className="ai-briefing-summary-shell">
         <div className="ai-briefing-result-titlebar">
           <span className={`ai-briefing-mode mode-${result.mode}`}>{MODE_LABELS[result.mode] || result.mode}</span>
           {result.estimatedCostUsd !== undefined ? (
-            <small>예상 ${Number(result.estimatedCostUsd || 0).toFixed(5)}{result.actualCostUsd ? ` · 실제 ${Number(result.actualCostUsd).toFixed(5)}` : ""}</small>
+            <small className="ai-cost-note">예상 ${Number(result.estimatedCostUsd || 0).toFixed(5)}{result.actualCostUsd ? ` · 실제 ${Number(result.actualCostUsd).toFixed(5)}` : ""}</small>
           ) : null}
         </div>
         <div className="ai-briefing-conclusion">
@@ -342,50 +364,86 @@ function BriefingResult({ result, properties, feedback, setFeedback, onCopy, onF
           <strong>{briefing.summary}</strong>
           <p>{briefing.recommendationComment}</p>
         </div>
+        <div className="ai-check-summary">
+          <strong>먼저 확인할 것</strong>
+          {visibleChecks.length ? visibleChecks.map((item) => <span key={item}>{item}</span>) : <span>추가 확인 사항 없음</span>}
+          {hiddenChecks.length ? (
+            <button type="button" className="text-link-btn" onClick={() => setChecksOpen((value) => !value)}>
+              {checksOpen ? "접기" : `전체 ${compactChecks.length}개 보기`}
+            </button>
+          ) : null}
+        </div>
+        {checksOpen ? (
+          <div className="ai-check-expanded">
+            {hiddenChecks.map((item) => <span key={item}>{item}</span>)}
+          </div>
+        ) : null}
       </div>
 
       <div className="ai-score-disclaimer">
         조건 적합도는 입력된 고객 조건과 매물 정보를 기준으로 계산한 참고 점수입니다. 정보가 부족한 항목은 현장 확인이 필요합니다.
       </div>
 
-      <div className="ai-briefing-ranking-list">
-        {briefing.rankings.map((ranking) => {
-          const property = propertyById.get(String(ranking.propertyId));
-          return (
-            <article key={ranking.propertyId}>
-              <div className="ai-ranking-head">
-                <span>{ranking.rank}위</span>
-                <strong>{ranking.displayName}</strong>
-                <em>조건 적합도 {ranking.score}점</em>
-              </div>
-              <div className="ai-ranking-meta">
-                <b>{ranking.gradeLabel || gradeLabel(ranking.grade)}</b>
-                {ranking.infoCompleteness !== undefined ? <small>정보 완성도 {ranking.infoCompleteness}점</small> : null}
-              </div>
-              <p>{ranking.shortReason}</p>
-              <InfoList title="좋은 점" items={ranking.strengths} />
-              <InfoList title="주의점" items={ranking.concerns} />
-              <InfoList title="확인 필요" items={ranking.missingChecks} />
-              <InfoList title="적용된 상한선" items={ranking.capsApplied} empty="적용된 상한선 없음" />
-              <InfoList title="상담 포인트" items={ranking.talkingPoints} />
-              {property ? <small>{property.addressOrArea || "위치 확인 필요"} · {formatPropertyPrice(property)}</small> : null}
-            </article>
-          );
-        })}
+      <div className="ai-briefing-tabs" role="tablist" aria-label="AI 브리핑 결과">
+        {BRIEFING_TABS.map(([key, label]) => (
+          <button key={key} type="button" className={activeTab === key ? "active" : ""} onClick={() => setActiveTab(key)}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div className="ai-briefing-copy-grid">
-        <CopyBlock title="중개사용 상담 메모" text={briefing.brokerNote} onCopy={onCopy} />
-        <CopyBlock title="고객용 카톡 짧은 버전" text={briefing.customerMessages.short} onCopy={onCopy} />
-        <CopyBlock title="고객용 카톡 기본 버전" text={briefing.customerMessages.normal} onCopy={onCopy} />
-        <CopyBlock title="부드러운 설득형" text={briefing.customerMessages.softPersuasive} onCopy={onCopy} />
-        <CopyBlock title="소개서 문구" text={`${briefing.brochureCopy.title}\n\n${briefing.brochureCopy.summary}\n- ${briefing.brochureCopy.bullets.join("\n- ")}`} onCopy={onCopy} />
-      </div>
+      {activeTab === "summary" ? (
+        <div className="ai-briefing-tab-panel">
+          <div className="ai-briefing-ranking-list compact">
+            {briefing.rankings.slice(0, 3).map((ranking) => (
+              <RankingSummaryCard key={ranking.propertyId} ranking={ranking} property={propertyById.get(String(ranking.propertyId))} />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
-      <div className="ai-briefing-checks">
-        <strong>확인 필요 사항</strong>
-        {briefing.missingChecks.length ? briefing.missingChecks.map((item) => <span key={item}>{item}</span>) : <span>추가 확인 필요 사항 없음</span>}
-      </div>
+      {activeTab === "broker" ? (
+        <div className="ai-briefing-tab-panel two-column">
+          <CopyPanel title="중개사용 상담 메모" text={briefing.brokerNote} onCopy={onCopy} />
+          <article className="ai-broker-workflow">
+            <strong>상담 시 먼저 확인할 포인트</strong>
+            <ol>
+              {(compactChecks.length ? compactChecks.slice(0, 5) : ["예산/가격 조건 확인", "희망 지역 일치 여부 확인", "주차·입주 가능일 확인"]).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ol>
+            <strong>상담 순서 제안</strong>
+            <ol>
+              <li>예산과 거래 조건부터 맞춰봅니다.</li>
+              <li>희망 지역, 면적, 용도를 고객 표현으로 다시 확인합니다.</li>
+              <li>주차, 엘리베이터, 입주 가능일처럼 현장 확인 항목을 정리합니다.</li>
+            </ol>
+          </article>
+        </div>
+      ) : null}
+
+      {activeTab === "customer" ? (
+        <div className="ai-briefing-tab-panel">
+          <div className="ai-message-segment" role="tablist" aria-label="고객용 문구 유형">
+            {CUSTOMER_MESSAGE_TABS.map(([key, label]) => (
+              <button key={key} type="button" className={messageType === key ? "active" : ""} onClick={() => setMessageType(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <CopyPanel title={activeMessageTitle} text={activeMessage} onCopy={onCopy} />
+        </div>
+      ) : null}
+
+      {activeTab === "brochure" ? (
+        <div className="ai-briefing-tab-panel">
+          <CopyPanel
+            title="소개서 문구"
+            text={`${briefing.brochureCopy.title}\n\n${briefing.brochureCopy.summary}\n- ${briefing.brochureCopy.bullets.slice(0, 4).join("\n- ")}`}
+            onCopy={onCopy}
+          />
+        </div>
+      ) : null}
 
       <div className="ai-briefing-feedback">
         <strong>고객 반응 기록</strong>
@@ -402,6 +460,31 @@ function BriefingResult({ result, properties, feedback, setFeedback, onCopy, onF
         <button type="button" className="secondary-btn" onClick={onFeedbackSave}>반응 저장</button>
       </div>
     </section>
+  );
+}
+
+function RankingSummaryCard({ ranking, property }) {
+  return (
+    <article>
+      <div className="ai-ranking-head">
+        <span>{ranking.rank}위</span>
+        <strong>{ranking.displayName}</strong>
+        <em>{ranking.score}점</em>
+      </div>
+      <div className="ai-ranking-meta">
+        <b>{ranking.gradeLabel || gradeLabel(ranking.grade)}</b>
+        {ranking.infoCompleteness !== undefined ? <small>정보 완성도 {ranking.infoCompleteness}점</small> : null}
+      </div>
+      <p>{ranking.shortReason}</p>
+      <div className="ai-ranking-two-col">
+        <InfoList title="좋은 점" items={briefItems(ranking.strengths)} empty="조건과 맞는 부분을 확인 중입니다." />
+        <InfoList title="주의점" items={briefItems(ranking.concerns)} empty="큰 주의점은 없지만 현장 확인은 필요합니다." />
+      </div>
+      <div className="ai-check-summary slim">
+        {(ranking.missingChecks || []).slice(0, 3).map((item) => <span key={item}>{shortCheckLabel(item)}</span>)}
+      </div>
+      {property ? <small>{property.addressOrArea || "위치 확인 필요"} · {formatPropertyPrice(property)}</small> : null}
+    </article>
   );
 }
 
@@ -425,9 +508,9 @@ function gradeLabel(grade) {
   }[grade] || "검토";
 }
 
-function CopyBlock({ title, text, onCopy }) {
+function CopyPanel({ title, text, onCopy }) {
   return (
-    <article>
+    <article className="ai-copy-panel">
       <div>
         <strong>{title}</strong>
         <button type="button" className="secondary-btn small-btn" onClick={() => onCopy(text, title)}>복사</button>
@@ -435,6 +518,30 @@ function CopyBlock({ title, text, onCopy }) {
       <p>{text}</p>
     </article>
   );
+}
+
+function briefItems(items = []) {
+  return items.slice(0, 3);
+}
+
+function compactCheckLabels(items = []) {
+  return [...new Set(items.map(shortCheckLabel).filter(Boolean))].slice(0, 8);
+}
+
+function shortCheckLabel(item = "") {
+  return String(item)
+    .replace(/매물\s*/g, "")
+    .replace(/고객\s*/g, "")
+    .replace(/정보\s*/g, "")
+    .replace(/여부\s*/g, "")
+    .replace(/항목은?\s*/g, "")
+    .replace(/확인\s*필요/g, "확인 필요")
+    .replace(/가격.*부족/g, "가격 확인 필요")
+    .replace(/주소\/지역.*부족/g, "위치 확인 필요")
+    .replace(/면적.*부족/g, "면적 확인 필요")
+    .replace(/업종\/용도.*확인 필요/g, "용도 확인 필요")
+    .replace(/입주 가능일.*확인 필요/g, "입주일 확인 필요")
+    .trim();
 }
 
 export default AIBriefingPage;

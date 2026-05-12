@@ -593,8 +593,8 @@ export function createRuleBasedBriefing({ customer, properties, focus = [], mode
     : "고객과 매물을 선택하면 브리핑을 생성할 수 있습니다.";
 
   const normalMessage = topProperty
-    ? `대표님 조건 기준으로는 ${topProperty.displayName}이 가장 먼저 보실 만합니다. ${topStrength} 부분이 장점이고, ${formatPropertyPrice(topProperty)} 조건입니다. 다만 ${topConcern}은 제가 한 번 더 확인해서 안내드리겠습니다.`
-    : "조건에 맞는 매물을 정리한 뒤 다시 안내드리겠습니다.";
+    ? `보내주신 조건 기준으로 후보 매물을 먼저 비교해봤습니다. 현재는 ${topProperty.displayName}이 ${topStrength} 부분에서 먼저 검토해볼 만합니다. 다만 ${topConcern}은 추가 확인이 필요해 보입니다. 확인되면 우선순위 다시 정리해서 안내드리겠습니다.`
+    : "보내주신 조건 기준으로 후보 매물을 먼저 비교해보고, 확인되는 대로 우선순위 정리해서 안내드리겠습니다.";
 
   return {
     mode,
@@ -604,14 +604,14 @@ export function createRuleBasedBriefing({ customer, properties, focus = [], mode
       recommendationComment,
       rankings,
       brokerNote: topProperty
-        ? `${normalizedCustomer.displayName} 고객에게는 ${topProperty.displayName}을 1순위로 제안한다. 상담에서는 ${topStrength}을 먼저 설명하고, ${topConcern}은 단정하지 말고 확인 후 안내한다.`
+        ? `${normalizedCustomer.displayName} 고객 상담에서는 ${topProperty.displayName}을 우선 후보로 두고 비교한다. 먼저 예산과 거래 조건을 확인한 뒤 ${topStrength}을 설명한다. ${topConcern}은 단정하지 말고 확인 후 안내한다. 다른 후보는 가격, 면적, 위치 기준으로 간단히 비교한다.`
         : "고객 조건과 후보 매물을 먼저 선택해야 합니다.",
       customerMessages: {
-        short: topProperty ? `조건 기준으로 ${topProperty.displayName}이 가장 좋아 보입니다. ${topConcern}만 확인해서 안내드릴게요.` : "조건에 맞는 매물을 정리해드리겠습니다.",
+        short: topProperty ? `조건 기준으로 보면 ${topProperty.displayName}을 먼저 확인해보면 좋겠습니다. ${topConcern}만 확인되면 후보 매물 다시 정리해서 비교드릴게요.` : "조건 기준으로 후보 매물을 정리해보고, 확인되는 대로 다시 비교드릴게요.",
         normal: normalMessage,
         softPersuasive: topProperty
-          ? `대표님, 무리하게 권해드리기보다는 조건에 맞는 후보부터 차분히 비교해보시면 좋겠습니다. 현재는 ${topProperty.displayName}이 ${topStrength} 측면에서 가장 균형이 좋아 보이고, ${topConcern}은 제가 확인해서 보완 안내드리겠습니다.`
-          : "조건이 정리되면 부담 없이 비교하실 수 있게 후보를 추려드리겠습니다.",
+          ? `현재 조건 기준으로는 바로 결정하시기보다는 ${topConcern}을 먼저 확인하면 더 정확히 비교드릴 수 있을 것 같습니다. 확인되는 대로 ${topProperty.displayName} 포함해서 우선순위 다시 추려드리겠습니다.`
+          : "현재 조건을 한 번 더 확인하면 더 정확하게 추려드릴 수 있을 것 같습니다. 확인되는 대로 우선순위 다시 정리해서 안내드리겠습니다.",
       },
       brochureCopy: {
         title: topProperty ? `${topProperty.displayName} 고객 맞춤 브리핑` : "고객 맞춤 매물 브리핑",
@@ -669,9 +669,10 @@ export function sanitizeForLlmPayload({ customer, properties, ruleBasedResults }
       maxMissingChecks: 8,
       maxSummaryChars: 90,
       maxRecommendationChars: 260,
-      maxShortMessageChars: 250,
-      maxNormalMessageChars: 520,
-      maxBrokerNoteChars: 650,
+      maxShortMessageChars: 180,
+      maxNormalMessageChars: 350,
+      maxSoftPersuasiveChars: 250,
+      maxBrokerNoteChars: 520,
     },
   };
 }
@@ -710,11 +711,11 @@ export function validateAndRepairBriefing(llmBriefing, ruleBriefing, scoredResul
     summary: truncate(llmBriefing.summary, 90),
     recommendationComment: truncate(llmBriefing.recommendationComment || ruleBriefing.recommendationComment, 260),
     rankings: repairedRankings,
-    brokerNote: truncate(llmBriefing.brokerNote || ruleBriefing.brokerNote, 650),
+    brokerNote: truncate(llmBriefing.brokerNote || ruleBriefing.brokerNote, 520),
     customerMessages: {
-      short: truncate(llmBriefing.customerMessages?.short || ruleBriefing.customerMessages.short, 250),
-      normal: truncate(llmBriefing.customerMessages?.normal || ruleBriefing.customerMessages.normal, 520),
-      softPersuasive: truncate(llmBriefing.customerMessages?.softPersuasive || ruleBriefing.customerMessages.softPersuasive, 520),
+      short: truncate(llmBriefing.customerMessages?.short || ruleBriefing.customerMessages.short, 180),
+      normal: truncate(llmBriefing.customerMessages?.normal || ruleBriefing.customerMessages.normal, 350),
+      softPersuasive: truncate(llmBriefing.customerMessages?.softPersuasive || ruleBriefing.customerMessages.softPersuasive, 250),
     },
     brochureCopy: {
       title: truncate(llmBriefing.brochureCopy?.title || ruleBriefing.brochureCopy.title, 80),
