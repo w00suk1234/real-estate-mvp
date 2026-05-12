@@ -9,7 +9,6 @@ import {
   createTeamInvitation,
   deliverPayrollStatement,
   getCurrentTeamState,
-  getTeamMonthlySummary,
   listPayrollStatements,
   listPendingInvitations,
   listPersonalAssignableCustomers,
@@ -24,6 +23,7 @@ import {
   TEAM_MODE_SETUP_MESSAGE,
   TEAM_SCHEDULE_TYPES,
   buildScheduleTypeCounts,
+  buildTeamMonthlySummary,
   calculatePayrollTotal,
   canManageTeam,
   getTeamModeErrorMessage,
@@ -128,6 +128,7 @@ function TeamModePage() {
         setMessage(currentState.setupError?.message || TEAM_MODE_SETUP_MESSAGE);
         return;
       }
+      if (messageType === "warning") setMessage("");
       if (!currentState.team) return;
       const [memberRows, inviteRows] = await Promise.all([
         listTeamMembers(currentState.team.id),
@@ -135,7 +136,7 @@ function TeamModePage() {
       ]);
       setMembers(memberRows);
       setInvitations(inviteRows);
-      await loadTeamData(currentState.team.id);
+      await loadTeamData(currentState.team.id, memberRows);
     } catch (error) {
       showError(error, "팀 정보를 불러오지 못했습니다. Supabase 팀플모드 SQL 적용 여부를 확인해 주세요.");
     } finally {
@@ -143,21 +144,44 @@ function TeamModePage() {
     }
   }
 
-  async function loadTeamData(teamId = state.team?.id) {
+  async function loadTeamData(teamId = state.team?.id, memberRows = members) {
     if (!teamId) return;
-    const [teamCustomers, assignableCustomers, teamSchedules, teamSettlements, monthlySummary, payrollRows] = await Promise.all([
+    const results = await Promise.allSettled([
       listTeamCustomers(teamId),
       listPersonalAssignableCustomers(teamId).catch(() => []),
       listTeamSchedules(teamId, { month }),
       listTeamSettlements(teamId, { month }),
-      getTeamMonthlySummary(teamId, month),
       listPayrollStatements(teamId, month),
     ]);
+
+    const [teamCustomersResult, assignableCustomersResult, teamSchedulesResult, teamSettlementsResult, payrollResult] = results;
+    const softErrors = results.filter((result) => result.status === "rejected").map((result) => result.reason);
+    if (softErrors.length) {
+      console.warn("[TeamModePage] Optional team detail load failed", softErrors.map((error) => ({
+        message: error?.message,
+        code: error?.code,
+        tableName: error?.tableName,
+      })));
+      if (messageType === "warning") setMessage("");
+    }
+
+    const teamCustomers = teamCustomersResult.status === "fulfilled" ? teamCustomersResult.value : [];
+    const assignableCustomers = assignableCustomersResult.status === "fulfilled" ? assignableCustomersResult.value : [];
+    const teamSchedules = teamSchedulesResult.status === "fulfilled" ? teamSchedulesResult.value : [];
+    const teamSettlements = teamSettlementsResult.status === "fulfilled" ? teamSettlementsResult.value : [];
+    const payrollRows = payrollResult.status === "fulfilled" ? payrollResult.value : [];
+
     setCustomers(teamCustomers);
     setPersonalCustomers(assignableCustomers);
     setSchedules(teamSchedules);
     setSettlements(teamSettlements);
-    setSummary(monthlySummary);
+    setSummary(buildTeamMonthlySummary({
+      month,
+      members: memberRows,
+      customers: teamCustomers,
+      schedules: teamSchedules,
+      settlements: teamSettlements,
+    }));
     setPayroll(payrollRows);
   }
 
