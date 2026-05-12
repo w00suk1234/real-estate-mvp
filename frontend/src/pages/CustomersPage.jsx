@@ -329,14 +329,14 @@ function CustomersPage({ setPage: navigatePage }) {
                     {getCustomerValue(item, "memo") ? <p className="customer-note muted">{getCustomerValue(item, "memo")}</p> : null}
 
                     <div className="customer-actions">
-                      <button type="button" className="primary-btn small-btn" onClick={() => openRecommendation(item)}>
-                        AI 매물 추천기에서 추천 보기
+                      <button type="button" className="primary-btn small-btn customer-recommend-btn" onClick={() => openRecommendation(item)}>
+                        AI 추천 보기
                       </button>
                       <div className="customer-action-pair">
-                        <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(item)}>
+                        <button type="button" className="secondary-btn small-btn customer-ghost-btn" onClick={() => handleEdit(item)}>
                           수정
                         </button>
-                        <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(item.id)}>
+                        <button type="button" className="danger-btn small-btn customer-danger-btn" onClick={() => handleDelete(item.id)}>
                           삭제
                         </button>
                       </div>

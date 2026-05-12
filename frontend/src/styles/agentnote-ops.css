@@ -626,6 +626,170 @@
   line-height: 1.7;
 }
 
+/* Customer management calm CRM palette */
+.customer-list-card,
+.customer-form-card {
+  background: #ffffff !important;
+  border-color: #dbe3ef !important;
+  box-shadow: 0 12px 28px rgba(15, 38, 72, 0.05) !important;
+}
+
+.customer-filter-grid input,
+.customer-filter-grid select,
+.customer-form-card input,
+.customer-form-card select,
+.customer-form-card textarea {
+  border-color: #dbe3ef !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.customer-filter-grid input:focus,
+.customer-filter-grid select:focus,
+.customer-form-card input:focus,
+.customer-form-card select:focus,
+.customer-form-card textarea:focus {
+  border-color: #0b66d5 !important;
+  box-shadow: 0 0 0 3px rgba(11, 102, 213, 0.1) !important;
+}
+
+.customer-filter-grid .secondary-btn {
+  background: #ffffff !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+.customer-card-item {
+  border: 1px solid #dbe3ef !important;
+  border-left: 4px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.035) !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.customer-card-item:hover {
+  border-color: #c7d4e5 !important;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.055) !important;
+}
+
+.customer-card-item::before {
+  display: none !important;
+}
+
+.customer-card-item.contract-strip-default {
+  border-left-color: #cbd5e1 !important;
+}
+
+.customer-card-item.contract-strip-deposit {
+  border-left-color: #f59e0b !important;
+}
+
+.customer-card-item.contract-strip-contract {
+  border-left-color: #64748b !important;
+}
+
+.customer-card-item.contract-strip-complete {
+  border-left-color: #10b981 !important;
+}
+
+.customer-card-item.contract-strip-deleted {
+  border-left-color: #f87171 !important;
+}
+
+.customer-card-head strong {
+  color: #0f2348 !important;
+}
+
+.customer-card-head span:not(.status-badge) {
+  color: #64748b !important;
+}
+
+.status-badge {
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #475569 !important;
+}
+
+.status-default {
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #475569 !important;
+}
+
+.status-deposit {
+  border-color: #fed7aa !important;
+  background: #fff7ed !important;
+  color: #9a3412 !important;
+}
+
+.status-contract {
+  border-color: #cbd5e1 !important;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+.status-complete {
+  border-color: #a7f3d0 !important;
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+.status-deleted {
+  border-color: #fecaca !important;
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+}
+
+.customer-note {
+  background: #f8fafc !important;
+  color: #334155 !important;
+  border: 1px solid #edf2f7 !important;
+}
+
+.customer-actions .small-btn {
+  box-shadow: none !important;
+}
+
+.customer-actions .customer-recommend-btn {
+  background: #075fc8 !important;
+  border-color: #075fc8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(7, 95, 200, 0.16) !important;
+}
+
+.customer-actions .customer-ghost-btn,
+.customer-form-card .form-actions .secondary-btn {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.customer-actions .customer-danger-btn {
+  background: #ffffff !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+.customer-actions .customer-ghost-btn:hover,
+.customer-filter-grid .secondary-btn:hover,
+.customer-form-card .form-actions .secondary-btn:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+.customer-actions .customer-danger-btn:hover {
+  background: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+}
+
+.customer-form-card .form-actions .primary-btn {
+  background: #075fc8 !important;
+  border-color: #075fc8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(7, 95, 200, 0.14) !important;
+}
+
 @media (max-width: 920px) {
   .ai-briefing-grid,
   .ai-briefing-selected-list,
