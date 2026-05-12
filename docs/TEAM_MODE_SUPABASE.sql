@@ -21,14 +21,13 @@ create table if not exists public.teams (
   updated_at timestamptz not null default now()
 );
 
-alter table public.teams
-  add column if not exists name text not null default 'AgentNote Team',
-  add column if not exists owner_user_id uuid,
-  add column if not exists plan_type text not null default 'team_basic',
-  add column if not exists seat_limit integer not null default 5,
-  add column if not exists status text not null default 'active',
-  add column if not exists created_at timestamptz not null default now(),
-  add column if not exists updated_at timestamptz not null default now();
+alter table public.teams add column if not exists name text not null default 'AgentNote Team';
+alter table public.teams add column if not exists owner_user_id uuid;
+alter table public.teams add column if not exists plan_type text not null default 'team_basic';
+alter table public.teams add column if not exists seat_limit integer not null default 5;
+alter table public.teams add column if not exists status text not null default 'active';
+alter table public.teams add column if not exists created_at timestamptz not null default now();
+alter table public.teams add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.team_members (
   id uuid primary key default gen_random_uuid(),
@@ -43,15 +42,14 @@ create table if not exists public.team_members (
   unique (team_id, user_id)
 );
 
-alter table public.team_members
-  add column if not exists team_id uuid references public.teams(id) on delete cascade,
-  add column if not exists user_id uuid,
-  add column if not exists role text not null default 'member',
-  add column if not exists status text not null default 'active',
-  add column if not exists invited_by uuid null,
-  add column if not exists joined_at timestamptz null,
-  add column if not exists created_at timestamptz not null default now(),
-  add column if not exists updated_at timestamptz not null default now();
+alter table public.team_members add column if not exists team_id uuid references public.teams(id) on delete cascade;
+alter table public.team_members add column if not exists user_id uuid;
+alter table public.team_members add column if not exists role text not null default 'member';
+alter table public.team_members add column if not exists status text not null default 'active';
+alter table public.team_members add column if not exists invited_by uuid null;
+alter table public.team_members add column if not exists joined_at timestamptz null;
+alter table public.team_members add column if not exists created_at timestamptz not null default now();
+alter table public.team_members add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.team_invitations (
   id uuid primary key default gen_random_uuid(),
@@ -67,17 +65,16 @@ create table if not exists public.team_invitations (
   created_at timestamptz not null default now()
 );
 
-alter table public.team_invitations
-  add column if not exists team_id uuid references public.teams(id) on delete cascade,
-  add column if not exists email text null,
-  add column if not exists role text not null default 'member',
-  add column if not exists token_hash text,
-  add column if not exists status text not null default 'pending',
-  add column if not exists invited_by uuid,
-  add column if not exists expires_at timestamptz,
-  add column if not exists accepted_at timestamptz null,
-  add column if not exists accepted_by uuid null,
-  add column if not exists created_at timestamptz not null default now();
+alter table public.team_invitations add column if not exists team_id uuid references public.teams(id) on delete cascade;
+alter table public.team_invitations add column if not exists email text null;
+alter table public.team_invitations add column if not exists role text not null default 'member';
+alter table public.team_invitations add column if not exists token_hash text;
+alter table public.team_invitations add column if not exists status text not null default 'pending';
+alter table public.team_invitations add column if not exists invited_by uuid;
+alter table public.team_invitations add column if not exists expires_at timestamptz;
+alter table public.team_invitations add column if not exists accepted_at timestamptz null;
+alter table public.team_invitations add column if not exists accepted_by uuid null;
+alter table public.team_invitations add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.team_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -95,19 +92,18 @@ create table if not exists public.team_subscriptions (
   updated_at timestamptz not null default now()
 );
 
-alter table public.team_subscriptions
-  add column if not exists team_id uuid references public.teams(id) on delete cascade,
-  add column if not exists plan_type text not null default 'team_basic',
-  add column if not exists status text not null default 'trialing',
-  add column if not exists seat_limit integer not null default 5,
-  add column if not exists extra_seat_count integer not null default 0,
-  add column if not exists is_unlimited boolean not null default false,
-  add column if not exists current_period_start timestamptz null,
-  add column if not exists current_period_end timestamptz null,
-  add column if not exists provider text null,
-  add column if not exists provider_subscription_id text null,
-  add column if not exists created_at timestamptz not null default now(),
-  add column if not exists updated_at timestamptz not null default now();
+alter table public.team_subscriptions add column if not exists team_id uuid references public.teams(id) on delete cascade;
+alter table public.team_subscriptions add column if not exists plan_type text not null default 'team_basic';
+alter table public.team_subscriptions add column if not exists status text not null default 'trialing';
+alter table public.team_subscriptions add column if not exists seat_limit integer not null default 5;
+alter table public.team_subscriptions add column if not exists extra_seat_count integer not null default 0;
+alter table public.team_subscriptions add column if not exists is_unlimited boolean not null default false;
+alter table public.team_subscriptions add column if not exists current_period_start timestamptz null;
+alter table public.team_subscriptions add column if not exists current_period_end timestamptz null;
+alter table public.team_subscriptions add column if not exists provider text null;
+alter table public.team_subscriptions add column if not exists provider_subscription_id text null;
+alter table public.team_subscriptions add column if not exists created_at timestamptz not null default now();
+alter table public.team_subscriptions add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.customer_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -120,14 +116,13 @@ create table if not exists public.customer_assignments (
   created_at timestamptz not null default now()
 );
 
-alter table public.customer_assignments
-  add column if not exists team_id uuid references public.teams(id) on delete cascade,
-  add column if not exists customer_id uuid,
-  add column if not exists assigned_to_user_id uuid,
-  add column if not exists assigned_by_user_id uuid,
-  add column if not exists memo text null,
-  add column if not exists assigned_at timestamptz not null default now(),
-  add column if not exists created_at timestamptz not null default now();
+alter table public.customer_assignments add column if not exists team_id uuid references public.teams(id) on delete cascade;
+alter table public.customer_assignments add column if not exists customer_id uuid;
+alter table public.customer_assignments add column if not exists assigned_to_user_id uuid;
+alter table public.customer_assignments add column if not exists assigned_by_user_id uuid;
+alter table public.customer_assignments add column if not exists memo text null;
+alter table public.customer_assignments add column if not exists assigned_at timestamptz not null default now();
+alter table public.customer_assignments add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.customer_transfer_logs (
   id uuid primary key default gen_random_uuid(),
@@ -140,14 +135,13 @@ create table if not exists public.customer_transfer_logs (
   created_at timestamptz not null default now()
 );
 
-alter table public.customer_transfer_logs
-  add column if not exists team_id uuid references public.teams(id) on delete cascade,
-  add column if not exists customer_id uuid,
-  add column if not exists from_user_id uuid null,
-  add column if not exists to_user_id uuid,
-  add column if not exists transferred_by_user_id uuid,
-  add column if not exists reason text null,
-  add column if not exists created_at timestamptz not null default now();
+alter table public.customer_transfer_logs add column if not exists team_id uuid references public.teams(id) on delete cascade;
+alter table public.customer_transfer_logs add column if not exists customer_id uuid;
+alter table public.customer_transfer_logs add column if not exists from_user_id uuid null;
+alter table public.customer_transfer_logs add column if not exists to_user_id uuid;
+alter table public.customer_transfer_logs add column if not exists transferred_by_user_id uuid;
+alter table public.customer_transfer_logs add column if not exists reason text null;
+alter table public.customer_transfer_logs add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.payroll_statements (
   id uuid primary key default gen_random_uuid(),
@@ -168,46 +162,41 @@ create table if not exists public.payroll_statements (
   updated_at timestamptz not null default now()
 );
 
-alter table public.payroll_statements
-  add column if not exists team_id uuid references public.teams(id) on delete cascade,
-  add column if not exists user_id uuid,
-  add column if not exists month text,
-  add column if not exists title text null,
-  add column if not exists base_pay numeric not null default 0,
-  add column if not exists commission_pay numeric not null default 0,
-  add column if not exists bonus_pay numeric not null default 0,
-  add column if not exists deduction_amount numeric not null default 0,
-  add column if not exists total_pay numeric not null default 0,
-  add column if not exists memo text null,
-  add column if not exists status text not null default 'draft',
-  add column if not exists delivered_at timestamptz null,
-  add column if not exists created_by uuid,
-  add column if not exists created_at timestamptz not null default now(),
-  add column if not exists updated_at timestamptz not null default now();
+alter table public.payroll_statements add column if not exists team_id uuid references public.teams(id) on delete cascade;
+alter table public.payroll_statements add column if not exists user_id uuid;
+alter table public.payroll_statements add column if not exists month text;
+alter table public.payroll_statements add column if not exists title text null;
+alter table public.payroll_statements add column if not exists base_pay numeric not null default 0;
+alter table public.payroll_statements add column if not exists commission_pay numeric not null default 0;
+alter table public.payroll_statements add column if not exists bonus_pay numeric not null default 0;
+alter table public.payroll_statements add column if not exists deduction_amount numeric not null default 0;
+alter table public.payroll_statements add column if not exists total_pay numeric not null default 0;
+alter table public.payroll_statements add column if not exists memo text null;
+alter table public.payroll_statements add column if not exists status text not null default 'draft';
+alter table public.payroll_statements add column if not exists delivered_at timestamptz null;
+alter table public.payroll_statements add column if not exists created_by uuid;
+alter table public.payroll_statements add column if not exists created_at timestamptz not null default now();
+alter table public.payroll_statements add column if not exists updated_at timestamptz not null default now();
 
 -- ---------------------------------------------------------------------------
 -- Extend existing app tables when they exist.
 -- ---------------------------------------------------------------------------
 
-alter table if exists public.customers
-  add column if not exists team_id uuid null references public.teams(id) on delete set null,
-  add column if not exists assigned_to_user_id uuid null,
-  add column if not exists created_by_user_id uuid null;
+alter table if exists public.customers add column if not exists team_id uuid null references public.teams(id) on delete set null;
+alter table if exists public.customers add column if not exists assigned_to_user_id uuid null;
+alter table if exists public.customers add column if not exists created_by_user_id uuid null;
 
-alter table if exists public.schedules
-  add column if not exists team_id uuid null references public.teams(id) on delete set null,
-  add column if not exists assigned_to_user_id uuid null,
-  add column if not exists created_by_user_id uuid null;
+alter table if exists public.schedules add column if not exists team_id uuid null references public.teams(id) on delete set null;
+alter table if exists public.schedules add column if not exists assigned_to_user_id uuid null;
+alter table if exists public.schedules add column if not exists created_by_user_id uuid null;
 
-alter table if exists public.events
-  add column if not exists team_id uuid null references public.teams(id) on delete set null,
-  add column if not exists assigned_to_user_id uuid null,
-  add column if not exists created_by_user_id uuid null;
+alter table if exists public.events add column if not exists team_id uuid null references public.teams(id) on delete set null;
+alter table if exists public.events add column if not exists assigned_to_user_id uuid null;
+alter table if exists public.events add column if not exists created_by_user_id uuid null;
 
-alter table if exists public.settlements
-  add column if not exists team_id uuid null references public.teams(id) on delete set null,
-  add column if not exists assigned_to_user_id uuid null,
-  add column if not exists created_by_user_id uuid null;
+alter table if exists public.settlements add column if not exists team_id uuid null references public.teams(id) on delete set null;
+alter table if exists public.settlements add column if not exists assigned_to_user_id uuid null;
+alter table if exists public.settlements add column if not exists created_by_user_id uuid null;
 
 -- ---------------------------------------------------------------------------
 -- Indexes
