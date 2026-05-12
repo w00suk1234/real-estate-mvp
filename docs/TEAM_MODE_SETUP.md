@@ -29,6 +29,12 @@ After running the SQL, confirm these tables exist in the `public` schema:
 - `customer_transfer_logs`
 - `payroll_statements`
 
+Also confirm this database function exists:
+
+- `accept_team_invitation_by_hash(invite_token_hash text)`
+
+The app uses this function to accept invite links safely without exposing raw invitation table access to every user.
+
 Also confirm these existing tables have Team Mode columns when the tables exist:
 
 - `customers.team_id`
@@ -115,6 +121,8 @@ Run the SQL again and verify `team_members` exists. The app attempts to clean up
 Check:
 
 - `team_invitations` exists.
+- `accept_team_invitation_by_hash` exists. If not, rerun the latest `docs/TEAM_MODE_SUPABASE.sql`.
 - The inviter has `owner` or `admin` role in `team_members`.
 - The active/pending seat count is below the plan limit.
-
+- The invited user is logged in with the same email typed when the invite link was generated.
+- If the link says already processed or expired, create a fresh invite link and copy it again.

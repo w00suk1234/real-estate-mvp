@@ -296,6 +296,171 @@ as $$
   );
 $$;
 
+create or replace function public.accept_team_invitation_by_hash(invite_token_hash text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  current_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  invite_row public.team_invitations%rowtype;
+  existing_member public.team_members%rowtype;
+  member_row public.team_members%rowtype;
+  invite_team public.teams%rowtype;
+  invite_subscription public.team_subscriptions%rowtype;
+  active_member_count integer := 0;
+  pending_invite_count integer := 0;
+  seat_capacity integer := 5;
+  unlimited_plan boolean := false;
+begin
+  if current_user_id is null then
+    raise exception '로그인이 필요합니다.' using errcode = '28000';
+  end if;
+
+  select *
+    into invite_row
+    from public.team_invitations
+   where token_hash = invite_token_hash
+   order by created_at desc
+   limit 1;
+
+  if invite_row.id is null then
+    raise exception '초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 최신 초대 링크를 다시 요청해 주세요.' using errcode = 'P0001';
+  end if;
+
+  if invite_row.email is not null and lower(invite_row.email) <> current_email then
+    raise exception '% 계정으로 로그인한 뒤 초대를 수락해 주세요.', invite_row.email using errcode = 'P0001';
+  end if;
+
+  select *
+    into existing_member
+    from public.team_members
+   where team_id = invite_row.team_id
+     and user_id = current_user_id
+   limit 1;
+
+  if existing_member.id is not null and existing_member.status = 'active' then
+    if invite_row.status = 'pending' then
+      update public.team_invitations
+         set status = 'accepted',
+             accepted_at = now(),
+             accepted_by = current_user_id
+       where id = invite_row.id;
+    end if;
+
+    return jsonb_build_object(
+      'member', to_jsonb(existing_member),
+      'teamId', invite_row.team_id,
+      'alreadyMember', true
+    );
+  end if;
+
+  if invite_row.status <> 'pending' then
+    raise exception '초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 최신 초대 링크를 다시 요청해 주세요.' using errcode = 'P0001';
+  end if;
+
+  if invite_row.expires_at <= now() then
+    update public.team_invitations
+       set status = 'expired'
+     where id = invite_row.id
+       and status = 'pending';
+    raise exception '초대 링크가 만료되었습니다. 팀장에게 새 초대 링크를 요청해 주세요.' using errcode = 'P0001';
+  end if;
+
+  select *
+    into invite_team
+    from public.teams
+   where id = invite_row.team_id
+   limit 1;
+
+  select *
+    into invite_subscription
+    from public.team_subscriptions
+   where team_id = invite_row.team_id
+   order by created_at desc
+   limit 1;
+
+  seat_capacity := coalesce(invite_subscription.seat_limit, invite_team.seat_limit, 5)
+    + coalesce(invite_subscription.extra_seat_count, 0);
+  unlimited_plan := coalesce(invite_subscription.is_unlimited, false)
+    or coalesce(invite_subscription.plan_type, invite_team.plan_type) = 'team_unlimited';
+
+  if not unlimited_plan then
+    select count(*)
+      into active_member_count
+      from public.team_members
+     where team_id = invite_row.team_id
+       and status = 'active';
+
+    select count(distinct coalesce(lower(email), 'invite:' || id::text))
+      into pending_invite_count
+      from public.team_invitations
+     where team_id = invite_row.team_id
+       and status = 'pending'
+       and expires_at > now()
+       and id <> invite_row.id;
+
+    if active_member_count + pending_invite_count >= seat_capacity then
+      raise exception '좌석 한도를 초과했습니다. 팀장에게 좌석 설정을 확인해 달라고 요청해 주세요.' using errcode = 'P0001';
+    end if;
+  end if;
+
+  insert into public.team_members (
+    team_id,
+    user_id,
+    role,
+    status,
+    invited_by,
+    joined_at,
+    created_at,
+    updated_at
+  )
+  values (
+    invite_row.team_id,
+    current_user_id,
+    invite_row.role,
+    'active',
+    invite_row.invited_by,
+    now(),
+    now(),
+    now()
+  )
+  on conflict (team_id, user_id)
+  do update set
+    role = excluded.role,
+    status = 'active',
+    invited_by = excluded.invited_by,
+    joined_at = coalesce(public.team_members.joined_at, excluded.joined_at),
+    updated_at = now()
+  returning * into member_row;
+
+  update public.team_invitations
+     set status = 'accepted',
+         accepted_at = now(),
+         accepted_by = current_user_id
+   where id = invite_row.id;
+
+  if invite_row.email is not null then
+    update public.team_invitations
+       set status = 'revoked'
+     where team_id = invite_row.team_id
+       and status = 'pending'
+       and lower(email) = lower(invite_row.email)
+       and id <> invite_row.id;
+  end if;
+
+  return jsonb_build_object(
+    'member', to_jsonb(member_row),
+    'teamId', invite_row.team_id,
+    'alreadyMember', false
+  );
+end;
+$$;
+
+grant execute on function public.accept_team_invitation_by_hash(text) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- RLS for team-mode tables
 -- ---------------------------------------------------------------------------

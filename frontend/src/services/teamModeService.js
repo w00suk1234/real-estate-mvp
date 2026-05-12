@@ -144,6 +144,33 @@ function throwTeamModeError(error, context) {
   throw normalizedError;
 }
 
+function isMissingAcceptInviteRpc(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return (
+    code === "PGRST202" ||
+    code === "PGRST204" ||
+    (message.includes("schema cache") && message.includes("accept_team_invitation_by_hash")) ||
+    message.includes("could not find the function")
+  );
+}
+
+async function acceptInvitationByRpc(tokenHash) {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase.rpc("accept_team_invitation_by_hash", { invite_token_hash: tokenHash });
+  if (error) {
+    if (isMissingAcceptInviteRpc(error)) {
+      console.warn("[team-mode] accept invitation RPC is not installed yet. Falling back to direct table flow.", {
+        message: error.message,
+        code: error.code,
+      });
+      return null;
+    }
+    throwTeamModeError(error, "accept_team_invitation_by_hash");
+  }
+  return data?.member || data || null;
+}
+
 async function fetchProfiles(userIds) {
   if (!isSupabaseConfigured || !supabase || !userIds.length) return {};
   const { data } = await supabase.from("profiles").select("id, username, email, manager_name").in("id", userIds);
@@ -447,6 +474,9 @@ export async function acceptTeamInvitation(token) {
     });
     return member;
   }
+
+  const rpcMember = await acceptInvitationByRpc(tokenHash);
+  if (rpcMember) return rpcMember;
 
   const { data: invitation, error } = await supabase
     .from("team_invitations")

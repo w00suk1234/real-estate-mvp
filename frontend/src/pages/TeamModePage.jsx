@@ -141,6 +141,7 @@ function TeamModePage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [inviteLink, setInviteLink] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [acceptToken, setAcceptToken] = useState("");
   const [assignForm, setAssignForm] = useState({ customerId: "", assignedToUserId: "", memo: "" });
   const [transferForm, setTransferForm] = useState({ customerId: "", toUserId: "", reason: "" });
@@ -361,6 +362,7 @@ function TeamModePage() {
     try {
       const result = await createTeamInvitation({ teamId: state.team.id, email: inviteEmail, role: inviteRole });
       setInviteLink(result.inviteUrl);
+      setInviteCopied(false);
       setInviteEmail("");
       showSuccess("초대 링크를 생성했습니다. 링크를 복사해 팀원에게 전달하세요.");
       setInvitations(await listPendingInvitations(state.team.id));
@@ -368,6 +370,30 @@ function TeamModePage() {
       showError(error, "초대 링크 생성에 실패했습니다.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCopyInviteLink() {
+    if (!inviteLink) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteLink);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = inviteLink;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setInviteCopied(true);
+      showSuccess("초대 링크를 복사했습니다.");
+      window.setTimeout(() => setInviteCopied(false), 2000);
+    } catch (error) {
+      showError(error, "초대 링크 복사에 실패했습니다. 링크를 직접 선택해서 복사해 주세요.");
     }
   }
 
@@ -623,9 +649,17 @@ function TeamModePage() {
               </select>
               <button type="submit" className="primary-btn" disabled={saving}>초대 링크 생성</button>
               {inviteLink ? (
-                <div className="team-invite-link">
-                  <span>{inviteLink}</span>
-                  <button type="button" className="secondary-btn small-btn" onClick={() => navigator.clipboard?.writeText(inviteLink)}>복사</button>
+                <div className="team-invite-link" aria-live="polite">
+                  <input
+                    className="team-invite-url"
+                    value={inviteLink}
+                    readOnly
+                    onFocus={(event) => event.target.select()}
+                    aria-label="생성된 초대 링크"
+                  />
+                  <button type="button" className="secondary-btn small-btn team-invite-copy-btn" onClick={handleCopyInviteLink}>
+                    {inviteCopied ? "복사됨" : "복사"}
+                  </button>
                 </div>
               ) : null}
             <p>현재는 이메일 자동 발송 없이 초대 링크를 복사해서 전달합니다. 초대받은 계정은 로그인 후 링크를 열어 수락하면 됩니다.</p>

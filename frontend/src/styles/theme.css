@@ -9585,18 +9585,36 @@ h4 {
 }
 
 .team-invite-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 10px;
   padding: 10px;
   border: 1px dashed #bfdbfe;
   border-radius: 12px;
   background: #eff6ff;
 }
 
-.team-invite-link span {
+.team-invite-url {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-invite-url:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.team-invite-copy-btn {
+  min-width: 78px;
   white-space: nowrap;
 }
 
@@ -9633,8 +9651,13 @@ h4 {
   .team-stat-grid,
   .team-stat-grid.compact,
   .team-member-row,
-  .team-payroll-card {
+  .team-payroll-card,
+  .team-invite-link {
     grid-template-columns: 1fr;
+  }
+
+  .team-invite-copy-btn {
+    width: 100%;
   }
 
   .team-mode-header {
