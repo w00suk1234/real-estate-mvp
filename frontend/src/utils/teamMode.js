@@ -98,10 +98,23 @@ export function getSeatCapacity(subscription, team) {
   return baseLimit + extraSeats;
 }
 
+export function getActiveMemberCount(members = []) {
+  return members.filter((member) => String(member.status || "active") === "active").length;
+}
+
+export function getPendingInvitationCount(invitations = []) {
+  const uniqueKeys = new Set();
+  invitations
+    .filter((invite) => String(invite.status || "pending") === "pending")
+    .forEach((invite, index) => {
+      const email = String(invite.email || "").trim().toLowerCase();
+      uniqueKeys.add(email ? `email:${email}` : `invite:${invite.id || invite.token_hash || index}`);
+    });
+  return uniqueKeys.size;
+}
+
 export function getSeatUsage({ members = [], invitations = [] }) {
-  const activeMembers = members.filter((member) => ["active", "invited"].includes(String(member.status || "active")));
-  const pendingInvitations = invitations.filter((invite) => String(invite.status || "pending") === "pending");
-  return activeMembers.length + pendingInvitations.length;
+  return getActiveMemberCount(members) + getPendingInvitationCount(invitations);
 }
 
 export function canInviteSeat({ members = [], invitations = [], subscription, team }) {

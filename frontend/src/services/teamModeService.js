@@ -64,6 +64,27 @@ function getLocalUserId() {
   return user.id || user.email || user.username || "local-user";
 }
 
+async function getCurrentAuthUser() {
+  if (!isSupabaseConfigured || !supabase) return getLocalUser();
+  const { data } = await supabase.auth.getUser();
+  return data?.user || null;
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function dedupePendingInvitations(rows = []) {
+  const seen = new Set();
+  return (rows || []).filter((invite) => {
+    const email = normalizeEmail(invite.email);
+    const key = email ? `email:${email}` : `invite:${invite.id || invite.token_hash}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function readLocalTeamData() {
   try {
     return JSON.parse(localStorage.getItem(LOCAL_TEAM_KEY) || "{}");
@@ -316,7 +337,9 @@ export async function listTeamMembers(teamId) {
 export async function listPendingInvitations(teamId) {
   if (!isSupabaseConfigured || !supabase) {
     const data = getLocalData();
-    return data.invitations.filter((invite) => String(invite.team_id) === String(teamId) && invite.status === "pending");
+    return dedupePendingInvitations(
+      data.invitations.filter((invite) => String(invite.team_id) === String(teamId) && invite.status === "pending").reverse(),
+    );
   }
   const { data, error } = await supabase
     .from("team_invitations")
@@ -325,7 +348,7 @@ export async function listPendingInvitations(teamId) {
     .eq("status", "pending")
     .order("created_at", { ascending: false });
   if (error) throwTeamModeError(error, "team_invitations");
-  return data || [];
+  return dedupePendingInvitations(data || []);
 }
 
 export async function createTeamInvitation({ teamId, email = "", role = "member" }) {
@@ -345,6 +368,16 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
 
   if (!isSupabaseConfigured || !supabase) {
     const data = getLocalData();
+    const normalizedEmail = normalizeEmail(email);
+    const nextInvitations = normalizedEmail
+      ? data.invitations.map((invite) => (
+        String(invite.team_id) === String(teamId) &&
+        invite.status === "pending" &&
+        normalizeEmail(invite.email) === normalizedEmail
+          ? { ...invite, status: "revoked" }
+          : invite
+      ))
+      : data.invitations;
     const invitation = {
       id: createId("invite"),
       team_id: teamId,
@@ -356,8 +389,18 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
       expires_at: expiresAt,
       created_at: nowIso(),
     };
-    saveLocalData({ ...data, invitations: [invitation, ...data.invitations] });
+    saveLocalData({ ...data, invitations: [invitation, ...nextInvitations] });
     return { invitation, inviteUrl: inviteUrlForToken(token), token };
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  if (normalizedEmail) {
+    await supabase
+      .from("team_invitations")
+      .update({ status: "revoked" })
+      .eq("team_id", teamId)
+      .eq("status", "pending")
+      .ilike("email", normalizedEmail);
   }
 
   const { data: invitation, error } = await supabase
@@ -384,9 +427,19 @@ export async function acceptTeamInvitation(token) {
 
   if (!isSupabaseConfigured || !supabase) {
     const data = getLocalData();
+    const user = getLocalUser();
     const invitation = data.invitations.find((invite) => invite.token_hash === tokenHash && invite.status === "pending");
     if (!invitation) throw new Error("유효하지 않은 초대 링크입니다.");
     if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 링크가 만료되었습니다.");
+    const invitedEmail = normalizeEmail(invitation.email);
+    const userEmail = normalizeEmail(user.email);
+    if (invitedEmail && userEmail && invitedEmail !== userEmail) {
+      throw new Error(`${invitation.email} 계정으로 로그인한 뒤 초대를 수락해 주세요.`);
+    }
+    const existingMember = data.members.find((member) => String(member.team_id) === String(invitation.team_id) && String(member.user_id) === String(userId));
+    if (existingMember?.status === "active") {
+      throw new Error("이미 이 팀에 참여 중입니다. 다른 계정으로 수락하려면 로그아웃 후 초대받은 계정으로 로그인해 주세요.");
+    }
     const subscription = data.subscriptions.find((item) => item.team_id === invitation.team_id);
     const members = data.members.filter((member) => member.team_id === invitation.team_id);
     const invitations = data.invitations.filter((invite) => invite.team_id === invitation.team_id && invite.status === "pending" && invite.id !== invitation.id);
@@ -419,6 +472,24 @@ export async function acceptTeamInvitation(token) {
   if (error) throwTeamModeError(error, "team_invitations");
   if (!invitation) throw new Error("유효하지 않은 초대 링크입니다.");
   if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 링크가 만료되었습니다.");
+
+  const currentUser = await getCurrentAuthUser();
+  const invitedEmail = normalizeEmail(invitation.email);
+  const userEmail = normalizeEmail(currentUser?.email);
+  if (invitedEmail && userEmail && invitedEmail !== userEmail) {
+    throw new Error(`${invitation.email} 계정으로 로그인한 뒤 초대를 수락해 주세요.`);
+  }
+
+  const { data: existingMember, error: existingMemberError } = await supabase
+    .from("team_members")
+    .select("*")
+    .eq("team_id", invitation.team_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existingMemberError) throwTeamModeError(existingMemberError, "team_members");
+  if (existingMember?.status === "active") {
+    throw new Error("이미 이 팀에 참여 중입니다. 다른 계정으로 수락하려면 로그아웃 후 초대받은 계정으로 로그인해 주세요.");
+  }
 
   const members = await listTeamMembers(invitation.team_id);
   const invitations = (await listPendingInvitations(invitation.team_id)).filter((item) => item.id !== invitation.id);

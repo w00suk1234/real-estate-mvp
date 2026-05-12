@@ -26,9 +26,10 @@ import {
   buildTeamMonthlySummary,
   calculatePayrollTotal,
   canManageTeam,
+  getActiveMemberCount,
+  getPendingInvitationCount,
   getTeamModeErrorMessage,
   getSeatCapacity,
-  getSeatUsage,
   isTeamModeSetupError,
   isTeamModeEnabled,
   isTeamSelfCreateAllowed,
@@ -86,6 +87,17 @@ function subscriptionStatusLabel(status) {
   return SUBSCRIPTION_STATUS_LABELS[status] || status || "구독 상태 없음";
 }
 
+function extractInviteToken(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+  try {
+    const parsed = new URL(rawValue);
+    return parsed.searchParams.get("token") || rawValue;
+  } catch {
+    return rawValue;
+  }
+}
+
 function getCustomerName(customer) {
   return customer.name || customer.customer_name || "이름 없음";
 }
@@ -119,8 +131,21 @@ function TeamModePage() {
 
   const isManager = canManageTeam(state.membership);
   const seatCapacity = getSeatCapacity(state.subscription, state.team);
-  const seatUsage = getSeatUsage({ members, invitations });
+  const activeMemberCount = getActiveMemberCount(members);
+  const pendingInvitationCount = getPendingInvitationCount(invitations);
   const scheduleCounts = useMemo(() => buildScheduleTypeCounts(schedules), [schedules]);
+
+  function resetTeamState() {
+    setState({ team: null, membership: null, subscription: null, canUse: false });
+    setMembers([]);
+    setInvitations([]);
+    setCustomers([]);
+    setPersonalCustomers([]);
+    setSchedules([]);
+    setSettlements([]);
+    setSummary(null);
+    setPayroll([]);
+  }
 
   function showSuccess(text) {
     setMessageType("success");
@@ -142,6 +167,11 @@ function TeamModePage() {
   async function loadTeam() {
     if (authLoading) return;
     if (!isAuthenticated) {
+      resetTeamState();
+      if (extractInviteToken(new URLSearchParams(window.location.search).get("token"))) {
+        setMessageType("warning");
+        setMessage("팀 초대는 로그인 후 수락할 수 있습니다. 초대받은 계정으로 로그인한 뒤 링크를 다시 열어 주세요.");
+      }
       setLoading(false);
       return;
     }
@@ -253,7 +283,7 @@ function TeamModePage() {
     setSaving(true);
     setMessage("");
     try {
-      await acceptTeamInvitation(acceptToken.trim());
+      await acceptTeamInvitation(extractInviteToken(acceptToken));
       setAcceptToken("");
       showSuccess("초대를 수락했습니다.");
       await loadTeam();
@@ -392,6 +422,24 @@ function TeamModePage() {
     return <div className="page-stack team-mode-page"><div className="recommend-empty-state">팀 정보를 불러오는 중입니다.</div></div>;
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="page-stack team-mode-page">
+        <section className="page-header-card compact-page-header">
+          <div>
+            <h1>팀플모드</h1>
+            <p>팀 생성과 초대 수락은 로그인 후 사용할 수 있습니다.</p>
+          </div>
+        </section>
+        {message ? <div className={`schedule-inline-alert team-mode-alert ${messageType}`}>{message}</div> : null}
+        <section className="dashboard-card team-mode-locked">
+          <h2>로그인이 필요합니다</h2>
+          <p>초대 링크를 받은 계정으로 로그인한 뒤 같은 링크를 다시 열어 주세요.</p>
+        </section>
+      </div>
+    );
+  }
+
   if (!state.team) {
     return (
       <div className="page-stack team-mode-page">
@@ -471,7 +519,7 @@ function TeamModePage() {
             <StatCard label="이번 달 손님 인입" value={`${summary?.customerInflowCount || 0}명`} />
             <StatCard label="이번 달 계약 고객" value={`${summary?.contractCustomerCount || 0}명`} />
             <StatCard label="이번 달 정산 금액" value={formatWon(summary?.settlementAmount || 0)} />
-            <StatCard label="팀 좌석" value={`${seatUsage} / ${seatCapacity === Infinity ? "무제한" : seatCapacity}명`} />
+            <StatCard label={pendingInvitationCount ? `팀 좌석 · 초대 대기 ${pendingInvitationCount}건` : "팀 좌석"} value={`${activeMemberCount} / ${seatCapacity === Infinity ? "무제한" : seatCapacity}명`} />
           </div>
           <MemberSummaryTable summaries={summary?.memberSummaries || []} />
         </section>
@@ -483,7 +531,7 @@ function TeamModePage() {
             <div className="section-heading-row">
               <div>
                 <h2>팀원 관리</h2>
-                <p>사용 중 {seatUsage} / {seatCapacity === Infinity ? "무제한" : seatCapacity}명</p>
+                <p>활성 팀원 {activeMemberCount}명 · 초대 대기 {pendingInvitationCount}건 / 좌석 {seatCapacity === Infinity ? "무제한" : `${seatCapacity}명`}</p>
               </div>
             </div>
             <div className="team-member-list">
@@ -498,9 +546,13 @@ function TeamModePage() {
                       <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
-                  <button type="button" className="danger-btn small-btn" disabled={!isManager || member.role === "owner"} onClick={() => handleMemberChange(member, { role: member.role, status: "suspended" })}>
-                    비활성화
-                  </button>
+                  {member.role === "owner" ? (
+                    <span className="team-member-owner-note">팀장</span>
+                  ) : (
+                    <button type="button" className="danger-btn small-btn" disabled={!isManager} onClick={() => handleMemberChange(member, { role: member.role, status: "suspended" })}>
+                      팀원 중지
+                    </button>
+                  )}
                 </article>
               ))}
             </div>
@@ -521,7 +573,7 @@ function TeamModePage() {
                   <button type="button" className="secondary-btn small-btn" onClick={() => navigator.clipboard?.writeText(inviteLink)}>복사</button>
                 </div>
               ) : null}
-              <p>현재는 이메일 자동 발송 없이 초대 링크를 복사해서 전달합니다. 초대받은 계정은 로그인 후 링크를 열어 수락하면 됩니다.</p>
+            <p>현재는 이메일 자동 발송 없이 초대 링크를 복사해서 전달합니다. 초대받은 계정은 로그인 후 링크를 열어 수락하면 됩니다.</p>
               <p>기본 플랜은 팀장 포함 5명까지 사용할 수 있습니다. 추가 인원 플랜은 준비 중입니다.</p>
             </form>
           ) : null}
