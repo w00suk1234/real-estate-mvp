@@ -1,13 +1,26 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 
 function Topbar({ onNavigate }) {
   const { user, logout, isAuthenticated } = useAuth();
+  const [logoutNotice, setLogoutNotice] = useState("");
   const displayName =
     user?.manager_name ||
     user?.office_name ||
     (user?.email ? user.email.split("@")[0] : "") ||
     user?.username ||
     "사용자";
+
+  useEffect(() => {
+    if (!logoutNotice) return undefined;
+    const timer = window.setTimeout(() => setLogoutNotice(""), 2500);
+    return () => window.clearTimeout(timer);
+  }, [logoutNotice]);
+
+  async function handleLogout() {
+    await logout();
+    setLogoutNotice("안전하게 로그아웃되었습니다.");
+  }
 
   return (
     <header className="topbar">
@@ -22,7 +35,7 @@ function Topbar({ onNavigate }) {
               내 정보
             </button>
             <span className="user-avatar">{displayName}</span>
-            <button type="button" className="auth-btn logout-clean-btn" onClick={logout}>
+            <button type="button" className="auth-btn logout-clean-btn" onClick={handleLogout}>
               로그아웃
             </button>
           </>
@@ -32,6 +45,7 @@ function Topbar({ onNavigate }) {
           </button>
         )}
       </div>
+      {logoutNotice ? <div className="topbar-toast" role="status">{logoutNotice}</div> : null}
     </header>
   );
 }

@@ -1,5 +1,12 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api";
+import {
+  clearAgentNoteAuthStorage,
+  getAuthStorageItem,
+  prepareAuthSessionStorage,
+  setAuthStorageItem,
+  touchAuthActivity,
+} from "../lib/authStorage";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import {
   getProfile,
@@ -24,7 +31,7 @@ function unique(values) {
 
 function readAuthEmailMap() {
   try {
-    return JSON.parse(localStorage.getItem(AUTH_EMAIL_MAP_KEY) || "{}");
+    return JSON.parse(getAuthStorageItem(AUTH_EMAIL_MAP_KEY) || "{}");
   } catch {
     return {};
   }
@@ -33,7 +40,7 @@ function readAuthEmailMap() {
 function rememberAuthEmail(username, email) {
   const key = String(username || "").trim();
   if (!key || !email) return;
-  localStorage.setItem(AUTH_EMAIL_MAP_KEY, JSON.stringify({ ...readAuthEmailMap(), [key]: email }));
+  setAuthStorageItem(AUTH_EMAIL_MAP_KEY, JSON.stringify({ ...readAuthEmailMap(), [key]: email }));
 }
 
 function withTimeout(promise, ms, message) {
@@ -128,6 +135,7 @@ function AuthProvider({ children }) {
           if (mounted) {
             const sessionUser = data.session?.user || null;
             if (sessionUser) {
+              touchAuthActivity();
               setUser(normalizeUser(sessionUser));
               hydrateSupabaseUser(sessionUser);
             } else {
@@ -135,7 +143,7 @@ function AuthProvider({ children }) {
             }
           }
         } else {
-          const saved = localStorage.getItem("auth_user");
+          const saved = getAuthStorageItem("auth_user");
           if (mounted) setUser(saved ? JSON.parse(saved) : null);
         }
       } finally {
@@ -149,6 +157,7 @@ function AuthProvider({ children }) {
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       window.setTimeout(() => {
+        if (session?.user) touchAuthActivity();
         hydrateSupabaseUser(session?.user || null);
       }, 0);
     });
@@ -159,7 +168,32 @@ function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = async ({ username, password }) => {
+  useEffect(() => {
+    if (!user) return undefined;
+    touchAuthActivity();
+
+    let lastTouch = 0;
+    const markActivity = () => {
+      const now = Date.now();
+      if (now - lastTouch < 30000) return;
+      lastTouch = now;
+      touchAuthActivity();
+    };
+
+    window.addEventListener("pointerdown", markActivity);
+    window.addEventListener("keydown", markActivity);
+    window.addEventListener("visibilitychange", markActivity);
+
+    return () => {
+      window.removeEventListener("pointerdown", markActivity);
+      window.removeEventListener("keydown", markActivity);
+      window.removeEventListener("visibilitychange", markActivity);
+    };
+  }, [user]);
+
+  const login = async ({ username, password, rememberLogin = true }) => {
+    prepareAuthSessionStorage(rememberLogin);
+
     if (isSupabaseConfigured) {
       const value = String(username || "").trim();
       const profile = value.includes("@")
@@ -188,6 +222,7 @@ function AuthProvider({ children }) {
           "로그인 요청 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.",
         );
         if (!error) {
+          touchAuthActivity();
           setUser(normalizeUser(data.user));
           hydrateSupabaseUser(data.user);
           rememberAuthEmail(value, email);
@@ -203,7 +238,8 @@ function AuthProvider({ children }) {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
-    localStorage.setItem("auth_user", JSON.stringify(data.user));
+    setAuthStorageItem("auth_user", JSON.stringify(data.user));
+    touchAuthActivity();
     setUser(data.user);
     return data.user;
   };
@@ -221,6 +257,7 @@ function AuthProvider({ children }) {
     }
 
     if (isSupabaseConfigured) {
+      prepareAuthSessionStorage(true);
       const existingProfile = await withTimeout(
         getProfileByUsername(email),
         PROFILE_TIMEOUT_MS,
@@ -380,17 +417,20 @@ function AuthProvider({ children }) {
 
     if (!user) throw new Error("로그인이 필요합니다.");
     const nextUser = { ...user, ...payload };
-    localStorage.setItem("auth_user", JSON.stringify(nextUser));
+    setAuthStorageItem("auth_user", JSON.stringify(nextUser));
     setUser(nextUser);
     return nextUser;
   };
 
   const logout = async () => {
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
+    try {
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut();
+      }
+    } finally {
+      clearAgentNoteAuthStorage();
+      setUser(null);
     }
-    localStorage.removeItem("auth_user");
-    setUser(null);
   };
 
   const value = useMemo(

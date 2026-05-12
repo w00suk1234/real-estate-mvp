@@ -99,6 +99,7 @@ function LoginPage({ setPage }) {
   const { login, logout, signup, findUsername, requestPasswordReset, updatePassword } = useAuth();
   const [mode, setMode] = useState("login");
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [rememberLogin, setRememberLogin] = useState(true);
   const [signupForm, setSignupForm] = useState(initialSignupForm);
   const [signupTouched, setSignupTouched] = useState({});
   const [findTouched, setFindTouched] = useState({});
@@ -295,7 +296,7 @@ function LoginPage({ setPage }) {
         return;
       }
 
-      await login(loginForm);
+      await login({ ...loginForm, rememberLogin });
       setPage?.("schedules");
     } catch (err) {
       const message = err.message || "처리 중 오류가 발생했습니다.";
@@ -494,6 +495,20 @@ function LoginPage({ setPage }) {
                 {isSignup ? <span className="field-helper">8자 이상, 영문과 숫자를 포함해 주세요.</span> : null}
                 {showSignupError("password") ? <span className="field-error">{showSignupError("password")}</span> : null}
               </label>
+
+              {!isSignup ? (
+                <label className="auth-checkbox auth-remember-row">
+                  <input
+                    type="checkbox"
+                    checked={rememberLogin}
+                    onChange={(event) => setRememberLogin(event.target.checked)}
+                  />
+                  <span>
+                    <strong>로그인 상태 유지</strong>
+                    <small>공용 PC에서는 체크를 해제해 주세요.</small>
+                  </span>
+                </label>
+              ) : null}
 
               {isSignup ? (
                 <label>

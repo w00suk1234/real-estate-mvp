@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAuthStorage } from "./authStorage";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseKey =
@@ -14,6 +15,7 @@ export const supabase = isSupabaseConfigured
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
+        storage: supabaseAuthStorage,
       },
     })
   : null;
