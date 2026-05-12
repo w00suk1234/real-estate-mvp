@@ -3,6 +3,7 @@ import Topbar from "./Topbar";
 
 const PAGE_PATHS = {
   "ai-recommend": "/ai-recommend",
+  "team-mode": "/team",
 };
 
 function PageShell({ children, page, setPage }) {
