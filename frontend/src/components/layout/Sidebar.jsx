@@ -6,6 +6,7 @@ const primaryItems = [
   { id: "ai-briefing", label: "AI 브리핑", icon: "AI" },
   { id: "ai-recommend", label: "AI 매물 추천기", icon: "AI" },
   { id: "settlement", label: "정산" },
+  { id: "team-mode", label: "팀플모드" },
   { id: "briefing", label: "소개서 작성" },
 ];
 

@@ -3,6 +3,8 @@ import { useAuth } from "../auth/AuthContext";
 import { completeSettlement, deleteSettlement, listCustomers, listSchedules, listSettlements, saveCustomer, saveSettlement } from "../services/supabaseRepository";
 
 const BALANCE_TYPES = new Set(["잔금일", "잔금", "잔금날"]);
+const CONTRACT_STATUSES = new Set(["계약금입금", "계약서일정", "잔금완료", "정산완료"]);
+const CONTRACT_SCHEDULE_TYPES = new Set(["계약금입금", "계약서일정", "계약서작성", "잔금일", "잔금", "잔금날"]);
 const DONE_STATUS = "정산완료";
 const WAITING_STATUS = "정산대기";
 const today = new Date();
@@ -29,6 +31,12 @@ function formatWon(value) {
   return `${new Intl.NumberFormat("ko-KR").format(parseMoney(value))}원`;
 }
 
+function formatMonthLabel(monthValue) {
+  if (!monthValue) return "전체";
+  const [year, month] = String(monthValue).split("-");
+  return `${Number(year)}년 ${Number(month)}월`;
+}
+
 function formatMoneyInput(value) {
   const amount = parseMoney(value);
   return amount ? new Intl.NumberFormat("ko-KR").format(amount) : "";
@@ -48,6 +56,32 @@ function getEntryDate(entry) {
 
 function getSourceLabel(source) {
   return source === "잔금일정" ? "잔금일정 자동생성" : "수동등록";
+}
+
+function isContractStatus(status) {
+  return CONTRACT_STATUSES.has(String(status || ""));
+}
+
+function isContractScheduleType(type) {
+  return CONTRACT_SCHEDULE_TYPES.has(String(type || ""));
+}
+
+function getCustomerPeriodDate(customer) {
+  return (
+    customer?.contract_date ||
+    customer?.contractDate ||
+    customer?.balance_date ||
+    customer?.balanceDate ||
+    customer?.inflow_date ||
+    customer?.inquiry_date ||
+    customer?.created_at ||
+    ""
+  );
+}
+
+function getCustomerKey(...values) {
+  const key = values.find((value) => String(value || "").trim());
+  return key ? String(key).trim() : "";
 }
 
 function getSortDate(entry) {
@@ -220,6 +254,7 @@ function mergeScheduleSettlements(ledgerRows, scheduleRows, customerRows) {
 function SettlementPage({ setPage } = {}) {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [month, setMonth] = useState(toMonthInputValue(today));
+  const [showAllMonths, setShowAllMonths] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [ledger, setLedger] = useState([]);
@@ -268,14 +303,14 @@ function SettlementPage({ setPage } = {}) {
     [customers, form.customer_id],
   );
 
-  const monthLedger = useMemo(
-    () => ledger.filter((item) => isSameMonth(getEntryDate(item), month)),
-    [ledger, month],
+  const periodLedger = useMemo(
+    () => (showAllMonths ? ledger : ledger.filter((item) => isSameMonth(getEntryDate(item), month))),
+    [ledger, month, showAllMonths],
   );
 
   const filteredLedger = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
-    const rows = monthLedger.filter((entry) => {
+    const rows = periodLedger.filter((entry) => {
       const searchable = [
         entry.customer_name,
         entry.title,
@@ -301,23 +336,48 @@ function SettlementPage({ setPage } = {}) {
       const statusRank = (entry) => (entry.status === DONE_STATUS ? 1 : 0);
       return statusRank(a) - statusRank(b) || getSortDate(b) - getSortDate(a);
     });
-  }, [monthLedger, searchTerm, sortMode, sourceFilter, statusFilter]);
+  }, [periodLedger, searchTerm, sortMode, sourceFilter, statusFilter]);
 
   const stats = useMemo(() => {
-    const customerInflow = customers.filter((customer) => isSameMonth(customer.inflow_date || customer.inquiry_date || customer.created_at, month)).length;
-    const scheduleInflow = schedules.filter((schedule) => isSameMonth(schedule.schedule_date, month) && schedule.schedule_type === "고객인입").length;
-    const contractCount = customers.filter((customer) => ["계약금입금", "계약서일정", "잔금완료", DONE_STATUS].includes(customer.contract_status)).length;
-    const doneRows = monthLedger.filter((item) => item.status === DONE_STATUS);
+    const isInPeriod = (dateString) => showAllMonths || isSameMonth(dateString, month);
+    const customerInflow = customers.filter((customer) => isInPeriod(customer.inflow_date || customer.inquiry_date || customer.created_at)).length;
+    const scheduleInflow = schedules.filter((schedule) => isInPeriod(schedule.schedule_date) && schedule.schedule_type === "고객인입").length;
+    const contractCustomerKeys = new Set();
+
+    customers.forEach((customer) => {
+      if (isContractStatus(customer.contract_status) && isInPeriod(getCustomerPeriodDate(customer))) {
+        const key = getCustomerKey(customer.id, customer.name, customer.phone);
+        if (key) contractCustomerKeys.add(key);
+      }
+    });
+
+    schedules.forEach((schedule) => {
+      if (isInPeriod(schedule.schedule_date) && isContractScheduleType(schedule.schedule_type)) {
+        const key = getCustomerKey(schedule.customer_id, schedule.linked_customer_id, schedule.customer_name, schedule.title);
+        if (key) contractCustomerKeys.add(key);
+      }
+    });
+
+    periodLedger.forEach((entry) => {
+      const key = getCustomerKey(entry.customer_id, entry.customer_name, entry.phone);
+      if (key) contractCustomerKeys.add(key);
+    });
+
+    const contractCount = contractCustomerKeys.size;
+    const doneRows = periodLedger.filter((item) => item.status === DONE_STATUS);
+    const pendingRows = periodLedger.filter((item) => item.status !== DONE_STATUS);
 
     return {
       inflowCount: Math.max(customerInflow, scheduleInflow),
       contractCount,
-      pendingCount: monthLedger.filter((item) => item.status !== DONE_STATUS).length,
+      pendingCount: pendingRows.length,
       doneCount: doneRows.length,
+      totalCount: periodLedger.length,
       confirmedRevenue: sumBy(doneRows, feeTotal),
-      expectedRevenue: sumBy(monthLedger, feeTotal),
+      pendingRevenue: sumBy(pendingRows, feeTotal),
+      expectedRevenue: sumBy(periodLedger, feeTotal),
     };
-  }, [customers, month, monthLedger, schedules]);
+  }, [customers, month, periodLedger, schedules, showAllMonths]);
 
   const updateForm = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -325,7 +385,15 @@ function SettlementPage({ setPage } = {}) {
 
   const handleMonthChange = (value) => {
     setMonth(value);
+    setShowAllMonths(false);
     setForm((prev) => ({ ...prev, balance_date: `${value}-${String(today.getDate()).padStart(2, "0")}` }));
+  };
+
+  const showCurrentMonth = () => {
+    const currentMonth = toMonthInputValue(today);
+    setMonth(currentMonth);
+    setShowAllMonths(false);
+    setForm((prev) => ({ ...prev, balance_date: `${currentMonth}-${String(today.getDate()).padStart(2, "0")}` }));
   };
 
   const resetForm = () => {
@@ -462,23 +530,31 @@ function SettlementPage({ setPage } = {}) {
           <h1>수수료 정산</h1>
           <p>잔금 일정과 고객 정보를 기준으로 임차인·임대인 수수료를 관리합니다.</p>
         </div>
-        <input className="month-input settlement-month-input" type="month" value={month} onChange={(event) => handleMonthChange(event.target.value)} />
+        <div className="settlement-month-controls" aria-label="정산 조회 기간">
+          <input className="month-input settlement-month-input" type="month" value={month} onChange={(event) => handleMonthChange(event.target.value)} />
+          <button type="button" className={`settlement-period-btn ${!showAllMonths && month === toMonthInputValue(today) ? "active" : ""}`} onClick={showCurrentMonth}>
+            이번 달
+          </button>
+          <button type="button" className={`settlement-period-btn ${showAllMonths ? "active" : ""}`} onClick={() => setShowAllMonths(true)}>
+            전체보기
+          </button>
+        </div>
       </section>
 
       <section className="settlement-stat-grid">
+        <StatCard label={showAllMonths ? "전체 총 정산" : `${formatMonthLabel(month)} 총 정산`} value={formatWon(stats.expectedRevenue)} tone="expected" />
+        <StatCard label="정산 완료" value={formatWon(stats.confirmedRevenue)} tone="balance" />
+        <StatCard label="미정산" value={formatWon(stats.pendingRevenue)} tone="meeting" />
+        <StatCard label="건수" value={`${stats.totalCount}건`} tone="contract" />
         <StatCard label="손님 인입" value={`${stats.inflowCount}건`} tone="inflow" />
-        <StatCard label="계약 고객" value={`${stats.contractCount}건`} tone="contract" />
-        <StatCard label="정산 대기" value={`${stats.pendingCount}건`} tone="meeting" />
-        <StatCard label="예상 합계" value={formatWon(stats.expectedRevenue)} tone="expected" />
-        <StatCard label="정산완료 매출" value={formatWon(stats.confirmedRevenue)} tone="balance" />
       </section>
 
       <section className="settlement-layout">
         <div className="settlement-table-card">
           <div className="section-heading-row">
             <div>
-              <h2>정산 목록</h2>
-              <p>{monthLedger.length}건 중 {filteredLedger.length}건을 표시합니다. 잔금 일정 저장 시 정산 대기가 자동 생성됩니다.</p>
+              <h2>{showAllMonths ? "전체 정산목록" : `${formatMonthLabel(month)} 정산목록`}</h2>
+              <p>{periodLedger.length}건 중 {filteredLedger.length}건을 표시합니다. 잔금 일정 저장 시 정산 대기가 자동 생성됩니다.</p>
             </div>
             <button type="button" className="primary-btn settlement-add-trigger" onClick={focusSettlementForm}>
               + 정산 추가
@@ -555,13 +631,13 @@ function SettlementPage({ setPage } = {}) {
               ))
             ) : (
               <div className="settlement-empty-state">
-                <strong>{monthLedger.length ? "조건에 맞는 정산 내역이 없습니다." : "이번 달 정산 내역이 없습니다."}</strong>
-                <p>{monthLedger.length ? "검색어 또는 필터를 초기화해 다시 확인해 주세요." : "잔금 일정을 저장하면 고객별 정산 대기 항목이 자동으로 생성됩니다."}</p>
+                <strong>{periodLedger.length ? "조건에 맞는 정산 내역이 없습니다." : `${showAllMonths ? "전체" : formatMonthLabel(month)} 정산 내역이 없습니다.`}</strong>
+                <p>{periodLedger.length ? "검색어 또는 필터를 초기화해 다시 확인해 주세요." : "잔금 일정을 저장하면 고객별 정산 대기 항목이 자동으로 생성됩니다."}</p>
                 <div className="inline-actions settlement-empty-actions">
                   <button type="button" className="primary-btn small-btn" onClick={focusSettlementForm}>
                     정산 직접 추가
                   </button>
-                  {monthLedger.length ? (
+                  {periodLedger.length ? (
                     <button type="button" className="secondary-btn small-btn" onClick={resetFilters}>
                       필터 초기화
                     </button>

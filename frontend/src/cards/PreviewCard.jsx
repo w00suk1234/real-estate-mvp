@@ -1,6 +1,6 @@
 ﻿import { normalizeBriefingData } from "../utils/brochure";
 
-function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfLoading }) {
+function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, onPrint, pdfLoading }) {
   const preview = normalizeBriefingData(form, { result, mainImage, extraImages });
   const canDownloadPdf = Boolean(result?.success);
   const hasBrochureUrl = Boolean(result?.brochure_url);
@@ -12,6 +12,10 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, pdfL
   };
 
   const handlePrint = () => {
+    if (typeof onPrint === "function") {
+      onPrint();
+      return;
+    }
     if (hasBrochureUrl) {
       const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
       if (!printWindow) {

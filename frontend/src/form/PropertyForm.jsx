@@ -1,7 +1,7 @@
 ﻿import { useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { savePropertyAndBrochure } from "../services/supabaseRepository";
-import { buildBriefing, buildPriceSummary, buildPriceWarning, getPriceStatus } from "../utils/brochure";
+import { buildBriefing, buildPriceSummary, buildPriceWarning, getPriceStatus, resolveImageSource } from "../utils/brochure";
 import { IMAGE_UPLOAD_LIMITS, validateImageFile } from "../utils/imageCompression";
 
 const IMAGE_ACCEPT = IMAGE_UPLOAD_LIMITS.allowedTypes.join(",");
@@ -27,6 +27,36 @@ function getImageName(image, index) {
   return image.name || `추가 사진 ${index + 1}`;
 }
 
+function getImageSizeLabel(image) {
+  const size = Number(image?.size || image?.file?.size || 0);
+  if (!size) return "";
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)}MB`;
+  return `${Math.max(1, Math.round(size / 1024))}KB`;
+}
+
+function validateImageSelection(file) {
+  try {
+    validateImageFile(file);
+    return { valid: true, message: "" };
+  } catch (error) {
+    return {
+      valid: false,
+      message: error?.message || "이미지 업로드에 실패했습니다. 파일 형식과 용량을 확인해 주세요.",
+    };
+  }
+}
+
+function createLocalImageItem(file) {
+  return {
+    file,
+    name: file.name || "property-image",
+    size: file.size || 0,
+    type: file.type || "",
+    uploadedAt: new Date().toISOString(),
+    preview: typeof URL !== "undefined" ? URL.createObjectURL(file) : "",
+  };
+}
+
 function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, setExtraImages, setResult, onCreated }) {
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -44,14 +74,14 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
       return;
     }
 
-    const validation = validateImageFile(selected);
+    const validation = validateImageSelection(selected);
     if (!validation.valid) {
-      setImageNotice(validation.message);
+      setImageNotice("이미지 업로드에 실패했습니다. 파일 형식과 용량을 확인해 주세요. " + validation.message);
       return;
     }
 
-    setMainImage(selected);
-    setImageNotice("대표사진은 저장 시 " + IMAGE_UPLOAD_LIMITS.maxDimension + "px 기준으로 자동 압축됩니다.");
+    setMainImage(createLocalImageItem(selected));
+    setImageNotice("이미지가 업로드되었습니다. 저장하면 소개서와 인쇄 화면에 함께 반영됩니다.");
   };
 
   const handleExtraImagesChange = (files) => {
@@ -67,9 +97,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
     const accepted = [];
     const rejected = [];
     selected.forEach((file) => {
-      const validation = validateImageFile(file);
+      const validation = validateImageSelection(file);
       if (!validation.valid) rejected.push(file.name + ": " + validation.message);
-      else if (accepted.length < availableSlots) accepted.push(file);
+      else if (accepted.length < availableSlots) accepted.push(createLocalImageItem(file));
     });
 
     if (accepted.length) {
@@ -77,10 +107,15 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
     }
 
     const messages = [];
-    if (accepted.length) messages.push(accepted.length + "장을 추가했습니다. 저장 시 자동 압축됩니다.");
+    if (accepted.length) messages.push("이미지가 업로드되었습니다. 저장하면 소개서와 인쇄 화면에 함께 반영됩니다.");
     if (selected.length > availableSlots) messages.push("남은 " + availableSlots + "장만 추가했습니다.");
-    if (rejected.length) messages.push(rejected[0]);
+    if (rejected.length) messages.push("이미지 업로드에 실패했습니다. 파일 형식과 용량을 확인해 주세요. " + rejected[0]);
     setImageNotice(messages.join(" "));
+  };
+
+  const removeMainImage = () => {
+    setMainImage(null);
+    setImageNotice("대표 이미지를 삭제했습니다.");
   };
 
   const removeExtraImage = (index) => {
@@ -135,6 +170,9 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
 
     try {
       setLoading(true);
+      if (mainImage || extraImages.length) {
+        setImageNotice("이미지를 저장하는 중입니다...");
+      }
       const payload = { ...form, price_status: priceStatus };
       const saved = await savePropertyAndBrochure({ form: payload, mainImage, extraImages, briefing });
       setResult({
@@ -146,8 +184,16 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
         extra_image_urls: saved.extra_image_urls || [],
         brochure_url: saved.brochure_url || "",
       });
+      setMainImage(saved.main_image_url ? { url: saved.main_image_url, name: "대표 이미지", persisted: true } : null);
+      setExtraImages((saved.extra_image_urls || []).map((url, index) => ({ url, name: `추가 이미지 ${index + 1}`, persisted: true })));
+      if (saved.main_image_url || saved.extra_image_urls?.length) {
+        setImageNotice("이미지가 업로드되었습니다.");
+      }
       onCreated?.();
     } catch (error) {
+      if (/storage|bucket|image|이미지|파일|mime/i.test(error?.message || "")) {
+        setImageNotice("이미지 업로드에 실패했습니다. 파일 형식과 용량을 확인해 주세요.");
+      }
       alert(error.message || "소개서 저장 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
@@ -194,29 +240,61 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
           <div className="briefing-section-body">
             <div className="upload-grid">
               <label className="upload-box">
-                <input type="file" accept={IMAGE_ACCEPT} onChange={(event) => handleMainImageChange(event.target.files)} />
+                <input type="file" accept={IMAGE_ACCEPT} onChange={(event) => {
+                  handleMainImageChange(event.target.files);
+                  event.target.value = "";
+                }} />
                 <span><strong className="upload-title">대표사진</strong><small>소개서 상단에 표시됩니다.</small></span>
                 <em className="upload-meta">{mainImage ? getImageName(mainImage, 0) : "이미지 선택"}</em>
               </label>
               <label className="upload-box">
-                <input type="file" accept={IMAGE_ACCEPT} multiple onChange={(event) => handleExtraImagesChange(event.target.files)} />
+                <input type="file" accept={IMAGE_ACCEPT} multiple onChange={(event) => {
+                  handleExtraImagesChange(event.target.files);
+                  event.target.value = "";
+                }} />
                 <span><strong className="upload-title">추가사진</strong><small>최대 10장까지 정리합니다.</small></span>
                 <em className="upload-meta">현재 {extraImages.length}장</em>
               </label>
             </div>
-            <p className="image-upload-note">대표사진 1장, 추가사진 최대 {IMAGE_UPLOAD_LIMITS.maxExtraImages}장. 저장 시 자동 압축됩니다.</p>
+            <p className="image-upload-note">이미지를 업로드하면 소개서와 인쇄 화면에 함께 반영됩니다. jpg, jpeg, png, webp 형식만 가능하며 1장당 최대 5MB입니다.</p>
             {imageNotice && <div className="warning-strip image-notice">{imageNotice}</div>}
-            {extraImages.length > 0 && (
-              <div className="extra-image-list">
+            {(mainImage || extraImages.length > 0) ? (
+              <div className="extra-image-list brochure-image-list">
+                {mainImage && (
+                  <div className="extra-image-row brochure-image-row is-main">
+                    <div className="brochure-image-summary">
+                      {resolveImageSource(mainImage) ? <img src={resolveImageSource(mainImage)} alt={getImageName(mainImage, 0)} /> : <span className="image-placeholder-mini">이미지</span>}
+                      <span>
+                        <strong>{getImageName(mainImage, 0)}</strong>
+                        <small>{getImageSizeLabel(mainImage) || "저장된 이미지"}</small>
+                      </span>
+                      <em>대표 이미지</em>
+                    </div>
+                    <div>
+                      <button type="button" className="danger-btn mini-btn" onClick={removeMainImage}>삭제</button>
+                    </div>
+                  </div>
+                )}
                 {extraImages.map((image, index) => (
-                  <div className="extra-image-row" key={`${getImageName(image, index)}-${index}`}>
-                    <span>{getImageName(image, index)}</span>
+                  <div className="extra-image-row brochure-image-row" key={`${getImageName(image, index)}-${index}`}>
+                    <div className="brochure-image-summary">
+                      {resolveImageSource(image) ? <img src={resolveImageSource(image)} alt={getImageName(image, index)} /> : <span className="image-placeholder-mini">이미지</span>}
+                      <span>
+                        <strong>{getImageName(image, index)}</strong>
+                        <small>{getImageSizeLabel(image) || "저장된 이미지"}</small>
+                      </span>
+                    </div>
                     <div>
                       <button type="button" className="secondary-btn mini-btn" onClick={() => moveExtraImageToMain(index)}>대표로 지정</button>
                       <button type="button" className="danger-btn mini-btn" onClick={() => removeExtraImage(index)}>삭제</button>
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="brochure-image-placeholder">
+                <strong>이미지 없음</strong>
+                <span>대표 이미지를 선택하면 미리보기와 PDF에 함께 반영됩니다.</span>
               </div>
             )}
           </div>

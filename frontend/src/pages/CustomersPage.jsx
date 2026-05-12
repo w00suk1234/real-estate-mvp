@@ -58,6 +58,7 @@ function mergeMemoOnce(baseMemo, nextMemo) {
 }
 
 const RECOMMEND_CUSTOMER_KEY = "agentnote_recommend_customer_id";
+const AI_BRIEFING_PREFILL_KEY = "agentnote_ai_briefing_prefill";
 
 function CustomersPage({ setPage: navigatePage }) {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -178,6 +179,13 @@ function CustomersPage({ setPage: navigatePage }) {
     localStorage.setItem(RECOMMEND_CUSTOMER_KEY, customer.id);
     window.history.pushState({}, "", `/ai-recommend?customerId=${encodeURIComponent(customer.id)}`);
     navigatePage?.("ai-recommend");
+  };
+
+  const openBriefing = (customer) => {
+    if (!customer?.id) return;
+    localStorage.setItem(AI_BRIEFING_PREFILL_KEY, JSON.stringify({ customerId: customer.id, propertyIds: [] }));
+    window.history.pushState({}, "", `/ai-briefing?customerId=${encodeURIComponent(customer.id)}`);
+    navigatePage?.("ai-briefing");
   };
 
   const createInflowSchedule = async (customer) => {
@@ -330,7 +338,10 @@ function CustomersPage({ setPage: navigatePage }) {
 
                     <div className="customer-actions">
                       <button type="button" className="primary-btn small-btn customer-recommend-btn" onClick={() => openRecommendation(item)}>
-                        AI 추천 보기
+                        추천 매물 보기
+                      </button>
+                      <button type="button" className="secondary-btn small-btn customer-briefing-btn" onClick={() => openBriefing(item)}>
+                        상담 문구 만들기
                       </button>
                       <div className="customer-action-pair">
                         <button type="button" className="secondary-btn small-btn customer-ghost-btn" onClick={() => handleEdit(item)}>

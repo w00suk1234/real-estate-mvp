@@ -1313,6 +1313,37 @@ h4 {
   color: #9a3412;
 }
 
+.import-missing-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid #fde68a;
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+}
+
+.import-missing-summary strong {
+  flex: 0 0 auto;
+  color: #78350f;
+}
+
+.import-missing-summary div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.import-missing-summary span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #fff7ed;
+  font-weight: 800;
+}
+
 .url-fallback-box {
   margin-top: 14px;
   border: 1px solid #e5e7eb;
@@ -1748,6 +1779,44 @@ h4 {
   height: 100%;
   object-fit: contain;
   background: #ffffff;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .pdf-stage,
+  .pdf-stage * {
+    visibility: visible !important;
+  }
+
+  .pdf-stage {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: auto !important;
+  }
+
+  .briefing-pdf {
+    width: 100% !important;
+    box-shadow: none !important;
+  }
+
+  .briefing-pdf img {
+    max-width: 100%;
+    display: block;
+  }
+
+  .briefing-pdf__hero-image,
+  .briefing-pdf__photo-card,
+  .briefing-pdf__section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
 
 .briefing-pdf__footer {
@@ -4383,6 +4452,98 @@ h4 {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.brochure-image-list {
+  gap: 8px;
+}
+
+.brochure-image-row {
+  align-items: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.brochure-image-row.is-main {
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+}
+
+.brochure-image-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.brochure-image-summary img,
+.image-placeholder-mini {
+  width: 56px;
+  height: 44px;
+  flex: 0 0 56px;
+  border-radius: 10px;
+  background: #eef4fb;
+  object-fit: cover;
+}
+
+.image-placeholder-mini {
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.brochure-image-summary span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.brochure-image-summary strong,
+.brochure-image-summary small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brochure-image-summary small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.brochure-image-summary em {
+  align-self: flex-start;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #07519f;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.brochure-image-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  min-height: 86px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #64748b;
+  text-align: center;
+}
+
+.brochure-image-placeholder strong {
+  color: #334155;
+}
+
+.brochure-image-placeholder span {
+  font-size: 12px;
 }
 
 .mini-btn {
@@ -9102,6 +9263,339 @@ h4 {
   .recommend-edit-grid,
   .recommend-score-control {
     grid-template-columns: 1fr !important;
+  }
+}
+
+.schedule-flow-card {
+  display: grid;
+  gap: 14px;
+}
+
+.schedule-flow-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.schedule-flow-card-head strong {
+  display: block;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.schedule-flow-card-head p,
+.schedule-list-caption {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.schedule-flow-summary {
+  align-self: stretch;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.schedule-flow-summary .flow-summary-chip {
+  cursor: pointer;
+  min-height: 42px;
+  padding: 0 15px;
+  background: #ffffff;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.schedule-flow-summary .flow-summary-chip strong {
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.schedule-flow-summary .flow-summary-chip:hover,
+.schedule-flow-summary .flow-summary-chip.active {
+  border-color: #0b5dd7;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.settlement-month-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settlement-period-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #dbe3ef;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.settlement-period-btn:hover,
+.settlement-period-btn.active {
+  border-color: #0b5dd7;
+  background: #eff6ff;
+  color: #0b5dd7;
+}
+
+.calculator-grid-single {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.brokerage-calculator-card {
+  max-width: 980px;
+}
+
+.brokerage-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.brokerage-helper {
+  padding: 12px 14px;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  background: #f8fbff;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.brokerage-rate-table-wrap,
+.team-table-wrap {
+  overflow-x: auto;
+}
+
+.brokerage-rate-table,
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 620px;
+}
+
+.brokerage-rate-table th,
+.brokerage-rate-table td,
+.team-table th,
+.team-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5edf7;
+  text-align: left;
+}
+
+.brokerage-rate-table th,
+.team-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.brokerage-rate-table td:not(:first-child) {
+  text-align: right;
+}
+
+.team-mode-page {
+  gap: 16px;
+}
+
+.team-mode-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.team-mode-header input,
+.team-onboarding-card input,
+.team-onboarding-card select,
+.team-mode-page input,
+.team-mode-page select,
+.team-mode-page textarea {
+  min-height: 42px;
+  border: 1px solid #d6e1ef;
+  border-radius: 12px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.team-mode-page textarea {
+  padding: 12px;
+}
+
+.team-onboarding-grid,
+.team-two-column,
+.team-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.team-action-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.team-onboarding-card,
+.team-mode-page form.dashboard-card {
+  display: grid;
+  gap: 12px;
+}
+
+.team-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #f8fbff;
+}
+
+.team-mode-tabs button {
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: #475569;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.team-mode-tabs button.active {
+  border-color: #bfdbfe;
+  background: #ffffff;
+  color: #075fc8;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.team-mode-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.team-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.team-stat-grid.compact {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+}
+
+.team-stat-card {
+  min-height: 96px;
+  padding: 16px;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.team-stat-card span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.team-stat-card strong {
+  color: #0f172a;
+  font-size: clamp(20px, 2vw, 28px);
+}
+
+.team-member-list,
+.team-payroll-list {
+  display: grid;
+  gap: 10px;
+}
+
+.team-member-row,
+.team-payroll-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5edf7;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.team-member-row div,
+.team-payroll-card div {
+  display: grid;
+  gap: 3px;
+}
+
+.team-member-row span,
+.team-payroll-card span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.team-invite-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed #bfdbfe;
+  border-radius: 12px;
+  background: #eff6ff;
+}
+
+.team-invite-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-mode-locked {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+@media (max-width: 1080px) {
+  .team-action-grid,
+  .team-stat-grid,
+  .team-stat-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .schedule-flow-card-head,
+  .settlement-month-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .schedule-flow-summary .flow-summary-chip,
+  .settlement-period-btn {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .brokerage-summary-grid,
+  .team-onboarding-grid,
+  .team-two-column,
+  .team-action-grid,
+  .team-stat-grid,
+  .team-stat-grid.compact,
+  .team-member-row,
+  .team-payroll-card {
+    grid-template-columns: 1fr;
+  }
+
+  .team-mode-header {
+    flex-direction: column;
   }
 }
 

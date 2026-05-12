@@ -6,7 +6,8 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForImages(element) {
+export async function waitForImages(element) {
+  if (!element) return;
   const images = Array.from(element.querySelectorAll("img"));
 
   await Promise.all(

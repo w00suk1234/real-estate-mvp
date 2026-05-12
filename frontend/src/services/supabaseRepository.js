@@ -761,6 +761,28 @@ function createImageStoragePath(userId, extension = "webp") {
   return userId + "/" + getDateKey() + "/" + Date.now() + "_" + createRandomToken() + "." + extension;
 }
 
+function createImageRecord({ image, url, path = "", uploadedFile = null, isMain = false }) {
+  if (!url) return null;
+  const sourceFile = uploadedFile || image?.file || image;
+  return stripEmpty({
+    url,
+    path,
+    name: image?.name || sourceFile?.name || "",
+    size: Number(sourceFile?.size || image?.size || 0) || undefined,
+    type: image?.type || sourceFile?.type || "",
+    uploadedAt: new Date().toISOString(),
+    isMain,
+  });
+}
+
+function normalizeStorageError(error) {
+  const message = String(error?.message || error || "");
+  if (/bucket|not found|row-level security|policy|permission|storage/i.test(message)) {
+    return new Error("이미지 업로드에 실패했습니다. Supabase Storage의 property-images 버킷과 업로드 정책을 확인해 주세요.");
+  }
+  return error instanceof Error ? error : new Error(message || "이미지 업로드에 실패했습니다.");
+}
+
 export function getPublicImageUrl(path) {
   if (!path) return "";
   if (isHttpImageUrl(path)) return path;
@@ -769,41 +791,65 @@ export function getPublicImageUrl(path) {
   return data?.publicUrl || "";
 }
 
-export async function uploadPropertyImage(image) {
-  if (!image) return "";
+export async function uploadPropertyImageRecord(image, options = {}) {
+  if (!image) return null;
 
   const existingUrl = getPersistedImageUrl(image);
   const file = image.file || image;
 
-  if (!isSupabaseConfigured || !supabase) return existingUrl;
-  if (!hasBrowserFile(file)) return existingUrl;
+  if (existingUrl) {
+    return createImageRecord({ image, url: existingUrl, path: image?.path || "", isMain: options.isMain });
+  }
+
+  if (!isSupabaseConfigured || !supabase) return null;
+  if (!hasBrowserFile(file)) return null;
 
   const userId = await getCurrentUserId();
   if (!userId || userId === "local-user") {
-    throw new Error("??? ???? ???? ?????.");
+    throw new Error("이미지 업로드는 로그인이 필요합니다.");
   }
 
-  const optimizedFile = await resizeImageFile(file);
-  const extension = optimizedFile.type.includes("webp") ? "webp" : "jpg";
-  const path = createImageStoragePath(userId, extension);
+  try {
+    const optimizedFile = await resizeImageFile(file);
+    const extension = optimizedFile.type.includes("webp") ? "webp" : "jpg";
+    const path = createImageStoragePath(userId, extension);
 
-  const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, optimizedFile, {
-    cacheControl: "31536000",
-    contentType: optimizedFile.type,
-    upsert: false,
-  });
+    const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, optimizedFile, {
+      cacheControl: "31536000",
+      contentType: optimizedFile.type,
+      upsert: false,
+    });
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return getPublicImageUrl(path);
+    return createImageRecord({
+      image,
+      url: getPublicImageUrl(path),
+      path,
+      uploadedFile: optimizedFile,
+      isMain: options.isMain,
+    });
+  } catch (error) {
+    throw normalizeStorageError(error);
+  }
+}
+
+export async function uploadPropertyImage(image) {
+  const record = await uploadPropertyImageRecord(image);
+  return record?.url || "";
 }
 
 export async function savePropertyAndBrochure({ form, mainImage, extraImages, briefing }) {
-  const uploadedMainImageUrl = await uploadPropertyImage(mainImage);
-  const mainImageUrl = isHttpImageUrl(uploadedMainImageUrl) ? uploadedMainImageUrl : "";
-  const extraImageUrls = (
-    await Promise.all((extraImages || []).slice(0, 10).map((image) => uploadPropertyImage(image)))
-  ).filter(isHttpImageUrl);
+  const mainImageRecord = await uploadPropertyImageRecord(mainImage, { isMain: true });
+  const mainImageUrl = isHttpImageUrl(mainImageRecord?.url) ? mainImageRecord.url : "";
+  const extraImageRecords = (
+    await Promise.all((extraImages || []).slice(0, 10).map((image) => uploadPropertyImageRecord(image)))
+  ).filter((record) => isHttpImageUrl(record?.url));
+  const extraImageUrls = extraImageRecords.map((record) => record.url);
+  const imageItems = {
+    main: mainImageRecord,
+    extra: extraImageRecords,
+  };
 
   const priceSummary = buildDisplayPriceSummary(form);
   const title = form.title || "무제 소개서";
@@ -812,7 +858,7 @@ export async function savePropertyAndBrochure({ form, mainImage, extraImages, br
     address: form.address || "",
     deal_type: form.deal_type || "",
     price_summary: priceSummary,
-    data: { form, briefing, main_image_url: mainImageUrl, extra_image_urls: extraImageUrls },
+    data: { form, briefing, main_image_url: mainImageUrl, extra_image_urls: extraImageUrls, images: imageItems },
     main_image_url: mainImageUrl,
     extra_image_urls: extraImageUrls,
   };

@@ -25,7 +25,7 @@
         "https://new.land.naver.com/*",
         "https://land.naver.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["naverExtractor.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

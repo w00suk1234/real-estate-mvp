@@ -7,7 +7,7 @@ import RecentBrochureList from "../cards/RecentBrochureList";
 import NaverImportPanel from "../components/importer/NaverImportPanel";
 import BriefingPdfView from "../components/pdf/BriefingPdfView";
 import { buildPdfFileName, normalizeBriefingData } from "../utils/brochure";
-import { downloadElementAsPdf, preparePdfAssets } from "../utils/pdf";
+import { downloadElementAsPdf, preparePdfAssets, waitForImages } from "../utils/pdf";
 
 const defaultForm = {
   title: "",
@@ -92,6 +92,13 @@ function normalizeImportedImages(images) {
     .slice(0, 4);
 }
 
+function revokePreviewUrl(image) {
+  const preview = String(image?.preview || "");
+  if (preview.startsWith("blob:") && typeof URL !== "undefined") {
+    URL.revokeObjectURL(preview);
+  }
+}
+
 function createInitialForm(user) {
   const saved = typeof localStorage !== "undefined" ? localStorage.getItem("briefing_default_settings") : null;
   const defaults = saved ? JSON.parse(saved) : {};
@@ -119,7 +126,7 @@ function hasBriefingWork(form, mainImage, extraImages, result) {
   return hasText || Boolean(mainImage) || extraImages.length > 0 || Boolean(result);
 }
 
-function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
+function BriefingMakerPage({ importUrl, importSnapshot }) {
   const { user } = useAuth();
   const [form, setForm] = useState(() => createInitialForm(user));
   const [mainImage, setMainImage] = useState(null);
@@ -129,6 +136,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfAssets, setPdfAssets] = useState({ mainImageSrc: "", extraImageSources: [] });
   const pdfRef = useRef(null);
+  const imageStateRef = useRef({ mainImage: null, extraImages: [] });
 
   const resetWork = useCallback(() => {
     setForm(createInitialForm(user));
@@ -191,6 +199,17 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     }
   }, [form, mainImage, extraImages, result]);
 
+  useEffect(() => {
+    imageStateRef.current = { mainImage, extraImages };
+  }, [mainImage, extraImages]);
+
+  useEffect(() => {
+    return () => {
+      revokePreviewUrl(imageStateRef.current.mainImage);
+      imageStateRef.current.extraImages.forEach(revokePreviewUrl);
+    };
+  }, []);
+
   const handleDownloadPdf = useCallback(async () => {
     if (!result?.success) return;
 
@@ -220,14 +239,33 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
     }
   }, [result]);
 
-  const handlePrint = useCallback(() => {
+  const handlePrint = useCallback(async () => {
     if (result?.brochure_url) {
       const printWindow = window.open(result.brochure_url, "_blank", "noreferrer");
       if (!printWindow) alert("팝업이 차단되면 새 창에서 연 뒤 Ctrl + P로 인쇄해 주세요.");
       return;
     }
-    if (result?.success) window.print();
-  }, [result]);
+    if (!result?.success) return;
+
+    try {
+      setPdfLoading(true);
+      const preview = normalizeBriefingData(form, { result, mainImage, extraImages });
+      const preparedAssets = await preparePdfAssets({
+        mainImageSrc: preview.mainPhoto?.src,
+        extraImageSources: preview.extraPhotos.map((image) => image.src),
+      });
+
+      setPdfAssets(preparedAssets);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await waitForImages(pdfRef.current);
+      window.print();
+    } catch (error) {
+      alert(error.message || "인쇄 준비 중 오류가 발생했습니다.");
+    } finally {
+      setPdfLoading(false);
+    }
+  }, [extraImages, form, mainImage, result]);
 
   return (
     <>
@@ -262,6 +300,7 @@ function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
               mainImage={mainImage}
               extraImages={extraImages}
               onDownloadPdf={handleDownloadPdf}
+              onPrint={handlePrint}
               pdfLoading={pdfLoading}
             />
           </div>

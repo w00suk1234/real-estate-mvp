@@ -10,6 +10,7 @@ import {
 } from "../utils/recommendProperties";
 
 const SELECTED_CUSTOMER_KEY = "agentnote_recommend_customer_id";
+const AI_BRIEFING_PREFILL_KEY = "agentnote_ai_briefing_prefill";
 const SCORE_FILTERS = [
   { label: "90점 이상", value: 90, limit: 5 },
   { label: "70점 이상", value: 70, limit: 5 },
@@ -195,6 +196,18 @@ function AIPropertyRecommendPage({ setPage }) {
     }
   };
 
+  const openBriefingWithRecommendation = (result) => {
+    const propertyId = result?.property?.id || result?.normalizedProperty?.id || "";
+    const propertyIds = propertyId ? [String(propertyId)] : [];
+    const params = new URLSearchParams();
+    if (selectedCustomerId) params.set("customerId", selectedCustomerId);
+    if (propertyIds.length) params.set("propertyIds", propertyIds.join(","));
+
+    localStorage.setItem(AI_BRIEFING_PREFILL_KEY, JSON.stringify({ customerId: selectedCustomerId, propertyIds }));
+    window.history.pushState({}, "", `/ai-briefing?${params.toString()}`);
+    setPage?.("ai-briefing");
+  };
+
   return (
     <div className="page-stack ai-recommend-page">
       <section className="page-header-card compact-page-header ai-recommend-header">
@@ -318,7 +331,7 @@ function AIPropertyRecommendPage({ setPage }) {
                   rank={index + 1}
                   result={result}
                   onCopy={handleCopy}
-                  onOpenBriefing={() => setPage?.("ai-briefing")}
+                  onOpenBriefing={() => openBriefingWithRecommendation(result)}
                 />
               ))}
             </div>

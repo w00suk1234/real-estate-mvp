@@ -5,6 +5,12 @@ import { deleteSchedule, listCustomers, listSchedules, saveCustomer, saveSchedul
 const SCHEDULE_TYPES = ["일정", "고객인입", "미팅", "계약금입금", "계약서일정", "잔금일", "기타"];
 const CUSTOMER_PICKER_TYPES = new Set(["미팅", "계약금입금", "계약서일정", "잔금일"]);
 const BALANCE_TYPES = new Set(["잔금일", "잔금", "잔금날"]);
+const FLOW_SUMMARY_ITEMS = [
+  { key: "inflow", label: "고객인입", aliases: ["고객인입"], tone: "inflow" },
+  { key: "meeting", label: "미팅", aliases: ["미팅"], tone: "meeting" },
+  { key: "contract", label: "계약서작성", aliases: ["계약서일정", "계약서작성"], tone: "contract" },
+  { key: "balance", label: "잔금", aliases: ["잔금일", "잔금", "잔금날"], tone: "balance" },
+];
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const today = new Date();
 const FIXED_HOLIDAYS = {
@@ -143,6 +149,10 @@ function typeClass(type) {
   if (normalizedType === "기타") return "etc";
   return "default";
 }
+function matchesFlowSummary(item, summary) {
+  const normalizedType = normalizeScheduleType(item?.schedule_type);
+  return summary.aliases.includes(normalizedType);
+}
 function normalize(value) {
   return String(value || "").trim();
 }
@@ -172,6 +182,7 @@ export default function SchedulesPage() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("all");
 
   async function load() {
     const [scheduleRows, customerRows] = await Promise.all([listSchedules(), listCustomers()]);
@@ -221,6 +232,22 @@ export default function SchedulesPage() {
       .filter((item) => String(item.schedule_date || "").startsWith(key))
       .sort(sortSchedules);
   }, [displayItems, month]);
+  const monthlyFlowSummary = useMemo(
+    () =>
+      FLOW_SUMMARY_ITEMS.map((summary) => ({
+        ...summary,
+        count: monthSchedules.filter((item) => matchesFlowSummary(item, summary)).length,
+      })),
+    [monthSchedules],
+  );
+  const activeFlowSummary = useMemo(
+    () => FLOW_SUMMARY_ITEMS.find((summary) => summary.key === typeFilter) || null,
+    [typeFilter],
+  );
+  const filteredMonthSchedules = useMemo(() => {
+    if (!activeFlowSummary) return monthSchedules;
+    return monthSchedules.filter((item) => matchesFlowSummary(item, activeFlowSummary));
+  }, [activeFlowSummary, monthSchedules]);
   function openCreate(date) {
     setSelectedDate(date);
     setForm(emptyForm(date));
@@ -364,13 +391,40 @@ export default function SchedulesPage() {
       <section className="dashboard-card schedule-toolbar compact-schedule-toolbar">
         <div>
           <strong>{month.getFullYear()}년 {month.getMonth() + 1}월</strong>
-          <p>날짜를 클릭하면 일정 등록/수정 창이 열립니다.</p>
+          <p>선택일 {selectedSchedules.length}건 · 날짜를 클릭하면 일정 등록/수정 창이 열립니다.</p>
         </div>
         <div className="toolbar-actions schedule-nav-actions">
           <input className="schedule-month-input-ui" type="month" value={toMonthValue(month)} onChange={(event) => setMonth(parseDate(`${event.target.value}-01`))} />
           <button type="button" className="button secondary schedule-nav-btn" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>이전</button>
           <button type="button" className="button secondary schedule-nav-btn today-btn" onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}>오늘</button>
           <button type="button" className="button secondary schedule-nav-btn" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>다음</button>
+        </div>
+      </section>
+
+      <section className="dashboard-card schedule-flow-card">
+        <div className="schedule-flow-card-head">
+          <div>
+            <strong>월간 주요 일정</strong>
+            <p>현재 표시 중인 월 기준으로 고객 흐름을 집계합니다.</p>
+          </div>
+          {activeFlowSummary ? (
+            <button type="button" className="secondary-btn small-btn" onClick={() => setTypeFilter("all")}>
+              전체 일정 보기
+            </button>
+          ) : null}
+        </div>
+        <div className="monthly-flow-summary schedule-flow-summary" aria-label="월간 일정 유형별 개수">
+          {monthlyFlowSummary.map((summary) => (
+            <button
+              type="button"
+              key={summary.key}
+              className={`flow-summary-chip ${summary.tone} ${typeFilter === summary.key ? "active" : ""}`}
+              onClick={() => setTypeFilter((prev) => (prev === summary.key ? "all" : summary.key))}
+            >
+              <span>{summary.label}</span>
+              <strong>{summary.count}</strong>
+            </button>
+          ))}
         </div>
       </section>
 
@@ -414,8 +468,11 @@ export default function SchedulesPage() {
 
       <section className="schedule-summary-grid">
         <div className="dashboard-card">
-          <h2>이번달 일정내역</h2>
-          <ScheduleList items={monthSchedules} onEdit={openEdit} />
+          <h2>{activeFlowSummary ? `${activeFlowSummary.label} 일정내역` : "이번달 일정내역"}</h2>
+          <p className="schedule-list-caption">
+            {monthSchedules.length}건 중 {filteredMonthSchedules.length}건을 표시합니다.
+          </p>
+          <ScheduleList items={filteredMonthSchedules} onEdit={openEdit} />
         </div>
       </section>
 

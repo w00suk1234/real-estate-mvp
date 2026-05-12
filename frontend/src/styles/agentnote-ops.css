@@ -820,6 +820,7 @@
   box-shadow: 0 8px 18px rgba(7, 95, 200, 0.16) !important;
 }
 
+.customer-actions .customer-briefing-btn,
 .customer-actions .customer-ghost-btn,
 .customer-form-card .form-actions .secondary-btn {
   background: #ffffff !important;
@@ -833,6 +834,7 @@
   color: #b91c1c !important;
 }
 
+.customer-actions .customer-briefing-btn:hover,
 .customer-actions .customer-ghost-btn:hover,
 .customer-filter-grid .secondary-btn:hover,
 .customer-form-card .form-actions .secondary-btn:hover {

@@ -45,6 +45,32 @@ const CUSTOMER_MESSAGE_TABS = [
   ["softPersuasive", "부드러운 제안"],
 ];
 
+const AI_BRIEFING_PREFILL_KEY = "agentnote_ai_briefing_prefill";
+
+function parsePrefillIds(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+function readBriefingPrefill() {
+  const params = new URLSearchParams(window.location.search);
+  let stored = {};
+
+  try {
+    stored = JSON.parse(localStorage.getItem(AI_BRIEFING_PREFILL_KEY) || "{}");
+  } catch {
+    stored = {};
+  }
+
+  return {
+    customerId: params.get("customerId") || stored.customerId || "",
+    propertyIds: parsePrefillIds(params.get("propertyIds") || (stored.propertyIds || []).join(",")),
+  };
+}
+
 function AIBriefingPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
@@ -73,8 +99,28 @@ function AIBriefingPage() {
       setLoading(true);
       try {
         const [customerRows, propertyRows] = await Promise.all([listCustomers(), listProperties()]);
-        setCustomers(Array.isArray(customerRows) ? customerRows : []);
-        setProperties(Array.isArray(propertyRows) ? propertyRows : []);
+        const safeCustomers = Array.isArray(customerRows) ? customerRows : [];
+        const safeProperties = Array.isArray(propertyRows) ? propertyRows : [];
+        setCustomers(safeCustomers);
+        setProperties(safeProperties);
+
+        const prefill = readBriefingPrefill();
+        const prefillCustomerId = String(prefill.customerId || "");
+        const validPropertyIds = prefill.propertyIds
+          .filter((id) => safeProperties.some((property) => String(property.id) === String(id)))
+          .slice(0, 5);
+
+        if (prefillCustomerId && safeCustomers.some((customer) => String(customer.id) === prefillCustomerId)) {
+          setSelectedCustomerId(prefillCustomerId);
+          setCustomerSearch("");
+        }
+        if (validPropertyIds.length) {
+          setSelectedPropertyIds(validPropertyIds);
+        }
+        if (prefillCustomerId || validPropertyIds.length) {
+          localStorage.removeItem(AI_BRIEFING_PREFILL_KEY);
+          setMessage(validPropertyIds.length ? "고객과 추천 매물을 불러왔습니다. 후보를 추가로 선택한 뒤 브리핑을 생성해 주세요." : "고객을 불러왔습니다. 후보 매물을 선택한 뒤 상담 문구를 만들 수 있습니다.");
+        }
       } catch (error) {
         setMessage(error.message || "브리핑 데이터를 불러오지 못했습니다.");
       } finally {

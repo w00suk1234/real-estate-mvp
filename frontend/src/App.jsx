@@ -5,6 +5,7 @@ import SchedulesPage from "./pages/SchedulesPage";
 import SettlementPage from "./pages/SettlementPage";
 import AIPropertyRecommendPage from "./pages/AIPropertyRecommendPage";
 import AIBriefingPage from "./pages/AIBriefingPage";
+import TeamModePage from "./pages/TeamModePage";
 import CalculatorsPage from "./pages/CalculatorsPage";
 import PhotoEditorPage from "./pages/PhotoEditorPage";
 import AddressHubPage from "./pages/AddressHubPage";
@@ -20,6 +21,8 @@ const NAVER_IMPORT_SNAPSHOT_KEY = "naver_import_snapshot";
 const PATH_PAGE_MAP = {
   "/ai-recommend": "ai-recommend",
   "/ai-briefing": "ai-briefing",
+  "/team": "team-mode",
+  "/team-mode": "team-mode",
   "/recommendations": "ai-recommend",
 };
 
@@ -64,10 +67,33 @@ function sanitizeSnapshot(snapshot) {
         )
       : {};
 
+  const property =
+    snapshot.property && typeof snapshot.property === "object"
+      ? Object.fromEntries(
+          Object.entries(snapshot.property).map(([key, value]) => [
+            String(key || ""),
+            Array.isArray(value) ? value.map((item) => String(item || "")).slice(0, 20) : String(value || ""),
+          ]),
+        )
+      : null;
+
+  const confidence =
+    snapshot.confidence && typeof snapshot.confidence === "object"
+      ? Object.fromEntries(
+          Object.entries(snapshot.confidence).map(([key, value]) => [
+            String(key || ""),
+            String(value || ""),
+          ]),
+        )
+      : null;
+
   return {
     listing_url: String(snapshot.listing_url || ""),
     title: String(snapshot.title || ""),
     page_title: String(snapshot.page_title || ""),
+    source: String(snapshot.source || ""),
+    sourceUrl: String(snapshot.sourceUrl || snapshot.listing_url || ""),
+    importedAt: String(snapshot.importedAt || ""),
     visible_text: String(snapshot.visible_text || ""),
     focused_text: String(snapshot.focused_text || ""),
     panel_texts: Array.isArray(snapshot.panel_texts)
@@ -76,6 +102,11 @@ function sanitizeSnapshot(snapshot) {
     pairs,
     images,
     parsed_fields: parsedFields,
+    property,
+    confidence,
+    missingFields: Array.isArray(snapshot.missingFields)
+      ? snapshot.missingFields.map((item) => String(item || "")).filter(Boolean).slice(0, 20)
+      : [],
   };
 }
 
@@ -206,6 +237,7 @@ function App() {
   if (page === "settlement") currentPage = <SettlementPage setPage={setPage} />;
   if (page === "ai-recommend") currentPage = <AIPropertyRecommendPage setPage={setPage} />;
   if (page === "ai-briefing") currentPage = <AIBriefingPage setPage={setPage} />;
+  if (page === "team-mode") currentPage = <TeamModePage setPage={setPage} />;
   if (page === "calculators") currentPage = <CalculatorsPage setPage={setPage} />;
   if (page === "photo-editor") currentPage = <PhotoEditorPage setPage={setPage} />;
   if (page === "address-hub") currentPage = <AddressHubPage setPage={setPage} />;

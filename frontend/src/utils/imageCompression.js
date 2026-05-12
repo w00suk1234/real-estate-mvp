@@ -1,5 +1,5 @@
 ﻿export const IMAGE_UPLOAD_LIMITS = {
-  maxOriginalBytes: 10 * 1024 * 1024,
+  maxOriginalBytes: 5 * 1024 * 1024,
   maxExtraImages: 10,
   maxCompressedBytes: 1024 * 1024,
   maxSide: 1200,
