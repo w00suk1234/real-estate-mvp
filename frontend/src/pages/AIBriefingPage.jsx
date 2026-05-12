@@ -469,11 +469,12 @@ function RankingSummaryCard({ ranking, property }) {
       <div className="ai-ranking-head">
         <span>{ranking.rank}위</span>
         <strong>{ranking.displayName}</strong>
-        <em>{ranking.score}점</em>
-      </div>
-      <div className="ai-ranking-meta">
-        <b>{ranking.gradeLabel || gradeLabel(ranking.grade)}</b>
-        {ranking.infoCompleteness !== undefined ? <small>정보 완성도 {ranking.infoCompleteness}점</small> : null}
+        <div className="fit-score-summary compact">
+          <span className="fit-score-label">조건 적합도</span>
+          <strong>{ranking.score}점</strong>
+          <span className={`fit-grade-badge grade-${ranking.grade || "fair"}`}>{ranking.gradeLabel || gradeLabel(ranking.grade)}</span>
+          {ranking.infoCompleteness !== undefined ? <small>정보 완성도 {ranking.infoCompleteness}점</small> : null}
+        </div>
       </div>
       <p>{ranking.shortReason}</p>
       <div className="ai-ranking-two-col">

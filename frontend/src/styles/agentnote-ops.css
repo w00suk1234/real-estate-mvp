@@ -383,15 +383,77 @@
   align-items: center;
 }
 
-.ai-ranking-head span,
-.ai-ranking-head em {
+.ai-ranking-head > span {
   border-radius: 999px;
   padding: 5px 9px;
   background: #eff6ff;
   color: #1d4ed8;
-  font-style: normal;
   font-size: 12px;
   font-weight: 900;
+}
+
+.fit-score-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #334155;
+}
+
+.fit-score-summary.compact {
+  padding: 5px 7px;
+}
+
+.fit-score-label,
+.fit-score-summary small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.fit-score-summary strong {
+  color: #0f274d;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.fit-grade-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border-radius: 999px;
+  padding: 0 8px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.fit-grade-badge.grade-excellent {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.fit-grade-badge.grade-good {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.fit-grade-badge.grade-fair {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.fit-grade-badge.grade-risky {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .ai-ranking-meta {
@@ -1010,12 +1072,17 @@
 
 .recommend-card {
   display: grid;
-  grid-template-columns: minmax(220px, 0.34fr) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 0.3fr) minmax(0, 1fr);
   gap: 16px;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
+  padding: 16px;
+  border: 1px solid #dbe3ef;
   border-radius: 18px;
   background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 38, 72, 0.045);
+}
+
+.recommend-card.no-image {
+  grid-template-columns: 160px minmax(0, 1fr);
 }
 
 .recommend-media {
@@ -1023,11 +1090,22 @@
   overflow: hidden;
   min-height: 220px;
   border-radius: 14px;
-  background: #eef5ff;
+  background: #f1f5f9;
   display: grid;
   place-items: center;
   color: #64748b;
   font-weight: 900;
+}
+
+.recommend-media.is-empty {
+  width: 160px;
+  min-width: 160px;
+  height: 140px;
+  min-height: 140px;
+  align-self: start;
+  border: 1px solid #e2e8f0;
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .recommend-media img {
@@ -1036,23 +1114,10 @@
   object-fit: cover;
 }
 
-.recommend-media em {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: #061b3a;
-  color: #ffffff;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 900;
-}
-
 .recommend-card-body {
   min-width: 0;
   display: grid;
-  gap: 12px;
+  gap: 11px;
 }
 
 .recommend-card-head {
@@ -1062,68 +1127,58 @@
   align-items: flex-start;
 }
 
-.recommend-card-head span {
-  display: inline-flex;
+.recommend-title-block {
+  min-width: 0;
+}
+
+.recommend-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-bottom: 6px;
+}
+
+.recommend-card-badges span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   padding: 5px 9px;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #f8fafc;
+  color: #475569;
   font-size: 12px;
   font-weight: 900;
+}
+
+.recommend-card-badges .rank-badge {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .recommend-card-head h3 {
   margin: 0 0 5px;
   color: #0f2348;
   font-size: 22px;
+  line-height: 1.25;
 }
 
 .recommend-card-head p {
   margin: 0;
   color: #64748b;
-}
-
-.recommend-score-box {
-  flex: none;
-  min-width: 96px;
-  min-height: 72px;
-  display: grid;
-  place-items: center;
-  border-radius: 18px;
-  background: #061b3a;
-  color: #ffffff;
-  padding: 8px;
-  text-align: center;
-}
-
-.recommend-score-box span,
-.recommend-score-box small {
-  font-size: 11px;
-  font-weight: 900;
-  color: #bfdbfe;
-}
-
-.recommend-score-box strong {
-  font-size: 22px;
-  line-height: 1;
-}
-
-.recommend-score-box small {
-  color: #ffffff;
+  line-height: 1.45;
 }
 
 .recommend-score-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
 .recommend-score-meta span,
 .recommend-score-meta em {
   display: inline-flex;
-  min-height: 26px;
+  min-height: 24px;
   align-items: center;
   border-radius: 999px;
   padding: 0 10px;
@@ -1135,8 +1190,8 @@
 }
 
 .recommend-score-meta em {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .recommend-results-summary {
@@ -1177,9 +1232,9 @@
 
 .recommend-price-line,
 .customer-message-box {
-  padding: 10px 12px;
+  padding: 9px 11px;
   border-radius: 12px;
-  background: #f8fbff;
+  background: #f8fafc;
   color: #0f2348;
   font-weight: 900;
 }
@@ -1227,14 +1282,20 @@
 .recommend-reason-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 14px;
 }
 
 .recommend-reason-list {
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #ffffff;
+  padding: 11px 0 0;
+  border-top: 1px solid #edf2f7;
+  background: transparent;
+}
+
+.recommend-reason-list strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #0f274d;
+  font-size: 13px;
 }
 
 .recommend-reason-list ul {
@@ -1261,9 +1322,42 @@
 
 .recommend-actions .primary-btn,
 .recommend-actions .secondary-btn,
-.recommend-link-btn {
+.recommend-link-btn,
+.ghost-btn {
   width: auto;
   text-decoration: none;
+  min-height: 36px;
+  border-radius: 11px;
+  box-shadow: none;
+}
+
+.recommend-actions .primary-btn {
+  background: #075fc8;
+  border-color: #075fc8;
+  box-shadow: 0 8px 18px rgba(7, 95, 200, 0.14);
+}
+
+.recommend-actions .secondary-btn,
+.recommend-link-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  padding: 0 16px;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-weight: 800;
+  cursor: default;
+}
+
+.recommend-disabled-btn:disabled {
+  opacity: 0.72;
 }
 
 @media (max-width: 1180px) {
@@ -1272,6 +1366,17 @@
   .ai-recommend-control-panel,
   .recommend-card {
     grid-template-columns: 1fr;
+  }
+
+  .recommend-card.no-image {
+    grid-template-columns: 1fr;
+  }
+
+  .recommend-media.is-empty {
+    width: 100%;
+    min-width: 0;
+    height: 92px;
+    min-height: 92px;
   }
 }
 

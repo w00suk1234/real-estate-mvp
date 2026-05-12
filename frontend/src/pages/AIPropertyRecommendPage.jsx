@@ -146,7 +146,7 @@ function AIPropertyRecommendPage({ setPage }) {
         return;
       }
 
-      setMessage(`${activeScoreFilter.label} 기준으로 ${summarized.length}개의 매물을 찾았습니다.`);
+      setMessage("");
     } catch (error) {
       setMessage(error.message || "추천 중 오류가 발생했습니다. 다시 시도해 주세요.");
     } finally {
@@ -278,7 +278,7 @@ function AIPropertyRecommendPage({ setPage }) {
             ))}
           </div>
           <div className="recommend-option-row">
-            <span className="recommend-score-note">추천 참고 점수 {activeScoreFilter.label} · {activeScoreFilter.limit === 5 ? "상위 5개" : "전체"} 보기</span>
+            <span className="recommend-score-note">조건 적합도 {activeScoreFilter.label} · {activeScoreFilter.limit === 5 ? "상위 5개" : "전체"} 보기</span>
             <button type="button" className="primary-btn" onClick={handleRecommend} disabled={!selectedCustomer || loading || recommending}>
               {recommending ? "추천 중..." : "추천 매물 찾기"}
             </button>
@@ -293,7 +293,6 @@ function AIPropertyRecommendPage({ setPage }) {
         <div className="section-heading-row">
           <div>
             <h2>추천 결과</h2>
-            <p>조건 적합도는 입력된 고객 조건과 매물 정보를 기준으로 계산한 참고 점수입니다. 정보가 부족한 항목은 현장 확인이 필요합니다.</p>
           </div>
         </div>
 
@@ -438,6 +437,7 @@ function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
   const goodPoints = (result.matchedReasons || []).slice(0, 3);
   const warnings = (result.warnings || []).slice(0, 3);
   const caps = result.capsApplied || [];
+  const checkCount = new Set([...(result.warnings || []).map(shortLabel), ...(caps || []).map(shortLabel)].filter(Boolean)).size;
   const tags = [
     result.gradeLabel || gradeLabel(result.grade),
     ...goodPoints.slice(0, 2),
@@ -448,23 +448,27 @@ function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
     : `${goodPoints[0] || "입력된 조건 기준으로 검토 가능한 매물입니다."}`;
 
   return (
-    <article className="recommend-card">
-      <div className="recommend-media">
+    <article className={`recommend-card ${imageUrl ? "has-image" : "no-image"}`}>
+      <div className={`recommend-media ${imageUrl ? "" : "is-empty"}`}>
         {imageUrl ? <img src={imageUrl} alt={property.title} /> : <span>이미지 없음</span>}
-        <em>추천 {rank}순위</em>
       </div>
 
       <div className="recommend-card-body">
         <div className="recommend-card-head">
-          <div>
-            <span>{property.dealType || "거래유형 확인"}</span>
+          <div className="recommend-title-block">
+            <div className="recommend-card-badges">
+              <span className="rank-badge">추천 {rank}순위</span>
+              <span className="deal-badge">{property.dealType || "거래유형 확인"}</span>
+            </div>
             <h3>{property.title}</h3>
             <p>{property.address || "주소 정보 확인 필요"}</p>
           </div>
-          <div className="recommend-score-box">
-            <span>조건 적합도</span>
+          <div className="fit-score-summary">
+            <span className="fit-score-label">조건 적합도</span>
             <strong>{result.score}점</strong>
-            <small>{result.gradeLabel || gradeLabel(result.grade)}</small>
+            <span className={`fit-grade-badge grade-${result.grade || "fair"}`}>{result.gradeLabel || gradeLabel(result.grade)}</span>
+            <small>정보 완성도 {result.infoCompleteness ?? 0}점</small>
+            <small>확인 필요 {checkCount}건</small>
           </div>
         </div>
 
@@ -474,8 +478,7 @@ function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
         </div>
         <div className="recommend-price-line">{property.priceSummary || "가격 확인 필요"}</div>
         <div className="recommend-score-meta">
-          <span>정보 완성도 {result.infoCompleteness ?? 0}점</span>
-          <em>추천 참고 점수입니다. 실제 조건은 확인이 필요합니다.</em>
+          <em>점수는 참고용이며, 부족한 정보는 현장 확인이 필요합니다.</em>
         </div>
 
         <div className="recommend-reason-grid">
@@ -505,18 +508,18 @@ function RecommendationCard({ rank, result, onCopy, onOpenBriefing }) {
         ) : null}
 
         <div className="recommend-actions">
+          <button type="button" className="primary-btn" onClick={onOpenBriefing}>
+            AI 브리핑 만들기
+          </button>
           <button type="button" className="secondary-btn" onClick={() => setExpanded((value) => !value)}>
             {expanded ? "상세 접기" : "상세 보기"}
           </button>
-          <button type="button" className="secondary-btn" onClick={onOpenBriefing}>
-            AI 브리핑으로 보내기
-          </button>
           {brochureUrl ? (
-            <a className="primary-btn recommend-link-btn" href={brochureUrl} target="_blank" rel="noreferrer">
+            <a className="secondary-btn recommend-link-btn" href={brochureUrl} target="_blank" rel="noreferrer">
               소개서 보기
             </a>
           ) : (
-            <button type="button" className="primary-btn" disabled>
+            <button type="button" className="ghost-btn recommend-disabled-btn" disabled>
               소개서 없음
             </button>
           )}
