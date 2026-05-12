@@ -6,7 +6,9 @@ import {
   canInviteSeat,
   canManageTeam,
   getDefaultTrialDays,
+  isTeamSchemaMissingError,
   isSubscriptionActive,
+  normalizeTeamModeError,
 } from "../utils/teamMode";
 
 const LOCAL_TEAM_KEY = "agentnote_team_mode";
@@ -105,6 +107,22 @@ function normalizeMember(member = {}, profile = {}) {
   };
 }
 
+function logTeamModeError(error, context) {
+  console.error("[team-mode]", context, {
+    message: error?.message,
+    code: error?.code,
+    details: error?.details,
+    hint: error?.hint,
+    tableName: error?.tableName,
+  });
+}
+
+function throwTeamModeError(error, context) {
+  const normalizedError = normalizeTeamModeError(error, context);
+  logTeamModeError(error, context);
+  throw normalizedError;
+}
+
 async function fetchProfiles(userIds) {
   if (!isSupabaseConfigured || !supabase || !userIds.length) return {};
   const { data } = await supabase.from("profiles").select("id, username, email, manager_name").in("id", userIds);
@@ -140,13 +158,27 @@ export async function getCurrentTeamState(preferredTeamId = "") {
   let memberQuery = supabase.from("team_members").select("*").eq("user_id", userId).in("status", ["active", "invited"]);
   if (preferredTeamId) memberQuery = memberQuery.eq("team_id", preferredTeamId);
   const { data: memberRows, error: memberError } = await memberQuery.order("created_at", { ascending: true });
-  if (memberError) throw memberError;
+  if (memberError) {
+    if (isTeamSchemaMissingError(memberError)) {
+      const setupError = normalizeTeamModeError(memberError, "team_members");
+      logTeamModeError(memberError, "team_members");
+      return {
+        team: null,
+        membership: null,
+        subscription: null,
+        canUse: false,
+        setupRequired: true,
+        setupError,
+      };
+    }
+    throwTeamModeError(memberError, "team_members");
+  }
 
   const membership = memberRows?.[0] || null;
   if (!membership) return { team: null, membership: null, subscription: null, canUse: false };
 
   const { data: team, error: teamError } = await supabase.from("teams").select("*").eq("id", membership.team_id).maybeSingle();
-  if (teamError) throw teamError;
+  if (teamError) throwTeamModeError(teamError, "teams");
   const { data: subscription, error: subscriptionError } = await supabase
     .from("team_subscriptions")
     .select("*")
@@ -154,7 +186,7 @@ export async function getCurrentTeamState(preferredTeamId = "") {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (subscriptionError) throw subscriptionError;
+  if (subscriptionError) throwTeamModeError(subscriptionError, "team_subscriptions");
 
   return { team, membership, subscription, canUse: Boolean(team && isSubscriptionActive(subscription)) };
 }
@@ -216,49 +248,58 @@ export async function createTeam({ name }) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("로그인이 필요합니다.");
 
-  const { data: team, error: teamError } = await supabase
-    .from("teams")
-    .insert({
-      name: teamName,
-      owner_user_id: userId,
-      plan_type: DEFAULT_PLAN,
-      seat_limit: DEFAULT_SEAT_LIMIT,
-      status: "active",
-    })
-    .select("*")
-    .single();
-  if (teamError) throw teamError;
+  let createdTeam = null;
+  try {
+    const { data: team, error: teamError } = await supabase
+      .from("teams")
+      .insert({
+        name: teamName,
+        owner_user_id: userId,
+        plan_type: DEFAULT_PLAN,
+        seat_limit: DEFAULT_SEAT_LIMIT,
+        status: "active",
+      })
+      .select("*")
+      .single();
+    if (teamError) throw teamError;
+    createdTeam = team;
 
-  const { data: membership, error: memberError } = await supabase
-    .from("team_members")
-    .insert({
-      team_id: team.id,
-      user_id: userId,
-      role: "owner",
-      status: "active",
-      joined_at: nowIso(),
-    })
-    .select("*")
-    .single();
-  if (memberError) throw memberError;
+    const { data: membership, error: memberError } = await supabase
+      .from("team_members")
+      .insert({
+        team_id: team.id,
+        user_id: userId,
+        role: "owner",
+        status: "active",
+        joined_at: nowIso(),
+      })
+      .select("*")
+      .single();
+    if (memberError) throw memberError;
 
-  const { data: subscription, error: subscriptionError } = await supabase
-    .from("team_subscriptions")
-    .insert({
-      team_id: team.id,
-      plan_type: DEFAULT_PLAN,
-      status: "trialing",
-      seat_limit: DEFAULT_SEAT_LIMIT,
-      extra_seat_count: 0,
-      is_unlimited: false,
-      current_period_start: nowIso(),
-      current_period_end: addDays(new Date(), getDefaultTrialDays()).toISOString(),
-    })
-    .select("*")
-    .single();
-  if (subscriptionError) throw subscriptionError;
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("team_subscriptions")
+      .insert({
+        team_id: team.id,
+        plan_type: DEFAULT_PLAN,
+        status: "trialing",
+        seat_limit: DEFAULT_SEAT_LIMIT,
+        extra_seat_count: 0,
+        is_unlimited: false,
+        current_period_start: nowIso(),
+        current_period_end: addDays(new Date(), getDefaultTrialDays()).toISOString(),
+      })
+      .select("*")
+      .single();
+    if (subscriptionError) throw subscriptionError;
 
-  return { team, membership, subscription };
+    return { team, membership, subscription };
+  } catch (error) {
+    if (createdTeam?.id) {
+      await supabase.from("teams").delete().eq("id", createdTeam.id);
+    }
+    throwTeamModeError(error, "team creation");
+  }
 }
 
 export async function listTeamMembers(teamId) {
@@ -267,7 +308,7 @@ export async function listTeamMembers(teamId) {
     return data.members.filter((member) => String(member.team_id) === String(teamId));
   }
   const { data, error } = await supabase.from("team_members").select("*").eq("team_id", teamId).order("created_at", { ascending: true });
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "team_members");
   const profiles = await fetchProfiles((data || []).map((member) => member.user_id).filter(Boolean));
   return (data || []).map((member) => normalizeMember(member, profiles[String(member.user_id)]));
 }
@@ -283,7 +324,7 @@ export async function listPendingInvitations(teamId) {
     .eq("team_id", teamId)
     .eq("status", "pending")
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "team_invitations");
   return data || [];
 }
 
@@ -332,7 +373,7 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
     })
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "team_invitations");
   return { invitation, inviteUrl: inviteUrlForToken(token), token };
 }
 
@@ -375,7 +416,7 @@ export async function acceptTeamInvitation(token) {
     .eq("token_hash", tokenHash)
     .eq("status", "pending")
     .maybeSingle();
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "team_invitations");
   if (!invitation) throw new Error("유효하지 않은 초대 링크입니다.");
   if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 링크가 만료되었습니다.");
 
@@ -407,7 +448,7 @@ export async function acceptTeamInvitation(token) {
     }, { onConflict: "team_id,user_id" })
     .select("*")
     .single();
-  if (memberError) throw memberError;
+  if (memberError) throwTeamModeError(memberError, "team_members");
 
   await supabase
     .from("team_invitations")
@@ -436,7 +477,7 @@ export async function updateTeamMember({ teamId, memberId, role, status }) {
     .eq("team_id", teamId)
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "team_members");
   return data;
 }
 
@@ -455,7 +496,7 @@ export async function listTeamCustomers(teamId, filters = {}) {
   if (filters.assignedTo) query = query.eq("assigned_to_user_id", filters.assignedTo);
   if (filters.month) query = query.gte("inflow_date", `${filters.month}-01`).lt("inflow_date", nextMonthValue(filters.month));
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "customers");
   return data || [];
 }
 
@@ -471,7 +512,7 @@ export async function listPersonalAssignableCustomers(teamId) {
     .eq("user_id", userId)
     .or(`team_id.is.null,team_id.eq.${teamId}`)
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "customers");
   return data || [];
 }
 
@@ -500,7 +541,7 @@ export async function assignCustomer({ teamId, customerId, assignedToUserId, mem
     created_by_user_id: userId,
   };
   const { data, error } = await supabase.from("customers").update(patch).eq("id", customerId).select("*").single();
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "customers");
   await supabase.from("schedules").update(patch).or(`customer_id.eq.${customerId},linked_customer_id.eq.${customerId}`);
   await supabase.from("settlements").update(patch).eq("customer_id", customerId);
   await supabase.from("customer_assignments").insert({
@@ -523,10 +564,10 @@ export async function transferCustomer({ teamId, customerId, toUserId, reason = 
   }
 
   const { data: existing, error: readError } = await supabase.from("customers").select("*").eq("id", customerId).eq("team_id", teamId).single();
-  if (readError) throw readError;
+  if (readError) throwTeamModeError(readError, "customers");
   const patch = { assigned_to_user_id: toUserId };
   const { data, error } = await supabase.from("customers").update(patch).eq("id", customerId).eq("team_id", teamId).select("*").single();
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "customers");
   await supabase.from("schedules").update(patch).eq("team_id", teamId).or(`customer_id.eq.${customerId},linked_customer_id.eq.${customerId}`);
   await supabase.from("settlements").update(patch).eq("team_id", teamId).eq("customer_id", customerId);
   await supabase.from("customer_transfer_logs").insert({
@@ -561,7 +602,7 @@ export async function listTeamSchedules(teamId, filters = {}) {
   if (filters.assignedTo) query = query.eq("assigned_to_user_id", filters.assignedTo);
   if (filters.month) query = query.gte("schedule_date", `${filters.month}-01`).lt("schedule_date", nextMonthValue(filters.month));
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "schedules");
   return data || [];
 }
 
@@ -576,7 +617,7 @@ export async function listTeamSettlements(teamId, filters = {}) {
   if (!isManager) query = query.eq("assigned_to_user_id", userId);
   if (filters.month) query = query.gte("balance_date", `${filters.month}-01`).lt("balance_date", nextMonthValue(filters.month));
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "settlements");
   return data || [];
 }
 
@@ -610,7 +651,7 @@ export async function listPayrollStatements(teamId, month) {
   if (month) query = query.eq("month", month);
   if (!isManager) query = query.eq("user_id", userId);
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "payroll_statements");
   return data || [];
 }
 
@@ -641,7 +682,7 @@ export async function createPayrollStatement({ teamId, userId, month, basePay, c
   }
 
   const { data, error } = await supabase.from("payroll_statements").insert(payload).select("*").single();
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "payroll_statements");
   return data;
 }
 
@@ -663,6 +704,6 @@ export async function deliverPayrollStatement({ teamId, payrollId }) {
     .eq("team_id", teamId)
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) throwTeamModeError(error, "payroll_statements");
   return data;
 }

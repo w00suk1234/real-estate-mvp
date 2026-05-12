@@ -1,6 +1,9 @@
 export const TEAM_OWNER_ROLES = new Set(["owner", "admin"]);
 export const TEAM_MEMBER_ROLES = new Set(["owner", "admin", "member", "viewer"]);
 export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+export const TEAM_MODE_SETUP_MESSAGE =
+  "팀플모드 DB 설정이 아직 완료되지 않았습니다. 관리자에게 Supabase SQL 설정을 확인해 달라고 요청해 주세요.";
+export const TEAM_MODE_GENERIC_ERROR_MESSAGE = "팀플모드 처리 중 오류가 발생했습니다. 설정을 확인해 주세요.";
 export const CONTRACT_STATUSES = new Set(["계약금입금", "계약서일정", "잔금완료", "정산완료", "contracted", "contract_signed"]);
 export const TEAM_SCHEDULE_TYPES = [
   { key: "inflow", label: "고객인입", aliases: ["고객인입", "customer_inflow", "inflow", "lead", "고객유입"] },
@@ -20,6 +23,58 @@ export function isTeamSelfCreateAllowed() {
 export function getDefaultTrialDays() {
   const value = Number(import.meta.env.VITE_TEAM_MODE_DEFAULT_TRIAL_DAYS || 14);
   return Number.isFinite(value) && value > 0 ? value : 14;
+}
+
+export function isTeamSchemaMissingError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return (
+    code === "PGRST205" ||
+    code === "PGRST204" ||
+    (message.includes("schema cache") && (message.includes("team_") || message.includes("public.team"))) ||
+    message.includes("could not find the table") ||
+    message.includes("could not find the '") ||
+    (message.includes("relation") && message.includes("does not exist"))
+  );
+}
+
+export function isRawSupabaseError(error) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    Boolean(code && /^(PGRST|23|42|40|HY)/i.test(code)) ||
+    message.includes("schema cache") ||
+    message.includes("duplicate key") ||
+    message.includes("violates row-level security") ||
+    message.includes("permission denied") ||
+    (message.includes("relation") && message.includes("does not exist"))
+  );
+}
+
+export function createTeamModeSetupError(error, tableName = "team mode") {
+  const setupError = new Error(TEAM_MODE_SETUP_MESSAGE);
+  setupError.name = "TeamModeSetupError";
+  setupError.code = "TEAM_MODE_SETUP_REQUIRED";
+  setupError.isTeamModeSetupError = true;
+  setupError.tableName = tableName;
+  setupError.originalError = error;
+  return setupError;
+}
+
+export function normalizeTeamModeError(error, tableName = "team mode") {
+  if (error?.isTeamModeSetupError) return error;
+  if (isTeamSchemaMissingError(error)) return createTeamModeSetupError(error, tableName);
+  return error;
+}
+
+export function isTeamModeSetupError(error) {
+  return Boolean(error?.isTeamModeSetupError || error?.code === "TEAM_MODE_SETUP_REQUIRED");
+}
+
+export function getTeamModeErrorMessage(error, fallback = TEAM_MODE_GENERIC_ERROR_MESSAGE) {
+  if (isTeamModeSetupError(error) || isTeamSchemaMissingError(error)) return TEAM_MODE_SETUP_MESSAGE;
+  if (isRawSupabaseError(error)) return fallback;
+  return error?.message || fallback;
 }
 
 export function isSubscriptionActive(subscription) {

@@ -145,5 +145,6 @@ TEAM_MODE_DEFAULT_TRIAL_DAYS=14
 ## Supabase 설정
 
 [TEAM_MODE_SUPABASE.sql](./TEAM_MODE_SUPABASE.sql)을 Supabase SQL editor에서 실행한다.
+배포 환경에서 `public.team_members` schema cache 오류가 나면 [TEAM_MODE_SETUP.md](./TEAM_MODE_SETUP.md)의 체크리스트대로 SQL 실행 프로젝트와 Vercel `VITE_SUPABASE_URL`이 같은지 확인한다.
 
 기존 개인 데이터는 자동으로 팀에 노출하지 않는다. 팀플모드에서 고객을 배정/이관해야 `team_id`가 생긴다.

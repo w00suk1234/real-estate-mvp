@@ -21,12 +21,15 @@ import {
   updateTeamMember,
 } from "../services/teamModeService";
 import {
+  TEAM_MODE_SETUP_MESSAGE,
   TEAM_SCHEDULE_TYPES,
   buildScheduleTypeCounts,
   calculatePayrollTotal,
   canManageTeam,
+  getTeamModeErrorMessage,
   getSeatCapacity,
   getSeatUsage,
+  isTeamModeSetupError,
   isTeamModeEnabled,
   isTeamSelfCreateAllowed,
 } from "../utils/teamMode";
@@ -83,11 +86,29 @@ function TeamModePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("success");
 
   const isManager = canManageTeam(state.membership);
   const seatCapacity = getSeatCapacity(state.subscription, state.team);
   const seatUsage = getSeatUsage({ members, invitations });
   const scheduleCounts = useMemo(() => buildScheduleTypeCounts(schedules), [schedules]);
+
+  function showSuccess(text) {
+    setMessageType("success");
+    setMessage(text);
+  }
+
+  function showError(error, fallback) {
+    console.error("[TeamModePage]", fallback, {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      tableName: error?.tableName,
+    });
+    setMessageType(isTeamModeSetupError(error) ? "warning" : "error");
+    setMessage(getTeamModeErrorMessage(error, fallback));
+  }
 
   async function loadTeam() {
     if (authLoading) return;
@@ -100,6 +121,13 @@ function TeamModePage() {
     try {
       const currentState = await getCurrentTeamState();
       setState(currentState);
+      if (currentState.setupRequired) {
+        setMembers([]);
+        setInvitations([]);
+        setMessageType("warning");
+        setMessage(currentState.setupError?.message || TEAM_MODE_SETUP_MESSAGE);
+        return;
+      }
       if (!currentState.team) return;
       const [memberRows, inviteRows] = await Promise.all([
         listTeamMembers(currentState.team.id),
@@ -109,7 +137,7 @@ function TeamModePage() {
       setInvitations(inviteRows);
       await loadTeamData(currentState.team.id);
     } catch (error) {
-      setMessage(error.message || "팀 정보를 불러오지 못했습니다. Supabase 팀플모드 SQL 적용 여부를 확인해 주세요.");
+      showError(error, "팀 정보를 불러오지 못했습니다. Supabase 팀플모드 SQL 적용 여부를 확인해 주세요.");
     } finally {
       setLoading(false);
     }
@@ -145,7 +173,7 @@ function TeamModePage() {
 
   useEffect(() => {
     if (state.team?.id) {
-      loadTeamData(state.team.id).catch((error) => setMessage(error.message || "팀 데이터를 불러오지 못했습니다."));
+      loadTeamData(state.team.id).catch((error) => showError(error, "팀 데이터를 불러오지 못했습니다."));
     }
   }, [month]);
 
@@ -157,10 +185,10 @@ function TeamModePage() {
       const result = await createTeam({ name: teamName });
       setState({ ...result, canUse: true });
       setTeamName("");
-      setMessage("팀을 만들었습니다. 팀원 초대 링크를 생성할 수 있습니다.");
+      showSuccess("팀이 생성되었습니다. 팀원 초대 링크를 생성할 수 있습니다.");
       await loadTeam();
     } catch (error) {
-      setMessage(error.message || "팀 생성에 실패했습니다.");
+      showError(error, "팀 생성에 실패했습니다. 설정을 확인해 주세요.");
     } finally {
       setSaving(false);
     }
@@ -174,10 +202,10 @@ function TeamModePage() {
     try {
       await acceptTeamInvitation(acceptToken.trim());
       setAcceptToken("");
-      setMessage("초대를 수락했습니다.");
+      showSuccess("초대를 수락했습니다.");
       await loadTeam();
     } catch (error) {
-      setMessage(error.message || "초대 수락에 실패했습니다.");
+      showError(error, "초대 수락에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -192,10 +220,10 @@ function TeamModePage() {
       const result = await createTeamInvitation({ teamId: state.team.id, email: inviteEmail, role: inviteRole });
       setInviteLink(result.inviteUrl);
       setInviteEmail("");
-      setMessage("초대 링크를 생성했습니다. 링크를 복사해 팀원에게 전달하세요.");
+      showSuccess("초대 링크를 생성했습니다. 링크를 복사해 팀원에게 전달하세요.");
       setInvitations(await listPendingInvitations(state.team.id));
     } catch (error) {
-      setMessage(error.message || "초대 링크 생성에 실패했습니다.");
+      showError(error, "초대 링크 생성에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -207,9 +235,9 @@ function TeamModePage() {
     try {
       await updateTeamMember({ teamId: state.team.id, memberId: member.id, ...patch });
       setMembers(await listTeamMembers(state.team.id));
-      setMessage("팀원 정보를 변경했습니다.");
+      showSuccess("팀원 정보를 변경했습니다.");
     } catch (error) {
-      setMessage(error.message || "팀원 정보를 변경하지 못했습니다.");
+      showError(error, "팀원 정보를 변경하지 못했습니다.");
     } finally {
       setSaving(false);
     }
@@ -222,10 +250,10 @@ function TeamModePage() {
     try {
       await assignCustomer({ teamId: state.team.id, ...assignForm });
       setAssignForm({ customerId: "", assignedToUserId: "", memo: "" });
-      setMessage("고객을 팀원에게 배정했습니다.");
+      showSuccess("고객을 팀원에게 배정했습니다.");
       await loadTeamData();
     } catch (error) {
-      setMessage(error.message || "고객 배정에 실패했습니다.");
+      showError(error, "고객 배정에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -239,10 +267,10 @@ function TeamModePage() {
     try {
       await transferCustomer({ teamId: state.team.id, ...transferForm });
       setTransferForm({ customerId: "", toUserId: "", reason: "" });
-      setMessage("고객을 이관했습니다.");
+      showSuccess("고객을 이관했습니다.");
       await loadTeamData();
     } catch (error) {
-      setMessage(error.message || "고객 이관에 실패했습니다.");
+      showError(error, "고객 이관에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -255,10 +283,10 @@ function TeamModePage() {
     setSaving(true);
     try {
       const results = await bulkTransferCustomers({ teamId: state.team.id, ...bulkForm });
-      setMessage(`${results.length}명의 고객을 일괄 이관했습니다.`);
+      showSuccess(`${results.length}명의 고객을 일괄 이관했습니다.`);
       await loadTeamData();
     } catch (error) {
-      setMessage(error.message || "일괄 이관에 실패했습니다.");
+      showError(error, "일괄 이관에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -271,10 +299,10 @@ function TeamModePage() {
     try {
       await createPayrollStatement({ teamId: state.team.id, userId: payrollForm.userId, month, ...payrollForm });
       setPayrollForm({ userId: "", basePay: "", commissionPay: "", bonusPay: "", deductionAmount: "", memo: "" });
-      setMessage("급여명세서 초안을 저장했습니다.");
+      showSuccess("급여명세서 초안을 저장했습니다.");
       setPayroll(await listPayrollStatements(state.team.id, month));
     } catch (error) {
-      setMessage(error.message || "급여명세서를 저장하지 못했습니다.");
+      showError(error, "급여명세서를 저장하지 못했습니다.");
     } finally {
       setSaving(false);
     }
@@ -285,10 +313,10 @@ function TeamModePage() {
     setSaving(true);
     try {
       await deliverPayrollStatement({ teamId: state.team.id, payrollId });
-      setMessage("급여명세서를 전달 완료로 표시했습니다.");
+      showSuccess("급여명세서를 전달 완료로 표시했습니다.");
       setPayroll(await listPayrollStatements(state.team.id, month));
     } catch (error) {
-      setMessage(error.message || "전달 완료 처리에 실패했습니다.");
+      showError(error, "전달 완료 처리에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -320,7 +348,13 @@ function TeamModePage() {
             <p>대표/팀장이 팀원의 고객관리, 일정관리, 정산 현황을 함께 확인하는 유료 기능입니다.</p>
           </div>
         </section>
-        {message ? <div className="schedule-inline-alert">{message}</div> : null}
+        {message ? <div className={`schedule-inline-alert team-mode-alert ${messageType}`}>{message}</div> : null}
+        {messageType === "warning" ? (
+          <section className="team-mode-setup-guide">
+            <strong>관리자 설정 필요</strong>
+            <span>Supabase SQL Editor에서 docs/TEAM_MODE_SUPABASE.sql을 실행한 뒤, Vercel 환경변수의 Supabase URL이 같은 프로젝트인지 확인해 주세요.</span>
+          </section>
+        ) : null}
         <section className="team-onboarding-grid">
           <form className="dashboard-card team-onboarding-card" onSubmit={handleCreateTeam}>
             <h2>팀 만들기</h2>
@@ -361,7 +395,7 @@ function TeamModePage() {
         <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
       </section>
 
-      {message ? <div className="schedule-inline-alert">{message}</div> : null}
+      {message ? <div className={`schedule-inline-alert team-mode-alert ${messageType}`}>{message}</div> : null}
 
       {!state.canUse ? (
         <section className="dashboard-card team-mode-locked">

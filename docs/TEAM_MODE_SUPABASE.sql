@@ -1,9 +1,14 @@
 -- AgentNote Team Mode MVP setup.
 --
--- Run this in Supabase SQL editor before enabling team mode in production.
+-- Run this in the Supabase SQL Editor for the same project used by Vercel.
+-- This script is intentionally idempotent: it can be executed more than once.
 -- Existing personal rows remain personal because team_id is nullable.
 
 create extension if not exists pgcrypto;
+
+-- ---------------------------------------------------------------------------
+-- Core team tables
+-- ---------------------------------------------------------------------------
 
 create table if not exists public.teams (
   id uuid primary key default gen_random_uuid(),
@@ -13,10 +18,17 @@ create table if not exists public.teams (
   seat_limit integer not null default 5,
   status text not null default 'active',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint teams_plan_type_check check (plan_type in ('personal', 'team_basic', 'team_extra', 'team_unlimited')),
-  constraint teams_status_check check (status in ('active', 'suspended', 'deleted'))
+  updated_at timestamptz not null default now()
 );
+
+alter table public.teams
+  add column if not exists name text not null default 'AgentNote Team',
+  add column if not exists owner_user_id uuid,
+  add column if not exists plan_type text not null default 'team_basic',
+  add column if not exists seat_limit integer not null default 5,
+  add column if not exists status text not null default 'active',
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.team_members (
   id uuid primary key default gen_random_uuid(),
@@ -28,10 +40,18 @@ create table if not exists public.team_members (
   joined_at timestamptz null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint team_members_team_user_unique unique (team_id, user_id),
-  constraint team_members_role_check check (role in ('owner', 'admin', 'member', 'viewer')),
-  constraint team_members_status_check check (status in ('active', 'invited', 'suspended', 'left'))
+  unique (team_id, user_id)
 );
+
+alter table public.team_members
+  add column if not exists team_id uuid references public.teams(id) on delete cascade,
+  add column if not exists user_id uuid,
+  add column if not exists role text not null default 'member',
+  add column if not exists status text not null default 'active',
+  add column if not exists invited_by uuid null,
+  add column if not exists joined_at timestamptz null,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.team_invitations (
   id uuid primary key default gen_random_uuid(),
@@ -44,15 +64,25 @@ create table if not exists public.team_invitations (
   expires_at timestamptz not null,
   accepted_at timestamptz null,
   accepted_by uuid null,
-  created_at timestamptz not null default now(),
-  constraint team_invitations_role_check check (role in ('admin', 'member', 'viewer')),
-  constraint team_invitations_status_check check (status in ('pending', 'accepted', 'expired', 'revoked'))
+  created_at timestamptz not null default now()
 );
+
+alter table public.team_invitations
+  add column if not exists team_id uuid references public.teams(id) on delete cascade,
+  add column if not exists email text null,
+  add column if not exists role text not null default 'member',
+  add column if not exists token_hash text,
+  add column if not exists status text not null default 'pending',
+  add column if not exists invited_by uuid,
+  add column if not exists expires_at timestamptz,
+  add column if not exists accepted_at timestamptz null,
+  add column if not exists accepted_by uuid null,
+  add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.team_subscriptions (
   id uuid primary key default gen_random_uuid(),
   team_id uuid not null references public.teams(id) on delete cascade,
-  plan_type text not null,
+  plan_type text not null default 'team_basic',
   status text not null default 'trialing',
   seat_limit integer not null default 5,
   extra_seat_count integer not null default 0,
@@ -62,10 +92,22 @@ create table if not exists public.team_subscriptions (
   provider text null,
   provider_subscription_id text null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint team_subscriptions_plan_type_check check (plan_type in ('personal', 'team_basic', 'team_extra', 'team_unlimited')),
-  constraint team_subscriptions_status_check check (status in ('trialing', 'active', 'past_due', 'canceled', 'expired'))
+  updated_at timestamptz not null default now()
 );
+
+alter table public.team_subscriptions
+  add column if not exists team_id uuid references public.teams(id) on delete cascade,
+  add column if not exists plan_type text not null default 'team_basic',
+  add column if not exists status text not null default 'trialing',
+  add column if not exists seat_limit integer not null default 5,
+  add column if not exists extra_seat_count integer not null default 0,
+  add column if not exists is_unlimited boolean not null default false,
+  add column if not exists current_period_start timestamptz null,
+  add column if not exists current_period_end timestamptz null,
+  add column if not exists provider text null,
+  add column if not exists provider_subscription_id text null,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists public.customer_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -78,6 +120,15 @@ create table if not exists public.customer_assignments (
   created_at timestamptz not null default now()
 );
 
+alter table public.customer_assignments
+  add column if not exists team_id uuid references public.teams(id) on delete cascade,
+  add column if not exists customer_id uuid,
+  add column if not exists assigned_to_user_id uuid,
+  add column if not exists assigned_by_user_id uuid,
+  add column if not exists memo text null,
+  add column if not exists assigned_at timestamptz not null default now(),
+  add column if not exists created_at timestamptz not null default now();
+
 create table if not exists public.customer_transfer_logs (
   id uuid primary key default gen_random_uuid(),
   team_id uuid not null references public.teams(id) on delete cascade,
@@ -88,6 +139,15 @@ create table if not exists public.customer_transfer_logs (
   reason text null,
   created_at timestamptz not null default now()
 );
+
+alter table public.customer_transfer_logs
+  add column if not exists team_id uuid references public.teams(id) on delete cascade,
+  add column if not exists customer_id uuid,
+  add column if not exists from_user_id uuid null,
+  add column if not exists to_user_id uuid,
+  add column if not exists transferred_by_user_id uuid,
+  add column if not exists reason text null,
+  add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.payroll_statements (
   id uuid primary key default gen_random_uuid(),
@@ -105,9 +165,29 @@ create table if not exists public.payroll_statements (
   delivered_at timestamptz null,
   created_by uuid not null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint payroll_status_check check (status in ('draft', 'delivered', 'canceled'))
+  updated_at timestamptz not null default now()
 );
+
+alter table public.payroll_statements
+  add column if not exists team_id uuid references public.teams(id) on delete cascade,
+  add column if not exists user_id uuid,
+  add column if not exists month text,
+  add column if not exists title text null,
+  add column if not exists base_pay numeric not null default 0,
+  add column if not exists commission_pay numeric not null default 0,
+  add column if not exists bonus_pay numeric not null default 0,
+  add column if not exists deduction_amount numeric not null default 0,
+  add column if not exists total_pay numeric not null default 0,
+  add column if not exists memo text null,
+  add column if not exists status text not null default 'draft',
+  add column if not exists delivered_at timestamptz null,
+  add column if not exists created_by uuid,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+-- ---------------------------------------------------------------------------
+-- Extend existing app tables when they exist.
+-- ---------------------------------------------------------------------------
 
 alter table if exists public.customers
   add column if not exists team_id uuid null references public.teams(id) on delete set null,
@@ -119,19 +199,66 @@ alter table if exists public.schedules
   add column if not exists assigned_to_user_id uuid null,
   add column if not exists created_by_user_id uuid null;
 
+alter table if exists public.events
+  add column if not exists team_id uuid null references public.teams(id) on delete set null,
+  add column if not exists assigned_to_user_id uuid null,
+  add column if not exists created_by_user_id uuid null;
+
 alter table if exists public.settlements
   add column if not exists team_id uuid null references public.teams(id) on delete set null,
   add column if not exists assigned_to_user_id uuid null,
   add column if not exists created_by_user_id uuid null;
 
-create index if not exists team_members_user_idx on public.team_members(user_id, status);
-create index if not exists team_members_team_idx on public.team_members(team_id, role, status);
-create index if not exists team_invitations_hash_idx on public.team_invitations(token_hash, status);
-create index if not exists team_subscriptions_team_idx on public.team_subscriptions(team_id, status);
-create index if not exists customers_team_assignee_idx on public.customers(team_id, assigned_to_user_id);
-create index if not exists schedules_team_assignee_date_idx on public.schedules(team_id, assigned_to_user_id, schedule_date);
-create index if not exists settlements_team_assignee_date_idx on public.settlements(team_id, assigned_to_user_id, balance_date);
-create index if not exists payroll_team_user_month_idx on public.payroll_statements(team_id, user_id, month);
+-- ---------------------------------------------------------------------------
+-- Indexes
+-- ---------------------------------------------------------------------------
+
+create index if not exists teams_owner_user_idx on public.teams(owner_user_id);
+create index if not exists team_members_team_idx on public.team_members(team_id);
+create index if not exists team_members_user_idx on public.team_members(user_id);
+create unique index if not exists team_members_team_user_idx on public.team_members(team_id, user_id);
+create index if not exists team_subscriptions_team_idx on public.team_subscriptions(team_id);
+create index if not exists team_invitations_hash_idx on public.team_invitations(token_hash);
+create index if not exists customer_assignments_team_idx on public.customer_assignments(team_id);
+create index if not exists customer_assignments_customer_idx on public.customer_assignments(customer_id);
+create index if not exists customer_transfer_logs_team_idx on public.customer_transfer_logs(team_id);
+create index if not exists payroll_team_month_idx on public.payroll_statements(team_id, month);
+create index if not exists payroll_user_month_idx on public.payroll_statements(user_id, month);
+
+do $$
+begin
+  if to_regclass('public.customers') is not null then
+    execute 'create index if not exists customers_team_assignee_idx on public.customers(team_id, assigned_to_user_id)';
+  end if;
+
+  if to_regclass('public.schedules') is not null then
+    execute 'create index if not exists schedules_team_assignee_idx on public.schedules(team_id, assigned_to_user_id)';
+    if exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'schedules' and column_name = 'schedule_date'
+    ) then
+      execute 'create index if not exists schedules_team_assignee_date_idx on public.schedules(team_id, assigned_to_user_id, schedule_date)';
+    end if;
+  end if;
+
+  if to_regclass('public.events') is not null then
+    execute 'create index if not exists events_team_assignee_idx on public.events(team_id, assigned_to_user_id)';
+  end if;
+
+  if to_regclass('public.settlements') is not null then
+    execute 'create index if not exists settlements_team_assignee_idx on public.settlements(team_id, assigned_to_user_id)';
+    if exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'settlements' and column_name = 'balance_date'
+    ) then
+      execute 'create index if not exists settlements_team_assignee_date_idx on public.settlements(team_id, assigned_to_user_id, balance_date)';
+    end if;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Role helpers for RLS policies
+-- ---------------------------------------------------------------------------
 
 create or replace function public.is_team_member(target_team_id uuid)
 returns boolean
@@ -162,6 +289,10 @@ as $$
   );
 $$;
 
+-- ---------------------------------------------------------------------------
+-- RLS for team-mode tables
+-- ---------------------------------------------------------------------------
+
 alter table public.teams enable row level security;
 alter table public.team_members enable row level security;
 alter table public.team_invitations enable row level security;
@@ -172,7 +303,7 @@ alter table public.payroll_statements enable row level security;
 
 drop policy if exists "team members can view teams" on public.teams;
 create policy "team members can view teams" on public.teams
-for select using (public.is_team_member(id));
+for select using (owner_user_id = auth.uid() or public.is_team_member(id));
 
 drop policy if exists "authenticated users create owned teams" on public.teams;
 create policy "authenticated users create owned teams" on public.teams
@@ -184,7 +315,7 @@ for update using (public.has_team_role(id, array['owner','admin']));
 
 drop policy if exists "team members can view team members" on public.team_members;
 create policy "team members can view team members" on public.team_members
-for select using (public.is_team_member(team_id));
+for select using (public.is_team_member(team_id) or user_id = auth.uid());
 
 drop policy if exists "users can create own membership" on public.team_members;
 create policy "users can create own membership" on public.team_members
@@ -239,16 +370,59 @@ create policy "owners admins write payroll" on public.payroll_statements
 for all using (public.has_team_role(team_id, array['owner','admin']))
 with check (public.has_team_role(team_id, array['owner','admin']));
 
--- Existing customers/schedules/settlements policies vary by project.
--- Add or update policies so that:
--- owner/admin can select/update rows with matching team_id,
--- member can select/update rows assigned_to_user_id = auth.uid(),
--- personal rows with team_id is null remain restricted to the original user_id owner.
---
--- Example select policy for customers:
--- create policy "team scoped customers" on public.customers
--- for select using (
---   user_id = auth.uid()
---   or (team_id is not null and public.has_team_role(team_id, array['owner','admin']))
---   or (team_id is not null and assigned_to_user_id = auth.uid())
--- );
+-- ---------------------------------------------------------------------------
+-- Optional RLS for existing app tables.
+-- These policies assume customers/schedules/settlements have user_id.
+-- If your project already has stricter policies, review and merge manually.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  if to_regclass('public.customers') is not null then
+    execute 'drop policy if exists "team scoped customers select" on public.customers';
+    execute 'create policy "team scoped customers select" on public.customers for select using (
+      user_id = auth.uid()
+      or (team_id is not null and public.has_team_role(team_id, array[''owner'',''admin'']))
+      or (team_id is not null and assigned_to_user_id = auth.uid())
+    )';
+    execute 'drop policy if exists "team scoped customers update" on public.customers';
+    execute 'create policy "team scoped customers update" on public.customers for update using (
+      user_id = auth.uid()
+      or (team_id is not null and public.has_team_role(team_id, array[''owner'',''admin'']))
+      or (team_id is not null and assigned_to_user_id = auth.uid())
+    )';
+  end if;
+
+  if to_regclass('public.schedules') is not null then
+    execute 'drop policy if exists "team scoped schedules select" on public.schedules';
+    execute 'create policy "team scoped schedules select" on public.schedules for select using (
+      user_id = auth.uid()
+      or (team_id is not null and public.has_team_role(team_id, array[''owner'',''admin'']))
+      or (team_id is not null and assigned_to_user_id = auth.uid())
+    )';
+    execute 'drop policy if exists "team scoped schedules update" on public.schedules';
+    execute 'create policy "team scoped schedules update" on public.schedules for update using (
+      user_id = auth.uid()
+      or (team_id is not null and public.has_team_role(team_id, array[''owner'',''admin'']))
+      or (team_id is not null and assigned_to_user_id = auth.uid())
+    )';
+  end if;
+
+  if to_regclass('public.settlements') is not null then
+    execute 'drop policy if exists "team scoped settlements select" on public.settlements';
+    execute 'create policy "team scoped settlements select" on public.settlements for select using (
+      user_id = auth.uid()
+      or (team_id is not null and public.has_team_role(team_id, array[''owner'',''admin'']))
+      or (team_id is not null and assigned_to_user_id = auth.uid())
+    )';
+    execute 'drop policy if exists "team scoped settlements update" on public.settlements';
+    execute 'create policy "team scoped settlements update" on public.settlements for update using (
+      user_id = auth.uid()
+      or (team_id is not null and public.has_team_role(team_id, array[''owner'',''admin'']))
+      or (team_id is not null and assigned_to_user_id = auth.uid())
+    )';
+  end if;
+end $$;
+
+-- Ask Supabase PostgREST to refresh the schema cache after DDL.
+select pg_notify('pgrst', 'reload schema');

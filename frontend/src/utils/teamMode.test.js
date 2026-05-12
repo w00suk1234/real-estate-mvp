@@ -5,8 +5,12 @@ import {
   buildTeamMonthlySummary,
   calculatePayrollTotal,
   canInviteSeat,
+  getTeamModeErrorMessage,
   getSeatCapacity,
+  isRawSupabaseError,
+  isTeamSchemaMissingError,
   isSubscriptionActive,
+  TEAM_MODE_SETUP_MESSAGE,
 } from "./teamMode.js";
 
 test("team subscription and seat limit helpers gate team mode", () => {
@@ -73,4 +77,24 @@ test("payroll total subtracts deductions", () => {
     bonus_pay: 100000,
     deduction_amount: 300000,
   }), 2300000);
+});
+
+test("team schema cache errors are converted to setup guidance", () => {
+  const error = {
+    code: "PGRST205",
+    message: "Could not find the table 'public.team_members' in the schema cache",
+  };
+
+  assert.equal(isTeamSchemaMissingError(error), true);
+  assert.equal(getTeamModeErrorMessage(error, "raw fallback"), TEAM_MODE_SETUP_MESSAGE);
+});
+
+test("raw Supabase errors are hidden behind friendly fallbacks", () => {
+  const error = {
+    code: "42501",
+    message: "permission denied for table team_members",
+  };
+
+  assert.equal(isRawSupabaseError(error), true);
+  assert.equal(getTeamModeErrorMessage(error, "팀 생성에 실패했습니다. 설정을 확인해 주세요."), "팀 생성에 실패했습니다. 설정을 확인해 주세요.");
 });

@@ -2200,6 +2200,35 @@ h4 {
   line-height: 1.6;
 }
 
+.team-mode-alert.error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.team-mode-alert.warning {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.team-mode-setup-guide {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 4px;
+  border: 1px dashed #fdba74;
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #92400e;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.team-mode-setup-guide strong {
+  color: #7c2d12;
+}
+
 .schedule-table-wrap {
   overflow-x: auto;
 }
