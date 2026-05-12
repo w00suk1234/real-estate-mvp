@@ -26,6 +26,8 @@ const SIGNUP_FIELD_KEYS = [
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^01[016789]-\d{3,4}-\d{4}$/;
 const PENDING_TEAM_INVITE_TOKEN_KEY = "agentnote_pending_team_invite_token";
+const PENDING_TEAM_INVITE_STORED_AT_KEY = "agentnote_pending_team_invite_token_stored_at";
+const PENDING_TEAM_INVITE_TTL_MS = 30 * 60 * 1000;
 
 function extractTeamInviteToken(value) {
   const rawValue = String(value || "").trim();
@@ -40,12 +42,31 @@ function extractTeamInviteToken(value) {
 
 function getPendingTeamInviteToken() {
   const params = new URLSearchParams(window.location.search);
-  return extractTeamInviteToken(params.get("token")) || extractTeamInviteToken(sessionStorage.getItem(PENDING_TEAM_INVITE_TOKEN_KEY));
+  return extractTeamInviteToken(params.get("token")) || getStoredTeamInviteToken();
+}
+
+function clearPendingTeamInviteToken() {
+  sessionStorage.removeItem(PENDING_TEAM_INVITE_TOKEN_KEY);
+  sessionStorage.removeItem(PENDING_TEAM_INVITE_STORED_AT_KEY);
+}
+
+function getStoredTeamInviteToken() {
+  const token = extractTeamInviteToken(sessionStorage.getItem(PENDING_TEAM_INVITE_TOKEN_KEY));
+  if (!token) return "";
+  const storedAt = Number(sessionStorage.getItem(PENDING_TEAM_INVITE_STORED_AT_KEY) || 0);
+  if (!storedAt || Date.now() - storedAt > PENDING_TEAM_INVITE_TTL_MS) {
+    clearPendingTeamInviteToken();
+    return "";
+  }
+  return token;
 }
 
 function preserveTeamInviteToken() {
   const token = getPendingTeamInviteToken();
-  if (token) sessionStorage.setItem(PENDING_TEAM_INVITE_TOKEN_KEY, token);
+  if (token) {
+    sessionStorage.setItem(PENDING_TEAM_INVITE_TOKEN_KEY, token);
+    sessionStorage.setItem(PENDING_TEAM_INVITE_STORED_AT_KEY, String(Date.now()));
+  }
   return token;
 }
 

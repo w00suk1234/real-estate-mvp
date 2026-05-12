@@ -66,6 +66,8 @@ const SUBSCRIPTION_STATUS_LABELS = {
 };
 
 const PENDING_TEAM_INVITE_TOKEN_KEY = "agentnote_pending_team_invite_token";
+const PENDING_TEAM_INVITE_STORED_AT_KEY = "agentnote_pending_team_invite_token_stored_at";
+const PENDING_TEAM_INVITE_TTL_MS = 30 * 60 * 1000;
 const today = new Date();
 
 function toMonthInputValue(date) {
@@ -104,17 +106,32 @@ function getInviteTokenFromUrl() {
 }
 
 function getPendingInviteToken() {
-  return getInviteTokenFromUrl() || extractInviteToken(sessionStorage.getItem(PENDING_TEAM_INVITE_TOKEN_KEY));
+  return getInviteTokenFromUrl() || getStoredPendingInviteToken();
+}
+
+function getStoredPendingInviteToken() {
+  const token = extractInviteToken(sessionStorage.getItem(PENDING_TEAM_INVITE_TOKEN_KEY));
+  if (!token) return "";
+  const storedAt = Number(sessionStorage.getItem(PENDING_TEAM_INVITE_STORED_AT_KEY) || 0);
+  if (!storedAt || Date.now() - storedAt > PENDING_TEAM_INVITE_TTL_MS) {
+    clearPendingInviteToken();
+    return "";
+  }
+  return token;
 }
 
 function storePendingInviteToken(token) {
   const cleanToken = extractInviteToken(token);
-  if (cleanToken) sessionStorage.setItem(PENDING_TEAM_INVITE_TOKEN_KEY, cleanToken);
+  if (cleanToken) {
+    sessionStorage.setItem(PENDING_TEAM_INVITE_TOKEN_KEY, cleanToken);
+    sessionStorage.setItem(PENDING_TEAM_INVITE_STORED_AT_KEY, String(Date.now()));
+  }
   return cleanToken;
 }
 
 function clearPendingInviteToken() {
   sessionStorage.removeItem(PENDING_TEAM_INVITE_TOKEN_KEY);
+  sessionStorage.removeItem(PENDING_TEAM_INVITE_STORED_AT_KEY);
   if (window.location.pathname === "/team" && new URLSearchParams(window.location.search).has("token")) {
     window.history.replaceState({}, "", "/team");
   }
@@ -220,6 +237,11 @@ function TeamModePage() {
         setInvitations([]);
         return;
       }
+      if (!getInviteTokenFromUrl()) {
+        clearPendingInviteToken();
+        setAcceptToken("");
+        setAutoAcceptAttemptedToken("");
+      }
       const [memberRows, inviteRows] = await Promise.all([
         listTeamMembers(currentState.team.id),
         listPendingInvitations(currentState.team.id),
@@ -303,6 +325,9 @@ function TeamModePage() {
         showSuccess("초대를 수락했습니다. 팀에 참여되었습니다.");
         await loadTeam();
       } catch (error) {
+        if (/만료|이미 처리|유효하지/.test(String(error?.message || ""))) {
+          clearPendingInviteToken();
+        }
         showError(error, "초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 새 초대 링크를 다시 요청해 주세요.");
       } finally {
         setSaving(false);
@@ -348,6 +373,9 @@ function TeamModePage() {
       showSuccess("초대를 수락했습니다.");
       await loadTeam();
     } catch (error) {
+      if (/만료|이미 처리|유효하지/.test(String(error?.message || ""))) {
+        clearPendingInviteToken();
+      }
       showError(error, "초대 수락에 실패했습니다.");
     } finally {
       setSaving(false);
@@ -361,6 +389,7 @@ function TeamModePage() {
     setMessage("");
     try {
       const result = await createTeamInvitation({ teamId: state.team.id, email: inviteEmail, role: inviteRole });
+      clearPendingInviteToken();
       setInviteLink(result.inviteUrl);
       setInviteCopied(false);
       setInviteEmail("");
