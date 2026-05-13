@@ -155,10 +155,20 @@ function isMissingAcceptInviteRpc(error) {
   );
 }
 
-async function acceptInvitationByRpc(tokenHash) {
+function isInviteNotFoundError(error) {
+  return /만료되었거나 이미 처리|유효하지|not found/i.test(String(error?.message || ""));
+}
+
+async function acceptInvitationByRpc(token, tokenHash) {
   if (!isSupabaseConfigured || !supabase) return null;
-  const { data, error } = await supabase.rpc("accept_team_invitation_by_hash", { invite_token_hash: tokenHash });
-  if (error) {
+  const attempts = Array.from(new Set([String(token || ""), String(tokenHash || "")].filter(Boolean)));
+  let lastError = null;
+
+  for (const inviteToken of attempts) {
+    const { data, error } = await supabase.rpc("accept_team_invitation_by_hash", { invite_token_hash: inviteToken });
+    if (!error) return data?.member || data || null;
+
+    lastError = error;
     if (isMissingAcceptInviteRpc(error)) {
       console.warn("[team-mode] accept invitation RPC is not installed yet. Falling back to direct table flow.", {
         message: error.message,
@@ -166,9 +176,13 @@ async function acceptInvitationByRpc(tokenHash) {
       });
       return null;
     }
+
+    if (isInviteNotFoundError(error) && inviteToken !== attempts[attempts.length - 1]) continue;
     throwTeamModeError(error, "accept_team_invitation_by_hash");
   }
-  return data?.member || data || null;
+
+  if (lastError) throwTeamModeError(lastError, "accept_team_invitation_by_hash");
+  return null;
 }
 
 async function fetchProfiles(userIds) {
@@ -490,7 +504,7 @@ export async function acceptTeamInvitation(token) {
   if (!isSupabaseConfigured || !supabase) {
     const data = getLocalData();
     const user = getLocalUser();
-    const invitation = data.invitations.find((invite) => invite.token_hash === tokenHash && invite.status === "pending");
+    const invitation = data.invitations.find((invite) => [tokenHash, token].includes(invite.token_hash) && invite.status === "pending");
     if (!invitation) throw new Error("유효하지 않은 초대 링크입니다.");
     if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 링크가 만료되었습니다.");
     const invitedEmail = normalizeEmail(invitation.email);
@@ -530,13 +544,13 @@ export async function acceptTeamInvitation(token) {
     return member;
   }
 
-  const rpcMember = await acceptInvitationByRpc(tokenHash);
+  const rpcMember = await acceptInvitationByRpc(token, tokenHash);
   if (rpcMember) return rpcMember;
 
   const { data: invitation, error } = await supabase
     .from("team_invitations")
     .select("*")
-    .eq("token_hash", tokenHash)
+    .or(`token_hash.eq.${tokenHash},token_hash.eq.${token}`)
     .eq("status", "pending")
     .maybeSingle();
   if (error) throwTeamModeError(error, "team_invitations");

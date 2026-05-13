@@ -323,6 +323,7 @@ begin
     into invite_row
     from public.team_invitations
    where token_hash = invite_token_hash
+      or token_hash = encode(digest(invite_token_hash, 'sha256'), 'hex')
    order by created_at desc
    limit 1;
 
