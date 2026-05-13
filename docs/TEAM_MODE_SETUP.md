@@ -33,7 +33,14 @@ Also confirm this database function exists:
 
 - `accept_team_invitation_by_hash(invite_token_hash text)`
 
-The app uses this function to accept invite links safely without exposing raw invitation table access to every user.
+The app uses this function to accept invite codes safely without exposing raw invitation table access to every user.
+
+For the simplified invite-code flow, also confirm `teams` has these columns:
+
+- `invite_code`
+- `invite_code_role`
+- `invite_code_email`
+- `invite_code_expires_at`
 
 Also confirm these existing tables have Team Mode columns when the tables exist:
 
@@ -116,13 +123,15 @@ The MVP uses anon key + RLS. Do not expose a Supabase service role key in the cl
 
 Run the SQL again and verify `team_members` exists. The app attempts to clean up a partially created team row if membership or subscription creation fails.
 
-### Invite link fails
+### Invite code fails
 
 Check:
 
 - `team_invitations` exists.
 - `accept_team_invitation_by_hash` exists. If not, rerun the latest `docs/TEAM_MODE_SUPABASE.sql`.
+- `teams.invite_code` exists. If not, rerun the latest `docs/TEAM_MODE_SUPABASE.sql`.
 - The inviter has `owner` or `admin` role in `team_members`.
-- The active/pending seat count is below the plan limit.
-- The invited user is logged in with the same email typed when the invite link was generated.
-- If the link says already processed or expired, create a fresh invite link and copy it again.
+- The active member count is below the plan limit.
+- The invited user is logged in with the same email typed when the invite code was generated.
+- A newly generated invite code is stored on `teams.invite_code`; older pending invitation rows are history only.
+- If the code says already processed or expired, create a fresh invite code and copy the 6-digit code again.

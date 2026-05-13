@@ -26,6 +26,10 @@ alter table public.teams add column if not exists owner_user_id uuid;
 alter table public.teams add column if not exists plan_type text not null default 'team_basic';
 alter table public.teams add column if not exists seat_limit integer not null default 5;
 alter table public.teams add column if not exists status text not null default 'active';
+alter table public.teams add column if not exists invite_code text null;
+alter table public.teams add column if not exists invite_code_role text null default 'member';
+alter table public.teams add column if not exists invite_code_email text null;
+alter table public.teams add column if not exists invite_code_expires_at timestamptz null;
 alter table public.teams add column if not exists created_at timestamptz not null default now();
 alter table public.teams add column if not exists updated_at timestamptz not null default now();
 
@@ -203,6 +207,7 @@ alter table if exists public.settlements add column if not exists created_by_use
 -- ---------------------------------------------------------------------------
 
 create index if not exists teams_owner_user_idx on public.teams(owner_user_id);
+create index if not exists teams_invite_code_idx on public.teams(invite_code) where invite_code is not null;
 create index if not exists team_members_team_idx on public.team_members(team_id);
 create index if not exists team_members_user_idx on public.team_members(user_id);
 create unique index if not exists team_members_team_user_idx on public.team_members(team_id, user_id);
@@ -319,6 +324,130 @@ begin
     raise exception '로그인이 필요합니다.' using errcode = '28000';
   end if;
 
+  -- Current MVP invite flow: each team stores one active 6-digit invite code.
+  -- Check this path first so stale rows in team_invitations cannot block a fresh code.
+  select *
+    into invite_team
+    from public.teams
+   where invite_code = invite_token_hash
+     and status = 'active'
+     and invite_code_expires_at > now()
+   order by updated_at desc
+   limit 1;
+
+  if invite_team.id is not null then
+    if invite_team.invite_code_email is not null and lower(invite_team.invite_code_email) <> current_email then
+      raise exception '% 계정으로 로그인한 뒤 초대를 수락해 주세요.', invite_team.invite_code_email using errcode = 'P0001';
+    end if;
+
+    select *
+      into existing_member
+      from public.team_members
+     where team_id = invite_team.id
+       and user_id = current_user_id
+     limit 1;
+
+    if existing_member.id is not null and existing_member.status = 'active' then
+      update public.teams
+         set invite_code = null,
+             invite_code_role = 'member',
+             invite_code_email = null,
+             invite_code_expires_at = null,
+             updated_at = now()
+       where id = invite_team.id;
+
+      return jsonb_build_object(
+        'member', to_jsonb(existing_member),
+        'teamId', invite_team.id,
+        'alreadyMember', true
+      );
+    end if;
+
+    select *
+      into invite_subscription
+      from public.team_subscriptions
+     where team_id = invite_team.id
+     order by created_at desc
+     limit 1;
+
+    seat_capacity := coalesce(invite_subscription.seat_limit, invite_team.seat_limit, 5)
+      + coalesce(invite_subscription.extra_seat_count, 0);
+    unlimited_plan := coalesce(invite_subscription.is_unlimited, false)
+      or coalesce(invite_subscription.plan_type, invite_team.plan_type) = 'team_unlimited';
+
+    if not unlimited_plan then
+      select count(*)
+        into active_member_count
+        from public.team_members
+       where team_id = invite_team.id
+         and status = 'active';
+
+      if active_member_count >= seat_capacity then
+        raise exception '좌석 한도를 초과했습니다. 팀장에게 좌석 설정을 확인해 달라고 요청해 주세요.' using errcode = 'P0001';
+      end if;
+    end if;
+
+    insert into public.team_members (
+      team_id,
+      user_id,
+      role,
+      status,
+      invited_by,
+      joined_at,
+      created_at,
+      updated_at
+    )
+    values (
+      invite_team.id,
+      current_user_id,
+      coalesce(invite_team.invite_code_role, 'member'),
+      'active',
+      invite_team.owner_user_id,
+      now(),
+      now(),
+      now()
+    )
+    on conflict (team_id, user_id)
+    do update set
+      role = excluded.role,
+      status = 'active',
+      invited_by = excluded.invited_by,
+      joined_at = coalesce(public.team_members.joined_at, excluded.joined_at),
+      updated_at = now()
+    returning * into member_row;
+
+    update public.teams
+       set invite_code = null,
+           invite_code_role = 'member',
+           invite_code_email = null,
+           invite_code_expires_at = null,
+           updated_at = now()
+     where id = invite_team.id;
+
+    update public.team_invitations
+       set status = case
+         when token_hash = invite_token_hash then 'accepted'
+         else 'revoked'
+       end,
+           accepted_at = case
+             when token_hash = invite_token_hash then now()
+             else accepted_at
+           end,
+           accepted_by = case
+             when token_hash = invite_token_hash then current_user_id
+             else accepted_by
+           end
+     where team_id = invite_team.id
+       and status = 'pending';
+
+    return jsonb_build_object(
+      'member', to_jsonb(member_row),
+      'teamId', invite_team.id,
+      'alreadyMember', false
+    );
+  end if;
+
+  -- Backward-compatible support for older long invite links.
   select *
     into invite_row
     from public.team_invitations
@@ -328,7 +457,7 @@ begin
    limit 1;
 
   if invite_row.id is null then
-    raise exception '초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 최신 초대 링크를 다시 요청해 주세요.' using errcode = 'P0001';
+    raise exception '초대 코드가 만료되었거나 이미 처리되었습니다. 팀장에게 새 초대 코드를 요청해 주세요.' using errcode = 'P0001';
   end if;
 
   if invite_row.email is not null and lower(invite_row.email) <> current_email then
@@ -359,7 +488,7 @@ begin
   end if;
 
   if invite_row.status <> 'pending' then
-    raise exception '초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 최신 초대 링크를 다시 요청해 주세요.' using errcode = 'P0001';
+    raise exception '초대 코드가 만료되었거나 이미 처리되었습니다. 팀장에게 새 초대 코드를 요청해 주세요.' using errcode = 'P0001';
   end if;
 
   if invite_row.expires_at <= now() then
@@ -367,7 +496,7 @@ begin
        set status = 'expired'
      where id = invite_row.id
        and status = 'pending';
-    raise exception '초대 링크가 만료되었습니다. 팀장에게 새 초대 링크를 요청해 주세요.' using errcode = 'P0001';
+    raise exception '초대 코드가 만료되었습니다. 팀장에게 새 초대 코드를 요청해 주세요.' using errcode = 'P0001';
   end if;
 
   select *

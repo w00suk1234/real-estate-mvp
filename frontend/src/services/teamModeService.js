@@ -185,6 +185,16 @@ async function acceptInvitationByRpc(token, tokenHash) {
   return null;
 }
 
+function isTeamInviteCodeColumnMissing(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return (
+    code === "PGRST204" ||
+    message.includes("invite_code") ||
+    message.includes("schema cache")
+  );
+}
+
 async function fetchProfiles(userIds) {
   if (!isSupabaseConfigured || !supabase || !userIds.length) return {};
   const { data } = await supabase.from("profiles").select("id, username, email, manager_name").in("id", userIds);
@@ -406,7 +416,12 @@ export async function revokeTeamInvitation({ teamId, invitationId, email = "" })
         ? { ...invite, status: "revoked" }
         : invite
     ));
-    saveLocalData({ ...data, invitations });
+    const teams = data.teams.map((team) => (
+      String(team.id) === String(teamId)
+        ? { ...team, invite_code: null, invite_code_role: "member", invite_code_email: null, invite_code_expires_at: null, updated_at: nowIso() }
+        : team
+    ));
+    saveLocalData({ ...data, teams, invitations });
     return invitations.find((invite) => String(invite.id) === String(invitationId));
   }
 
@@ -419,6 +434,17 @@ export async function revokeTeamInvitation({ teamId, invitationId, email = "" })
   query = normalizedEmail ? query.ilike("email", normalizedEmail) : query.eq("id", invitationId);
   const { data, error } = await query;
   if (error) throwTeamModeError(error, "team_invitations");
+  const { error: clearCodeError } = await supabase
+    .from("teams")
+    .update({
+      invite_code: null,
+      invite_code_role: "member",
+      invite_code_email: null,
+      invite_code_expires_at: null,
+      updated_at: nowIso(),
+    })
+    .eq("id", teamId);
+  if (clearCodeError) console.warn("[team-mode] current invite code cleanup failed", clearCodeError);
   return data;
 }
 
@@ -433,7 +459,12 @@ export async function clearTeamPendingInvitations(teamId) {
         ? { ...invite, status: "revoked" }
         : invite
     ));
-    saveLocalData({ ...data, invitations });
+    const teams = data.teams.map((team) => (
+      String(team.id) === String(teamId)
+        ? { ...team, invite_code: null, invite_code_role: "member", invite_code_email: null, invite_code_expires_at: null, updated_at: nowIso() }
+        : team
+    ));
+    saveLocalData({ ...data, teams, invitations });
     return invitations.filter((invite) => String(invite.team_id) === String(teamId) && invite.status === "revoked");
   }
 
@@ -444,6 +475,16 @@ export async function clearTeamPendingInvitations(teamId) {
     .eq("status", "pending")
     .select("*");
   if (error) throwTeamModeError(error, "team_invitations");
+  await supabase
+    .from("teams")
+    .update({
+      invite_code: null,
+      invite_code_role: "member",
+      invite_code_email: null,
+      invite_code_expires_at: null,
+      updated_at: nowIso(),
+    })
+    .eq("id", teamId);
   return data || [];
 }
 
@@ -452,8 +493,9 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
   if (!canManageTeam(state.membership)) throw new Error("초대 권한이 없습니다.");
 
   const members = await listTeamMembers(teamId);
-  const invitations = await listPendingInvitations(teamId);
-  if (!canInviteSeat({ members, invitations, subscription: state.subscription, team: state.team })) {
+  // The current MVP uses one active invite code per team. Old pending invite rows
+  // are kept only as history, so they should not reserve seats or block a fresh code.
+  if (!canInviteSeat({ members, invitations: [], subscription: state.subscription, team: state.team })) {
     throw new Error("좌석 한도를 초과했습니다. 기본 플랜은 팀장 포함 5명까지 사용할 수 있습니다.");
   }
 
@@ -478,8 +520,51 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
       expires_at: expiresAt,
       created_at: nowIso(),
     };
-    saveLocalData({ ...data, invitations: [invitation, ...data.invitations] });
+    const teams = data.teams.map((team) => (
+      String(team.id) === String(teamId)
+        ? {
+            ...team,
+            invite_code: token,
+            invite_code_role: role,
+            invite_code_email: email || null,
+            invite_code_expires_at: expiresAt,
+            updated_at: nowIso(),
+          }
+        : team
+    ));
+    const invitations = data.invitations.map((invite) => (
+      String(invite.team_id) === String(teamId) && invite.status === "pending"
+        ? { ...invite, status: "revoked" }
+        : invite
+    ));
+    saveLocalData({ ...data, teams, invitations: [invitation, ...invitations] });
     return { invitation, inviteUrl: inviteUrlForToken(token), token };
+  }
+
+  const { error: teamCodeError } = await supabase
+    .from("teams")
+    .update({
+      invite_code: token,
+      invite_code_role: role,
+      invite_code_email: email || null,
+      invite_code_expires_at: expiresAt,
+      updated_at: nowIso(),
+    })
+    .eq("id", teamId);
+  if (teamCodeError) {
+    if (isTeamInviteCodeColumnMissing(teamCodeError)) {
+      throw new Error("초대 코드 DB 설정이 아직 적용되지 않았습니다. Supabase에서 최신 TEAM_MODE_SUPABASE.sql을 다시 실행해 주세요.");
+    }
+    throwTeamModeError(teamCodeError, "teams");
+  }
+
+  const { error: revokeOldInviteError } = await supabase
+    .from("team_invitations")
+    .update({ status: "revoked" })
+    .eq("team_id", teamId)
+    .eq("status", "pending");
+  if (revokeOldInviteError) {
+    console.warn("[team-mode] old pending invite cleanup failed", revokeOldInviteError);
   }
 
   const { data: invitation, error } = await supabase
@@ -495,7 +580,24 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
     })
     .select("*")
     .single();
-  if (error) throwTeamModeError(error, "team_invitations");
+  if (error) {
+    console.warn("[team-mode] invite history insert failed; team invite code is still usable", error);
+    return {
+      invitation: {
+        id: `team-code-${teamId}`,
+        team_id: teamId,
+        email: email || null,
+        role,
+        token_hash: tokenHash,
+        status: "pending",
+        invited_by: userId,
+        expires_at: expiresAt,
+        created_at: nowIso(),
+      },
+      inviteUrl: inviteUrlForToken(token),
+      token,
+    };
+  }
   return { invitation, inviteUrl: inviteUrlForToken(token), token };
 }
 
@@ -508,8 +610,8 @@ export async function acceptTeamInvitation(token) {
     const data = getLocalData();
     const user = getLocalUser();
     const invitation = data.invitations.find((invite) => [tokenHash, token].includes(invite.token_hash) && invite.status === "pending");
-    if (!invitation) throw new Error("유효하지 않은 초대 링크입니다.");
-    if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 링크가 만료되었습니다.");
+    if (!invitation) throw new Error("유효하지 않은 초대 코드입니다.");
+    if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 코드가 만료되었습니다.");
     const invitedEmail = normalizeEmail(invitation.email);
     const userEmail = normalizeEmail(user.email);
     if (invitedEmail && userEmail && invitedEmail !== userEmail) {
@@ -557,8 +659,8 @@ export async function acceptTeamInvitation(token) {
     .eq("status", "pending")
     .maybeSingle();
   if (error) throwTeamModeError(error, "team_invitations");
-  if (!invitation) throw new Error("초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 최신 초대 링크를 다시 요청해 주세요.");
-  if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 링크가 만료되었습니다.");
+  if (!invitation) throw new Error("초대 코드가 만료되었거나 이미 처리되었습니다. 팀장에게 새 초대 코드를 요청해 주세요.");
+  if (new Date(invitation.expires_at).getTime() < Date.now()) throw new Error("초대 코드가 만료되었습니다.");
 
   const currentUser = await getCurrentAuthUser();
   const invitedEmail = normalizeEmail(invitation.email);

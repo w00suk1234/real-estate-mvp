@@ -222,7 +222,7 @@ function TeamModePage() {
       resetTeamState();
       if (storePendingInviteToken(getInviteTokenFromUrl())) {
         setMessageType("warning");
-        setMessage("초대 링크를 확인했습니다. 초대받은 계정으로 로그인하면 자동으로 팀에 참여합니다.");
+        setMessage("초대 코드를 확인했습니다. 초대받은 계정으로 로그인하면 자동으로 팀에 참여합니다.");
       } else {
         setMessage("");
       }
@@ -327,7 +327,7 @@ function TeamModePage() {
       setAutoAccepting(true);
       setSaving(true);
       setMessageType("warning");
-      setMessage("초대 링크를 확인하고 있습니다.");
+      setMessage("초대 코드를 확인하고 있습니다.");
       try {
         await acceptTeamInvitation(token);
         clearPendingInviteToken();
@@ -338,7 +338,7 @@ function TeamModePage() {
         if (/만료|이미 처리|유효하지/.test(String(error?.message || ""))) {
           clearPendingInviteToken();
         }
-        showError(error, "초대 링크가 만료되었거나 이미 처리되었습니다. 팀장에게 새 초대 링크를 다시 요청해 주세요.");
+        showError(error, "초대 코드가 만료되었거나 이미 처리되었습니다. 팀장에게 새 초대 코드를 요청해 주세요.");
       } finally {
         setSaving(false);
         setAutoAccepting(false);
@@ -362,7 +362,7 @@ function TeamModePage() {
       const result = await createTeam({ name: teamName });
       setState({ ...result, canUse: true });
       setTeamName("");
-      showSuccess("팀이 생성되었습니다. 팀원 초대 링크를 생성할 수 있습니다.");
+      showSuccess("팀이 생성되었습니다. 팀원 초대 코드를 생성할 수 있습니다.");
       await loadTeam();
     } catch (error) {
       showError(error, "팀 생성에 실패했습니다. 설정을 확인해 주세요.");
@@ -473,7 +473,7 @@ function TeamModePage() {
 
   async function handleClearPendingInvitations() {
     if (!state.team?.id || !pendingInvitationCount) return;
-    if (!window.confirm("대기 중인 초대 링크를 모두 삭제할까요? 기존에 복사한 초대 링크도 더 이상 사용할 수 없습니다.")) return;
+    if (!window.confirm("대기 중인 초대 코드를 모두 삭제할까요? 기존에 복사한 초대 코드도 더 이상 사용할 수 없습니다.")) return;
     setSaving(true);
     try {
       await clearTeamPendingInvitations(state.team.id);
@@ -481,7 +481,7 @@ function TeamModePage() {
       setInviteLink("");
       setInviteCode("");
       setInviteCopied("");
-      showSuccess("대기 중인 초대 링크를 모두 삭제했습니다.");
+      showSuccess("대기 중인 초대 코드를 모두 삭제했습니다.");
     } catch (error) {
       showError(error, "대기 초대를 모두 삭제하지 못했습니다.");
     } finally {
