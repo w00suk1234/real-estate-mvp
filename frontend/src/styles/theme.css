@@ -9541,12 +9541,14 @@ h4 {
 }
 
 .team-member-list,
+.team-pending-invite-list,
 .team-payroll-list {
   display: grid;
   gap: 10px;
 }
 
 .team-member-row,
+.team-pending-invite-row,
 .team-payroll-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 140px auto;
@@ -9559,15 +9561,50 @@ h4 {
 }
 
 .team-member-row div,
+.team-pending-invite-row div,
 .team-payroll-card div {
   display: grid;
   gap: 3px;
 }
 
 .team-member-row span,
+.team-pending-invite-row span,
 .team-payroll-card span {
   color: #64748b;
   font-size: 12px;
+}
+
+.team-pending-invite-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e5edf7;
+}
+
+.team-pending-invite-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.team-pending-invite-head h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.team-pending-invite-head p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.team-pending-invite-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-style: dashed;
+  background: #f8fbff;
 }
 
 .team-member-owner-note {
@@ -9651,6 +9688,7 @@ h4 {
   .team-stat-grid,
   .team-stat-grid.compact,
   .team-member-row,
+  .team-pending-invite-row,
   .team-payroll-card,
   .team-invite-link {
     grid-template-columns: 1fr;

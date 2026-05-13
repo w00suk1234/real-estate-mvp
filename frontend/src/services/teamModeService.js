@@ -378,6 +378,61 @@ export async function listPendingInvitations(teamId) {
   return dedupePendingInvitations(data || []);
 }
 
+export async function revokeTeamInvitation({ teamId, invitationId, email = "" }) {
+  const state = await requireTeamState(teamId);
+  if (!canManageTeam(state.membership)) throw new Error("초대 삭제 권한이 없습니다.");
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!isSupabaseConfigured || !supabase) {
+    const data = getLocalData();
+    const invitations = data.invitations.map((invite) => (
+      String(invite.team_id) === String(teamId) &&
+      invite.status === "pending" &&
+      (normalizedEmail ? normalizeEmail(invite.email) === normalizedEmail : String(invite.id) === String(invitationId))
+        ? { ...invite, status: "revoked" }
+        : invite
+    ));
+    saveLocalData({ ...data, invitations });
+    return invitations.find((invite) => String(invite.id) === String(invitationId));
+  }
+
+  let query = supabase
+    .from("team_invitations")
+    .update({ status: "revoked" })
+    .eq("team_id", teamId)
+    .eq("status", "pending")
+    .select("*");
+  query = normalizedEmail ? query.ilike("email", normalizedEmail) : query.eq("id", invitationId);
+  const { data, error } = await query;
+  if (error) throwTeamModeError(error, "team_invitations");
+  return data;
+}
+
+export async function clearTeamPendingInvitations(teamId) {
+  const state = await requireTeamState(teamId);
+  if (!canManageTeam(state.membership)) throw new Error("초대 삭제 권한이 없습니다.");
+
+  if (!isSupabaseConfigured || !supabase) {
+    const data = getLocalData();
+    const invitations = data.invitations.map((invite) => (
+      String(invite.team_id) === String(teamId) && invite.status === "pending"
+        ? { ...invite, status: "revoked" }
+        : invite
+    ));
+    saveLocalData({ ...data, invitations });
+    return invitations.filter((invite) => String(invite.team_id) === String(teamId) && invite.status === "revoked");
+  }
+
+  const { data, error } = await supabase
+    .from("team_invitations")
+    .update({ status: "revoked" })
+    .eq("team_id", teamId)
+    .eq("status", "pending")
+    .select("*");
+  if (error) throwTeamModeError(error, "team_invitations");
+  return data || [];
+}
+
 export async function createTeamInvitation({ teamId, email = "", role = "member" }) {
   const state = await requireTeamState(teamId);
   if (!canManageTeam(state.membership)) throw new Error("초대 권한이 없습니다.");

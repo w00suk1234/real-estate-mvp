@@ -4,6 +4,7 @@ import {
   acceptTeamInvitation,
   assignCustomer,
   bulkTransferCustomers,
+  clearTeamPendingInvitations,
   createPayrollStatement,
   createTeam,
   createTeamInvitation,
@@ -16,6 +17,7 @@ import {
   listTeamMembers,
   listTeamSchedules,
   listTeamSettlements,
+  revokeTeamInvitation,
   transferCustomer,
   updateTeamMember,
 } from "../services/teamModeService";
@@ -76,6 +78,13 @@ function toMonthInputValue(date) {
 
 function formatWon(value) {
   return `${new Intl.NumberFormat("ko-KR").format(Math.round(Number(value || 0)))}원`;
+}
+
+function formatShortDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return date.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
 function memberLabel(member) {
@@ -440,6 +449,37 @@ function TeamModePage() {
     }
   }
 
+  async function handleRevokeInvitation(invitation) {
+    if (!state.team?.id || !invitation?.id) return;
+    setSaving(true);
+    try {
+      await revokeTeamInvitation({ teamId: state.team.id, invitationId: invitation.id, email: invitation.email });
+      setInvitations(await listPendingInvitations(state.team.id));
+      showSuccess("초대 대기를 삭제했습니다.");
+    } catch (error) {
+      showError(error, "초대 대기를 삭제하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleClearPendingInvitations() {
+    if (!state.team?.id || !pendingInvitationCount) return;
+    if (!window.confirm("대기 중인 초대 링크를 모두 삭제할까요? 기존에 복사한 초대 링크도 더 이상 사용할 수 없습니다.")) return;
+    setSaving(true);
+    try {
+      await clearTeamPendingInvitations(state.team.id);
+      setInvitations([]);
+      setInviteLink("");
+      setInviteCopied(false);
+      showSuccess("대기 중인 초대 링크를 모두 삭제했습니다.");
+    } catch (error) {
+      showError(error, "대기 초대를 모두 삭제하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleAssignCustomer(event) {
     event.preventDefault();
     if (!state.team?.id || !assignForm.customerId || !assignForm.assignedToUserId) return;
@@ -666,6 +706,35 @@ function TeamModePage() {
                 </article>
               ))}
             </div>
+            {isManager ? (
+              <div className="team-pending-invite-section">
+                <div className="team-pending-invite-head">
+                  <div>
+                    <h3>초대 대기</h3>
+                    <p>{pendingInvitationCount ? `${pendingInvitationCount}건이 좌석에 포함됩니다.` : "대기 중인 초대가 없습니다."}</p>
+                  </div>
+                  {pendingInvitationCount ? (
+                    <button type="button" className="secondary-btn small-btn" disabled={saving} onClick={handleClearPendingInvitations}>
+                      전체 삭제
+                    </button>
+                  ) : null}
+                </div>
+                <div className="team-pending-invite-list">
+                  {invitations.map((invitation) => (
+                    <article key={invitation.id} className="team-pending-invite-row">
+                      <div>
+                        <strong>{invitation.email || "이메일 미지정 초대"}</strong>
+                        <span>{roleLabel(invitation.role)} · 만료 {formatShortDate(invitation.expires_at)}</span>
+                      </div>
+                      <button type="button" className="danger-btn small-btn" disabled={saving} onClick={() => handleRevokeInvitation(invitation)}>
+                        삭제
+                      </button>
+                    </article>
+                  ))}
+                  {!invitations.length ? <div className="empty-state compact">삭제할 초대 대기가 없습니다.</div> : null}
+                </div>
+              </div>
+            ) : null}
           </div>
           {isManager ? (
             <form className="dashboard-card" onSubmit={handleCreateInvitation}>
