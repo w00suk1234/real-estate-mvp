@@ -33,12 +33,12 @@ function createId(prefix) {
 }
 
 function createInviteToken() {
-  const bytes = new Uint8Array(24);
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = new Uint32Array(1);
     crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return String(100000 + (bytes[0] % 900000));
   }
-  return `${Date.now()}${Math.random().toString(36).slice(2)}`;
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 async function hashToken(token) {
@@ -458,7 +458,10 @@ export async function createTeamInvitation({ teamId, email = "", role = "member"
   }
 
   const token = createInviteToken();
-  const tokenHash = await hashToken(token);
+  // Team Mode MVP uses a short numeric invite code. The historical column name
+  // is token_hash, but new invitations intentionally store the code directly so
+  // users can copy/paste a simple number instead of a long opaque token.
+  const tokenHash = token;
   const userId = await getCurrentUserId();
   const expiresAt = addDays(new Date(), 7).toISOString();
 

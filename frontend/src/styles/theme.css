@@ -9632,6 +9632,31 @@ h4 {
   background: #eff6ff;
 }
 
+.team-invite-code-card {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+}
+
+.team-invite-code-card span {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.team-invite-code-card strong {
+  color: #0f172a;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1;
+  letter-spacing: 0;
+  text-align: center;
+}
+
 .team-invite-url {
   width: 100%;
   min-width: 0;
@@ -9690,8 +9715,13 @@ h4 {
   .team-member-row,
   .team-pending-invite-row,
   .team-payroll-card,
+  .team-invite-code-card,
   .team-invite-link {
     grid-template-columns: 1fr;
+  }
+
+  .team-invite-code-card strong {
+    text-align: left;
   }
 
   .team-invite-copy-btn {

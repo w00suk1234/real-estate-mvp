@@ -167,7 +167,8 @@ function TeamModePage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [inviteLink, setInviteLink] = useState("");
-  const [inviteCopied, setInviteCopied] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCopied, setInviteCopied] = useState("");
   const [acceptToken, setAcceptToken] = useState("");
   const [assignForm, setAssignForm] = useState({ customerId: "", assignedToUserId: "", memo: "" });
   const [transferForm, setTransferForm] = useState({ customerId: "", toUserId: "", reason: "" });
@@ -400,38 +401,45 @@ function TeamModePage() {
       const result = await createTeamInvitation({ teamId: state.team.id, email: inviteEmail, role: inviteRole });
       clearPendingInviteToken();
       setInviteLink(result.inviteUrl);
-      setInviteCopied(false);
+      setInviteCode(result.token || "");
+      setInviteCopied("");
       setInviteEmail("");
-      showSuccess("초대 링크를 생성했습니다. 링크를 복사해 팀원에게 전달하세요.");
+      showSuccess("초대 코드를 생성했습니다. 코드를 복사해 팀원에게 전달하세요.");
       setInvitations(await listPendingInvitations(state.team.id));
     } catch (error) {
-      showError(error, "초대 링크 생성에 실패했습니다.");
+      showError(error, "초대 코드 생성에 실패했습니다.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleCopyInviteLink() {
-    if (!inviteLink) return;
+  async function copyTextToClipboard(text) {
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+  }
+
+  async function handleCopyInvite(value, type = "code") {
+    if (!value) return;
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(inviteLink);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = inviteLink;
-        textarea.setAttribute("readonly", "");
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-      setInviteCopied(true);
-      showSuccess("초대 링크를 복사했습니다.");
-      window.setTimeout(() => setInviteCopied(false), 2000);
+      await copyTextToClipboard(value);
+      setInviteCopied(type);
+      showSuccess(type === "code" ? "초대 코드를 복사했습니다." : "초대 링크를 복사했습니다.");
+      window.setTimeout(() => setInviteCopied(""), 2000);
     } catch (error) {
-      showError(error, "초대 링크 복사에 실패했습니다. 링크를 직접 선택해서 복사해 주세요.");
+      showError(error, "복사에 실패했습니다. 직접 선택해서 복사해 주세요.");
     }
   }
 
@@ -471,7 +479,8 @@ function TeamModePage() {
       await clearTeamPendingInvitations(state.team.id);
       setInvitations([]);
       setInviteLink("");
-      setInviteCopied(false);
+      setInviteCode("");
+      setInviteCopied("");
       showSuccess("대기 중인 초대 링크를 모두 삭제했습니다.");
     } catch (error) {
       showError(error, "대기 초대를 모두 삭제하지 못했습니다.");
@@ -617,9 +626,9 @@ function TeamModePage() {
             {!isTeamSelfCreateAllowed() ? <small>팀 생성은 관리자에게 문의해 주세요.</small> : null}
           </form>
           <form className="dashboard-card team-onboarding-card" onSubmit={handleAcceptInvitation}>
-            <h2>초대 링크로 참여</h2>
-            <p>초대 링크를 열면 자동으로 수락을 시도합니다. 필요하면 전체 링크를 그대로 붙여 넣어도 됩니다.</p>
-            <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} placeholder="초대 링크 또는 token" />
+            <h2>초대 코드로 참여</h2>
+            <p>팀장이 전달한 6자리 초대 코드를 입력하세요. 전체 링크를 붙여 넣어도 됩니다.</p>
+            <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} placeholder="예: 123456 또는 전체 초대 링크" />
             <button type="submit" className="secondary-btn" disabled={saving || !acceptToken.trim()}>
               초대 수락
             </button>
@@ -738,29 +747,38 @@ function TeamModePage() {
           </div>
           {isManager ? (
             <form className="dashboard-card" onSubmit={handleCreateInvitation}>
-              <h2>초대 링크 생성</h2>
+              <h2>초대 코드 생성</h2>
               <input value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="이메일 선택 입력" />
               <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>
                 {ROLE_OPTIONS.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
-              <button type="submit" className="primary-btn" disabled={saving}>초대 링크 생성</button>
+              <button type="submit" className="primary-btn" disabled={saving}>초대 코드 생성</button>
               {inviteLink ? (
-                <div className="team-invite-link" aria-live="polite">
-                  <input
-                    className="team-invite-url"
-                    value={inviteLink}
-                    readOnly
-                    onFocus={(event) => event.target.select()}
-                    aria-label="생성된 초대 링크"
-                  />
-                  <button type="button" className="secondary-btn small-btn team-invite-copy-btn" onClick={handleCopyInviteLink}>
-                    {inviteCopied ? "복사됨" : "복사"}
-                  </button>
-                </div>
+                <>
+                  <div className="team-invite-code-card" aria-live="polite">
+                    <span>초대 코드</span>
+                    <strong>{inviteCode}</strong>
+                    <button type="button" className="secondary-btn small-btn team-invite-copy-btn" onClick={() => handleCopyInvite(inviteCode, "code")}>
+                      {inviteCopied === "code" ? "복사됨" : "코드 복사"}
+                    </button>
+                  </div>
+                  <div className="team-invite-link">
+                    <input
+                      className="team-invite-url"
+                      value={inviteLink}
+                      readOnly
+                      onFocus={(event) => event.target.select()}
+                      aria-label="생성된 초대 링크"
+                    />
+                    <button type="button" className="secondary-btn small-btn team-invite-copy-btn" onClick={() => handleCopyInvite(inviteLink, "link")}>
+                      {inviteCopied === "link" ? "복사됨" : "링크 복사"}
+                    </button>
+                  </div>
+                </>
               ) : null}
-            <p>현재는 이메일 자동 발송 없이 초대 링크를 복사해서 전달합니다. 초대받은 계정은 로그인 후 링크를 열어 수락하면 됩니다.</p>
+            <p>현재는 이메일 자동 발송 없이 초대 코드를 복사해서 전달합니다. 초대받은 계정은 로그인 후 코드를 입력하면 됩니다.</p>
               <p>기본 플랜은 팀장 포함 5명까지 사용할 수 있습니다. 추가 인원 플랜은 준비 중입니다.</p>
             </form>
           ) : null}
