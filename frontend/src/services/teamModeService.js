@@ -123,7 +123,7 @@ function inviteUrlForToken(token) {
 function normalizeMember(member = {}, profile = {}) {
   return {
     ...member,
-    display_name: profile.manager_name || profile.username || profile.email || member.display_name || member.email || member.user_id,
+    display_name: profile.manager_name || profile.username || profile.email || member.display_name || member.email || "",
     email: profile.email || member.email || "",
   };
 }

@@ -149,6 +149,19 @@ export function getSettlementAmount(entry = {}) {
   return tenant + landlord || parseMoney(entry.total_fee ?? entry.commission_amount ?? entry.amount);
 }
 
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
+function getMemberSummaryName(member = {}) {
+  const candidate = member.display_name || member.name || member.email || "";
+  if (candidate && !isUuidLike(candidate)) return candidate;
+  if (member.role === "owner") return "팀장 계정";
+  if (member.role === "admin") return "관리자 계정";
+  if (member.role === "viewer") return "조회 전용 계정";
+  return "팀원 계정";
+}
+
 export function getEntryMonth(value) {
   return String(value || "").slice(0, 7);
 }
@@ -194,7 +207,7 @@ export function buildTeamMonthlySummary({ month, members = [], customers = [], s
       const memberSettlements = monthSettlements.filter((entry) => String(getAssignedUserId(entry)) === String(userId));
       return {
         userId,
-        name: member.display_name || member.name || member.email || userId || "팀원",
+        name: getMemberSummaryName(member),
         customerInflowCount: memberCustomers.length,
         contractCustomerCount: memberContracts.length,
         settlementAmount: memberSettlements.reduce((sum, entry) => sum + getSettlementAmount(entry), 0),

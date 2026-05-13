@@ -87,8 +87,25 @@ function formatShortDate(value) {
   return date.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
 function memberLabel(member) {
-  return member.display_name || member.name || member.email || member.user_id || "팀원";
+  const candidate = member.display_name || member.name || member.email || "";
+  if (candidate && !isUuidLike(candidate)) return candidate;
+  if (member.role === "owner") return "팀장 계정";
+  if (member.role === "admin") return "관리자 계정";
+  if (member.role === "viewer") return "조회 전용 계정";
+  return "팀원 계정";
+}
+
+function memberMeta(member) {
+  if (member.email && !isUuidLike(member.email)) return member.email;
+  if (member.role === "owner") return "팀 생성자";
+  if (member.role === "admin") return "팀 관리 권한";
+  if (member.role === "viewer") return "조회 권한";
+  return "프로필 정보 미연동";
 }
 
 function roleLabel(role) {
@@ -698,7 +715,7 @@ function TeamModePage() {
                 <article key={member.id} className="team-member-row">
                   <div>
                     <strong>{memberLabel(member)}</strong>
-                    <span>{member.email || member.user_id}</span>
+                    <span>{memberMeta(member)}</span>
                   </div>
                   <select value={member.role} disabled={!isManager || state.membership.role !== "owner" || saving} onChange={(event) => handleMemberChange(member, { role: event.target.value, status: member.status })}>
                     {MEMBER_ROLE_OPTIONS.map(([value, label]) => (
