@@ -9772,3 +9772,210 @@ h4 {
   margin-right: 0 !important;
   margin-left: 0 !important;
 }
+
+/* Brochure maker input flow: always-open sections, quick nav, sticky actions */
+.briefing-redesign .briefing-flow-form {
+  display: grid;
+  gap: 16px !important;
+}
+
+.briefing-redesign .briefing-section-nav {
+  position: sticky;
+  top: 62px;
+  z-index: 8;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 9px;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  background: rgba(248, 251, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(15, 35, 65, 0.045);
+  backdrop-filter: blur(8px);
+}
+
+.briefing-redesign .briefing-section-nav button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid #cfe0f5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #244163;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.briefing-redesign .briefing-section-nav button:hover,
+.briefing-redesign .briefing-section-nav button:focus-visible {
+  border-color: #9cc3f5;
+  background: #eff6ff;
+  color: #1558b0;
+}
+
+.briefing-redesign .briefing-flow-section {
+  scroll-margin-top: 124px;
+  overflow: visible;
+  border-color: #d9e6f5;
+  box-shadow: 0 5px 14px rgba(15, 35, 65, 0.035);
+}
+
+.briefing-redesign .briefing-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e1ebf7;
+  background: #f8fbff;
+}
+
+.briefing-redesign .briefing-section-head strong {
+  display: block;
+  color: #0f2348;
+  font-size: 15px;
+  font-weight: 950;
+  line-height: 1.2;
+}
+
+.briefing-redesign .briefing-section-head p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.briefing-redesign .briefing-section-head > span {
+  max-width: min(42%, 320px);
+  overflow: hidden;
+  padding: 6px 10px;
+  border: 1px solid #dbe7f5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.25;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.briefing-redesign .brochure-image-placeholder {
+  display: grid;
+  gap: 5px;
+  min-height: 104px;
+  place-items: center;
+  padding: 18px;
+  border: 1px dashed #cfe0f5;
+  border-radius: 14px;
+  background: #f8fbff;
+  color: #64748b;
+  text-align: center;
+}
+
+.briefing-redesign .brochure-image-placeholder strong {
+  color: #244163;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.briefing-redesign .briefing-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px 16px 0 0;
+  background: rgba(255, 255, 255, 0.97) !important;
+  box-shadow: 0 -12px 26px rgba(15, 35, 65, 0.09);
+  backdrop-filter: blur(10px);
+}
+
+.briefing-redesign .briefing-action-status {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.briefing-redesign .briefing-action-status strong {
+  color: #0f2348;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.briefing-redesign .briefing-action-status span {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.briefing-redesign .preview-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 12px;
+}
+
+.briefing-redesign .preview-status-row span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #dbe7f5;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #244163;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.briefing-redesign .preview-status-row .warning {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.briefing-redesign .preview-status-row .ready {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+@media (max-width: 760px) {
+  .briefing-redesign .briefing-section-nav {
+    top: 52px;
+    padding: 8px;
+  }
+
+  .briefing-redesign .briefing-section-head {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .briefing-redesign .briefing-section-head > span {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .briefing-redesign .briefing-sticky-actions {
+    grid-template-columns: 1fr !important;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .briefing-redesign .briefing-sticky-actions .primary-btn,
+  .briefing-redesign .briefing-sticky-actions .secondary-btn {
+    width: 100%;
+  }
+}

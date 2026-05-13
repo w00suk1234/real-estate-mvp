@@ -1,4 +1,5 @@
 ﻿import { normalizeBriefingData } from "../utils/brochure";
+import { getPriceStatus } from "../utils/brochure";
 
 function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, onPrint, pdfLoading }) {
   const preview = normalizeBriefingData(form, { result, mainImage, extraImages });
@@ -32,6 +33,16 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, onPr
   const summaryTargets = preview.recommendedTargets.slice(0, 3);
   const summaryConsultPoints = preview.consultPoints.slice(0, 3);
   const summaryCheckItems = preview.checkItems.slice(0, 3);
+  const requiredItems = [
+    { label: "매물명", complete: Boolean(String(form.title || "").trim()) },
+    { label: "금액", complete: getPriceStatus(form) !== "missing" },
+    { label: "주소", complete: Boolean(String(form.address || "").trim()) },
+    { label: "사진", complete: Boolean(preview.mainPhoto?.src || preview.extraPhotos.length > 0) },
+    { label: "소개문구", complete: Boolean(String(form.description || form.recommended_use || "").trim()) },
+  ];
+  const missingItems = requiredItems.filter((item) => !item.complete).map((item) => item.label);
+  const completedCount = requiredItems.length - missingItems.length;
+  const imageCount = (preview.mainPhoto?.src ? 1 : 0) + preview.extraPhotos.length;
 
   return (
     <section className="surface-card preview-panel preview-panel-dense preview-summary-panel">
@@ -52,6 +63,16 @@ function PreviewCard({ form, result, mainImage, extraImages, onDownloadPdf, onPr
       {!canDownloadPdf && (
         <div className="preview-helper-box">미리보기를 확인한 뒤 소개서 생성 버튼을 누르면 PDF 저장과 최종 소개서 보기가 활성화됩니다.</div>
       )}
+
+      <div className="preview-status-row" aria-label="소개서 입력 상태">
+        <span>필수 입력 {completedCount}/{requiredItems.length}</span>
+        <span>이미지 {imageCount}장</span>
+        {missingItems.length > 0 ? (
+          <span className="warning">확인 필요: {missingItems.slice(0, 2).join(", ")}</span>
+        ) : (
+          <span className="ready">소개서 생성 가능</span>
+        )}
+      </div>
 
       <div className="brochure-preview office-preview brochure-preview-v3">
         <div className="brochure-cover brochure-cover-v3">
