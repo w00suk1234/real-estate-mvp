@@ -54,6 +54,9 @@ function buildCriteriaPayload(focus) {
 
 function buildCustomerPayload(customer, normalizedCustomer) {
   const budget = normalizedCustomer?.budget || {};
+  const requiredConditions = normalizedCustomer?.requiredConditions || [];
+  const memo = text(normalizedCustomer?.importantMemo || customer?.memo || customer?.wanted_condition);
+  const parkingRequired = requiredConditions.some((condition) => text(condition).includes("주차")) || memo.includes("주차");
   return {
     name: text(customer?.name || normalizedCustomer?.displayName),
     desiredRegion: normalizedCustomer?.preferredAreas?.join(", ") || text(customer?.preferred_area || customer?.area),
@@ -61,7 +64,9 @@ function buildCustomerPayload(customer, normalizedCustomer) {
     deposit: moneyLabel(budget.maxDeposit, " 이하"),
     monthlyRent: moneyLabel(budget.maxMonthlyRent, " 이하"),
     propertyType: text(normalizedCustomer?.purpose || customer?.property_type),
-    memo: text(normalizedCustomer?.importantMemo || customer?.memo || customer?.wanted_condition),
+    minArea: normalizedCustomer?.minSizeM2 ? `${normalizedCustomer.minSizeM2}㎡ 이상` : "",
+    parkingRequired,
+    memo,
   };
 }
 
@@ -96,6 +101,7 @@ function AIBriefingPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [propertyVisibleCount, setPropertyVisibleCount] = useState(20);
 
   useEffect(() => {
     if (authLoading) return;
@@ -181,6 +187,11 @@ function AIBriefingPage() {
       })
       .slice(0, 80);
   }, [properties, propertySearch]);
+  const visibleProperties = useMemo(() => filteredProperties.slice(0, propertyVisibleCount), [filteredProperties, propertyVisibleCount]);
+
+  useEffect(() => {
+    setPropertyVisibleCount(20);
+  }, [propertySearch]);
 
   function toggleFocus(id) {
     setFocus((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -304,7 +315,7 @@ function AIBriefingPage() {
           <input value={propertySearch} onChange={(event) => setPropertySearch(event.target.value)} placeholder="매물명, 주소, 가격, 메모 검색" />
           <div className="ai-briefing-property-picker">
             {filteredProperties.length ? (
-              filteredProperties.map((property) => {
+              visibleProperties.map((property) => {
                 const normalized = normalizeBriefingProperty(property);
                 const active = selectedPropertyIds.includes(String(property.id));
                 return (
@@ -318,6 +329,15 @@ function AIBriefingPage() {
             ) : (
               <div className="ai-briefing-empty">저장된 매물이 없습니다. 소개서 작성에서 매물을 먼저 저장해 주세요.</div>
             )}
+            {filteredProperties.length > visibleProperties.length ? (
+              <button
+                type="button"
+                className="secondary-btn ai-briefing-more-btn"
+                onClick={() => setPropertyVisibleCount((count) => Math.min(count + 20, filteredProperties.length))}
+              >
+                더 보기 {visibleProperties.length}/{filteredProperties.length}
+              </button>
+            ) : null}
           </div>
         </div>
       </section>
@@ -388,6 +408,12 @@ function BriefingResult({ result, onCopy }) {
         <ResultTextCard title="추천 요약" text={result.recommendationSummary} />
       </div>
 
+      {!result.hasRecommendedProperties ? (
+        <div className="ai-condition-notice">
+          조건에 완전히 맞는 매물이 없습니다. 조건 조정 또는 추가 매물 확인이 필요합니다.
+        </div>
+      ) : null}
+
       <div className="ai-briefing-result-section">
         <div className="section-heading-row">
           <div>
@@ -397,12 +423,20 @@ function BriefingResult({ result, onCopy }) {
         </div>
         <div className="ai-briefing-ranking-cards">
           {ranking.map((item) => (
-            <article key={`${item.propertyId}-${item.rank}`} className="ai-generated-ranking-card">
+            <article
+              key={`${item.propertyId}-${item.rank}`}
+              className={`ai-generated-ranking-card ${item.failedRequiredConditions?.length ? "has-required-fail" : ""}`}
+            >
               <div className="ai-generated-ranking-head">
                 <span>{item.rank}위</span>
                 <strong>{item.title}</strong>
                 <em className={`ai-fit-badge fit-${fitClassName(item.fitScore)}`}>{item.fitScore}</em>
               </div>
+              {item.failedRequiredConditions?.length ? (
+                <div className="ai-required-fail-badge">필수 조건 미충족</div>
+              ) : null}
+              <div className="ai-condition-summary">{item.conditionSummary || "필수 조건 확인 필요"}</div>
+              <ConditionCheckRow checks={item.conditionChecks} />
               <dl>
                 <div>
                   <dt>추천 이유</dt>
@@ -448,6 +482,41 @@ function BriefingResult({ result, onCopy }) {
   );
 }
 
+function ConditionCheckRow({ checks = {} }) {
+  const items = [
+    ["area", "면적"],
+    ["budget", "가격"],
+    ["monthlyRent", "월세"],
+    ["parking", "주차"],
+    ["useType", "용도"],
+  ];
+
+  return (
+    <div className="ai-condition-chip-row">
+      {items.map(([key, label]) => {
+        const check = checks?.[key] || {};
+        return (
+          <span key={key} className={`condition-${conditionStatusClass(check.passed)}`}>
+            {label}: {conditionStatusLabel(check.passed)}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function conditionStatusLabel(value) {
+  if (value === true) return "충족";
+  if (value === false) return "미충족";
+  return "확인 필요";
+}
+
+function conditionStatusClass(value) {
+  if (value === true) return "pass";
+  if (value === false) return "fail";
+  return "unknown";
+}
+
 function ResultTextCard({ title, text }) {
   return (
     <article className="ai-result-text-card">
@@ -462,6 +531,7 @@ function fitClassName(value = "") {
     높음: "high",
     보통: "medium",
     낮음: "low",
+    "확인 필요": "unknown",
   }[value] || "medium";
 }
 

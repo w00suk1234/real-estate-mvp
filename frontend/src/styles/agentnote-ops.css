@@ -289,7 +289,7 @@
 .ai-briefing-property-picker {
   display: grid;
   gap: 8px;
-  max-height: 420px;
+  max-height: 440px;
   overflow: auto;
   padding-right: 4px;
 }
@@ -316,6 +316,15 @@
 .ai-briefing-property-picker small {
   color: #64748b;
   line-height: 1.35;
+}
+
+.ai-briefing-more-btn {
+  position: sticky;
+  bottom: 0;
+  justify-self: stretch;
+  min-height: 38px;
+  background: #ffffff !important;
+  box-shadow: 0 -8px 18px rgba(248, 250, 252, 0.92);
 }
 
 .ai-briefing-selected-section,
@@ -866,6 +875,82 @@
 .ai-fit-badge.fit-low {
   background: #fff7ed;
   color: #9a3412;
+}
+
+.ai-fit-badge.fit-unknown {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.ai-condition-notice {
+  padding: 12px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.ai-generated-ranking-card.has-required-fail {
+  border-color: #fed7aa;
+  background: #fffaf5;
+}
+
+.ai-required-fail-badge {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 0 9px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ai-condition-summary {
+  padding: 9px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.ai-condition-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ai-condition-chip-row span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ai-condition-chip-row .condition-pass {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.ai-condition-chip-row .condition-fail {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.ai-condition-chip-row .condition-unknown {
+  background: #f8fafc;
+  color: #475569;
 }
 
 .ai-generated-ranking-card dl {
