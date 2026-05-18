@@ -44,6 +44,7 @@ const defaultForm = {
 
 const BRIEFING_RESET_FLAG = "briefing_reset_pending";
 const BRIEFING_HAS_WORK_FLAG = "briefing_has_work";
+const AI_BROCHURE_DRAFT_KEY = "agentnote_ai_brochure_draft";
 
 const WORK_FIELDS = [
   "title",
@@ -189,6 +190,31 @@ function BriefingMakerPage({ importUrl, importSnapshot }) {
     }
     return () => window.removeEventListener("briefing:reset", handleReset);
   }, [resetWork]);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(AI_BROCHURE_DRAFT_KEY);
+    if (!raw) return;
+
+    try {
+      const draft = JSON.parse(raw);
+      if (draft?.form && typeof draft.form === "object") {
+        setForm((prev) => ({
+          ...prev,
+          ...draft.form,
+          office_name: prev.office_name || user?.office_name || "",
+          contact_name: prev.contact_name || user?.manager_name || "",
+          contact_phone: prev.contact_phone || user?.phone || "",
+          contact_email: prev.contact_email || user?.email || "",
+        }));
+        setResult(null);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      sessionStorage.removeItem(AI_BROCHURE_DRAFT_KEY);
+    }
+  }, [user]);
 
   useEffect(() => {
     const hasWork = hasBriefingWork(form, mainImage, extraImages, result);

@@ -1193,6 +1193,84 @@
   padding-left: 2px;
 }
 
+.ai-agent-actions {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.ai-agent-approval-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ai-agent-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ai-agent-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ai-agent-action {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+  color: #0f274d;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-agent-action:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
+}
+
+.ai-agent-action:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.ai-agent-action strong {
+  color: #061b3a;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.ai-agent-action span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.ai-agent-action.primary-action {
+  background: #ffffff;
+}
+
+.ai-agent-action.secondary-action {
+  flex: 1 1 220px;
+  max-width: 360px;
+  background: #f8fafc;
+}
+
 /* Customer management calm CRM palette */
 .customer-list-card,
 .customer-form-card {
@@ -1369,6 +1447,7 @@
   .ai-briefing-tab-panel.two-column,
   .ai-briefing-generated-grid,
   .ai-judgment-metrics,
+  .ai-agent-action-grid,
   .ai-generated-ranking-card dl {
     grid-template-columns: 1fr;
   }

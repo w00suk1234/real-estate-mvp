@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { generateAiBriefing } from "../services/aiBriefingService";
-import { listCustomers, listProperties } from "../services/supabaseRepository";
+import { listCustomers, listProperties, saveCustomer, saveSchedule } from "../services/supabaseRepository";
 import {
   AI_BRIEFING_FOCUS_OPTIONS,
   formatAvailability,
@@ -12,6 +12,8 @@ import {
 } from "../utils/aiBriefing";
 
 const AI_BRIEFING_PREFILL_KEY = "agentnote_ai_briefing_prefill";
+const AI_RECOMMEND_CUSTOMER_KEY = "agentnote_recommend_customer_id";
+const AI_BROCHURE_DRAFT_KEY = "agentnote_ai_brochure_draft";
 
 function parsePrefillIds(value) {
   return String(value || "")
@@ -88,7 +90,140 @@ function buildPropertyPayload(property, normalizedProperty) {
   };
 }
 
-function AIBriefingPage() {
+function getTodayValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function getDateStamp() {
+  const now = new Date();
+  return `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function appendDatedMemo(existingMemo, memo) {
+  const prev = text(existingMemo);
+  const next = text(memo);
+  if (!next) return prev;
+  const block = `[${getDateStamp()} AI 브리핑]\n${next}`;
+  return prev ? `${prev}\n\n${block}` : block;
+}
+
+function getPrimaryRanking(result) {
+  const ranking = Array.isArray(result?.ranking) ? result.ranking : [];
+  return ranking.find((item) => item.isRecommended) || ranking[0] || null;
+}
+
+function buildActionMemo(result) {
+  const checkPoints = Array.isArray(result?.checkPoints) ? result.checkPoints : [];
+  return [
+    result?.conditionNotice,
+    result?.consultingMemo,
+    checkPoints.length ? `추가 확인사항: ${checkPoints.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildScheduleMemo(result) {
+  const ranking = Array.isArray(result?.ranking) ? result.ranking : [];
+  const top = ranking[0];
+  const checkPoints = Array.isArray(result?.checkPoints) ? result.checkPoints : [];
+  return [
+    top ? `우선 비교 후보: ${top.title} (${top.fitScore})` : "",
+    result?.consultingMemo,
+    checkPoints.length ? `확인 필요: ${checkPoints.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildBrochureDraftPayload(result, customer, properties) {
+  const primaryRanking = getPrimaryRanking(result);
+  const matchedProperty =
+    properties.find((property) => String(property.id) === String(primaryRanking?.propertyId)) ||
+    properties[0] ||
+    null;
+  if (!matchedProperty) return null;
+
+  const normalized = normalizeBriefingProperty(matchedProperty);
+  const normalizedCustomer = customer ? normalizeBriefingCustomer(customer) : null;
+  const price = normalized.price || {};
+
+  return {
+    propertyId: normalized.id,
+    source: "ai-briefing",
+    form: {
+      title: normalized.displayName,
+      deal_type: normalized.dealType || "월세",
+      deposit: price.deposit ? String(price.deposit) : "",
+      monthly_rent: price.monthlyRent ? String(price.monthlyRent) : "",
+      address: normalized.addressOrArea,
+      supply_area: normalized.sizeM2 ? String(normalized.sizeM2) : "",
+      exclusive_area: normalized.sizeM2 ? String(normalized.sizeM2) : "",
+      floor: normalized.floor,
+      elevator: formatAvailability(normalized.elevator),
+      parking_count: formatAvailability(normalized.parking),
+      recommended_use: normalizedCustomer?.purpose || "",
+      move_in_date: normalized.moveInDate,
+      special_notes: [normalized.brokerMemo, result?.consultingMemo].filter(Boolean).join("\n\n"),
+      description: result?.recommendationSummary || "",
+    },
+  };
+}
+
+function buildRecommendedActions(result, customer, properties) {
+  const customerName = text(customer?.name) || "고객";
+  const actionMemo = buildActionMemo(result);
+  const scheduleMemo = buildScheduleMemo(result);
+  const brochurePayload = buildBrochureDraftPayload(result, customer, properties);
+  const actions = [
+    {
+      type: "save_customer_memo",
+      label: "고객 메모에 저장",
+      description: "조건 미충족 및 추가 확인사항을 고객 메모에 날짜와 함께 남깁니다.",
+      primary: true,
+      payload: { memo: actionMemo },
+    },
+    {
+      type: "create_schedule",
+      label: "상담 일정 만들기",
+      description: "조건 재확인 상담 일정을 오늘 10:00 미팅으로 등록합니다.",
+      primary: true,
+      payload: {
+        title: `${customerName} 고객 조건 재확인 상담`,
+        category: "미팅",
+        memo: scheduleMemo,
+      },
+    },
+    brochurePayload
+      ? {
+          type: "create_brochure",
+          label: "소개서 초안 작성",
+          description: "가장 가까운 후보 매물을 기준으로 소개서 작성 화면으로 이동합니다.",
+          primary: true,
+          payload: brochurePayload,
+        }
+      : null,
+    {
+      type: "find_more_properties",
+      label: "추가 매물 찾기",
+      description: "현재 고객 조건으로 AI 매물 추천기에서 추가 후보를 확인합니다.",
+      primary: false,
+      payload: { customerId: customer?.id || "" },
+    },
+    {
+      type: "copy_customer_message",
+      label: "고객 발송 문구 복사",
+      description: "고객에게 보낼 수 있는 짧은 문구를 클립보드에 복사합니다.",
+      primary: false,
+      payload: { message: result?.customerMessage || "" },
+    },
+  ];
+
+  return actions.filter(Boolean);
+}
+
+function AIBriefingPage({ setPage }) {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
@@ -101,6 +236,7 @@ function AIBriefingPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [runningAction, setRunningAction] = useState("");
   const [propertyVisibleCount, setPropertyVisibleCount] = useState(20);
   const resultsRef = useRef(null);
 
@@ -241,7 +377,10 @@ function AIBriefingPage() {
         properties: selectedProperties.map((property) => buildPropertyPayload(property, normalizeBriefingProperty(property))),
         criteria: buildCriteriaPayload(focus),
       });
-      setResult(apiResult);
+      setResult({
+        ...apiResult,
+        actions: buildRecommendedActions(apiResult, selectedCustomer, selectedProperties),
+      });
       setMessage("AI 브리핑이 생성되었습니다.");
     } catch (error) {
       setMessage(error.message || "AI 브리핑 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
@@ -258,6 +397,64 @@ function AIBriefingPage() {
     } catch {
       setMessage("복사에 실패했습니다. 문구를 직접 선택해 복사해 주세요.");
       return false;
+    }
+  }
+
+  async function handleRecommendedAction(action) {
+    if (!action || runningAction) return;
+    setRunningAction(action.type);
+    setMessage("");
+
+    try {
+      if (action.type === "save_customer_memo") {
+        if (!selectedCustomer) throw new Error("고객을 먼저 선택해 주세요.");
+        const existingMemo = text(selectedCustomer.memo || selectedCustomer.notes);
+        const nextMemo = appendDatedMemo(existingMemo, action.payload?.memo);
+        const saved = await saveCustomer({ ...selectedCustomer, memo: nextMemo });
+        setCustomers((prev) => prev.map((customer) => (String(customer.id) === String(saved.id) ? { ...customer, ...saved } : customer)));
+        setMessage("고객 메모에 저장되었습니다.");
+        return;
+      }
+
+      if (action.type === "create_schedule") {
+        const payload = action.payload || {};
+        await saveSchedule({
+          title: payload.title || `${selectedCustomer?.name || "고객"} 상담`,
+          customer_id: selectedCustomer?.id || "",
+          linked_customer_id: selectedCustomer?.id || "",
+          customer_name: selectedCustomer?.name || "",
+          schedule_date: getTodayValue(),
+          schedule_time: "10:00",
+          schedule_type: payload.category || "미팅",
+          note: payload.memo || "",
+        });
+        setMessage("상담 일정이 등록되었습니다. 일정관리에서 확인할 수 있습니다.");
+        return;
+      }
+
+      if (action.type === "create_brochure") {
+        sessionStorage.setItem(AI_BROCHURE_DRAFT_KEY, JSON.stringify(action.payload || {}));
+        window.history.pushState({}, "", "/");
+        setPage?.("briefing");
+        setMessage("소개서 작성 화면으로 이동합니다.");
+        return;
+      }
+
+      if (action.type === "find_more_properties") {
+        if (selectedCustomer?.id) localStorage.setItem(AI_RECOMMEND_CUSTOMER_KEY, String(selectedCustomer.id));
+        window.history.pushState({}, "", "/ai-recommend");
+        setPage?.("ai-recommend");
+        setMessage("AI 매물 추천기로 이동합니다.");
+        return;
+      }
+
+      if (action.type === "copy_customer_message") {
+        await copyText(action.payload?.message || result?.customerMessage || "");
+      }
+    } catch (error) {
+      setMessage(error.message || "AI 추천 액션 실행 중 오류가 발생했습니다.");
+    } finally {
+      setRunningAction("");
     }
   }
 
@@ -408,6 +605,8 @@ function AIBriefingPage() {
         <BriefingResult
           result={result}
           onCopy={copyText}
+          onAction={handleRecommendedAction}
+          runningAction={runningAction}
           resultRef={resultsRef}
         />
       ) : null}
@@ -415,9 +614,10 @@ function AIBriefingPage() {
   );
 }
 
-function BriefingResult({ result, onCopy, resultRef }) {
+function BriefingResult({ result, onCopy, onAction, runningAction, resultRef }) {
   const ranking = Array.isArray(result.ranking) ? result.ranking : [];
   const checkPoints = Array.isArray(result.checkPoints) ? result.checkPoints : [];
+  const actions = Array.isArray(result.actions) ? result.actions : [];
   const summary = summarizeBriefingResult(ranking);
   const hasRecommendedProperties = Boolean(result.hasRecommendedProperties);
   const rankingTitle = hasRecommendedProperties ? "후보 매물 추천 순위" : "조건 충족도 비교 결과";
@@ -515,7 +715,56 @@ function BriefingResult({ result, onCopy, resultRef }) {
           <div className="ai-briefing-empty">추가 확인사항이 없습니다.</div>
         )}
       </div>
+
+      <RecommendedActions actions={actions} onAction={onAction} runningAction={runningAction} />
     </section>
+  );
+}
+
+function RecommendedActions({ actions, onAction, runningAction }) {
+  if (!actions.length) return null;
+  const primaryActions = actions.filter((action) => action.primary).slice(0, 3);
+  const secondaryActions = actions.filter((action) => !primaryActions.includes(action));
+
+  return (
+    <section className="ai-briefing-result-section ai-agent-actions">
+      <div className="section-heading-row">
+        <div>
+          <h2>AI 추천 액션</h2>
+          <p>브리핑 내용을 바탕으로 이어서 처리할 업무를 선택하세요.</p>
+        </div>
+        <span className="ai-agent-approval-note">사용자 확인 후 실행</span>
+      </div>
+
+      <div className="ai-agent-action-grid">
+        {primaryActions.map((action) => (
+          <ActionButton key={action.type} action={action} onAction={onAction} runningAction={runningAction} primary />
+        ))}
+      </div>
+
+      {secondaryActions.length ? (
+        <div className="ai-agent-secondary-actions">
+          {secondaryActions.map((action) => (
+            <ActionButton key={action.type} action={action} onAction={onAction} runningAction={runningAction} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ActionButton({ action, onAction, runningAction, primary = false }) {
+  const running = runningAction === action.type;
+  return (
+    <button
+      type="button"
+      className={primary ? "ai-agent-action primary-action" : "ai-agent-action secondary-action"}
+      onClick={() => onAction(action)}
+      disabled={Boolean(runningAction)}
+    >
+      <strong>{running ? "실행 중..." : action.label}</strong>
+      <span>{action.description}</span>
+    </button>
   );
 }
 
