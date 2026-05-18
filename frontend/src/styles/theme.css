@@ -9844,30 +9844,39 @@ h4 {
 
 .briefing-redesign .briefing-section-nav {
   position: sticky;
-  top: 62px;
+  top: 72px;
   z-index: 8;
-  display: flex;
-  gap: 8px;
+  display: inline-flex;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  gap: 5px;
   overflow-x: auto;
-  padding: 9px;
-  border: 1px solid #dbe7f5;
-  border-radius: 14px;
-  background: rgba(248, 251, 255, 0.96);
-  box-shadow: 0 8px 18px rgba(15, 35, 65, 0.045);
-  backdrop-filter: blur(8px);
+  padding: 6px;
+  border: 1px solid rgba(191, 219, 254, 0.92);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 22px rgba(15, 35, 65, 0.08);
+  backdrop-filter: blur(12px);
+  scrollbar-width: none;
+}
+
+.briefing-redesign .briefing-section-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .briefing-redesign .briefing-section-nav button {
   flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 13px;
-  border: 1px solid #cfe0f5;
+  min-height: 31px;
+  padding: 0 12px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: #ffffff;
+  background: transparent;
   color: #244163;
   font-size: 12px;
   font-weight: 900;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .briefing-redesign .briefing-section-nav button:hover,
@@ -9875,6 +9884,13 @@ h4 {
   border-color: #9cc3f5;
   background: #eff6ff;
   color: #1558b0;
+}
+
+.briefing-redesign .briefing-section-nav button.active {
+  border-color: #0f5fb8;
+  background: #1157a8;
+  color: #ffffff;
+  box-shadow: 0 6px 14px rgba(17, 87, 168, 0.22);
 }
 
 .briefing-redesign .briefing-flow-section {
@@ -10017,8 +10033,10 @@ h4 {
 
 @media (max-width: 760px) {
   .briefing-redesign .briefing-section-nav {
-    top: 52px;
-    padding: 8px;
+    top: 56px;
+    width: 100%;
+    padding: 5px;
+    border-radius: 14px;
   }
 
   .briefing-redesign .briefing-section-head {

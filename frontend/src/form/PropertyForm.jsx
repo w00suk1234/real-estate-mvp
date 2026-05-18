@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { savePropertyAndBrochure } from "../services/supabaseRepository";
 import { buildBriefing, buildPriceSummary, buildPriceWarning, getPriceStatus, resolveImageSource } from "../utils/brochure";
@@ -70,6 +70,7 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [imageNotice, setImageNotice] = useState("");
+  const [activeSection, setActiveSection] = useState(FORM_SECTIONS[0][0]);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -187,7 +188,30 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
     };
   }, [extraImages.length, form.address, form.deal_type, form.description, form.recommended_use, form.title, mainImage, priceStatus]);
 
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return undefined;
+
+    const sectionNodes = FORM_SECTIONS
+      .map(([id]) => document.getElementById(`briefing-section-${id}`))
+      .filter(Boolean);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const nextId = visibleEntry?.target?.id?.replace("briefing-section-", "");
+        if (nextId) setActiveSection(nextId);
+      },
+      { rootMargin: "-130px 0px -55% 0px", threshold: [0.1, 0.35, 0.6] },
+    );
+
+    sectionNodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+
   const scrollToSection = (sectionId) => {
+    setActiveSection(sectionId);
     document.getElementById(`briefing-section-${sectionId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -240,7 +264,13 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
       <form className="profile-form property-form-density briefing-flow-form" onSubmit={handleSubmit}>
         <nav className="briefing-section-nav" aria-label="소개서 입력 섹션 바로가기">
           {FORM_SECTIONS.map(([id, label]) => (
-            <button type="button" key={id} onClick={() => scrollToSection(id)}>
+            <button
+              type="button"
+              key={id}
+              className={activeSection === id ? "active" : ""}
+              aria-current={activeSection === id ? "true" : undefined}
+              onClick={() => scrollToSection(id)}
+            >
               {label}
             </button>
           ))}
