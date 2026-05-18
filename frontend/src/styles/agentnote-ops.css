@@ -753,6 +753,149 @@
   line-height: 1.7;
 }
 
+.ai-briefing-generated-result {
+  align-content: start;
+}
+
+.ai-briefing-generated-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ai-result-text-card,
+.ai-briefing-result-section,
+.ai-generated-ranking-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ai-result-text-card,
+.ai-briefing-result-section {
+  padding: 16px;
+}
+
+.ai-result-text-card {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-result-text-card strong,
+.ai-copy-panel strong,
+.ai-briefing-result-section h2 {
+  color: #0f274d;
+}
+
+.ai-result-text-card p,
+.ai-generated-ranking-card dd,
+.ai-generated-check-list,
+.ai-briefing-result-section p {
+  color: #334155;
+  line-height: 1.65;
+}
+
+.ai-result-text-card p,
+.ai-generated-ranking-card dl,
+.ai-generated-ranking-card dd,
+.ai-briefing-result-section p {
+  margin: 0;
+}
+
+.ai-briefing-ranking-cards {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ai-generated-ranking-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.ai-generated-ranking-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-generated-ranking-head > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 28px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-generated-ranking-head strong {
+  min-width: 0;
+  color: #061b3a;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.ai-fit-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 28px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-fit-badge.fit-high {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.ai-fit-badge.fit-medium {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.ai-fit-badge.fit-low {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.ai-generated-ranking-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ai-generated-ranking-card dt {
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-generated-ranking-card dd {
+  font-size: 13px;
+}
+
+.ai-generated-check-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+.ai-generated-check-list li {
+  padding-left: 2px;
+}
+
 /* Customer management calm CRM palette */
 .customer-list-card,
 .customer-form-card {
@@ -926,7 +1069,9 @@
   .ai-briefing-copy-grid,
   .ai-briefing-feedback,
   .ai-ranking-two-col,
-  .ai-briefing-tab-panel.two-column {
+  .ai-briefing-tab-panel.two-column,
+  .ai-briefing-generated-grid,
+  .ai-generated-ranking-card dl {
     grid-template-columns: 1fr;
   }
 

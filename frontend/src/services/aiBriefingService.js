@@ -24,10 +24,10 @@ async function requestJson(path, options = {}) {
   return payload;
 }
 
-export async function generateAiBriefing({ customerId, propertyIds, focus, tone = "normal" }) {
-  return requestJson("/api/ai-briefings/generate", {
+export async function generateAiBriefing({ customer, properties, criteria }) {
+  return requestJson("/api/ai-briefing", {
     method: "POST",
-    body: JSON.stringify({ customerId, propertyIds, focus, tone }),
+    body: JSON.stringify({ customer, properties, criteria }),
   });
 }
 
