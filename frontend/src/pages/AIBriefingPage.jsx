@@ -17,6 +17,13 @@ const AI_RECOMMEND_CUSTOMER_KEY = "agentnote_recommend_customer_id";
 const AI_BROCHURE_DRAFT_KEY = "agentnote_ai_brochure_draft";
 const AI_BRIEFING_RETURN_KEY = "agentnote_ai_briefing_return";
 const DEFAULT_FOCUS = ["price", "location", "size"];
+const AI_ACTION_TYPES = [
+  "save_customer_memo",
+  "create_schedule",
+  "create_brochure",
+  "find_more_properties",
+  "copy_customer_message",
+];
 
 function parsePrefillIds(value) {
   return String(value || "")
@@ -248,6 +255,25 @@ function stripResultForDraft(result) {
   return rest;
 }
 
+function sanitizeCompletedActions(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return AI_ACTION_TYPES.reduce((acc, type) => {
+    if (source[type]) acc[type] = true;
+    return acc;
+  }, {});
+}
+
+function sanitizeActionFeedback(value) {
+  if (!value || typeof value !== "object") return null;
+  const feedbackText = text(value.text);
+  if (!feedbackText) return null;
+  return {
+    type: AI_ACTION_TYPES.includes(value.type) ? value.type : "",
+    tone: value.tone === "error" ? "error" : "success",
+    text: feedbackText.slice(0, 260),
+  };
+}
+
 function buildBriefingDraft({
   selectedCustomerId,
   selectedPropertyIds,
@@ -257,6 +283,8 @@ function buildBriefingDraft({
   lastSelectedPropertyId,
   closestPropertyId,
   selectionMode,
+  completedActions,
+  actionFeedback,
 }) {
   return {
     selectedCustomerId: text(selectedCustomerId),
@@ -267,6 +295,8 @@ function buildBriefingDraft({
     lastSelectedPropertyId: text(lastSelectedPropertyId),
     closestPropertyId: text(closestPropertyId),
     selectionMode: selectionMode === "auto" ? "auto" : "manual",
+    completedActions: sanitizeCompletedActions(completedActions),
+    actionFeedback: sanitizeActionFeedback(actionFeedback),
   };
 }
 
@@ -464,7 +494,11 @@ function AIBriefingPage({ setPage }) {
             setClosestPropertyId(text(draft.closestPropertyId));
             setSelectionMode(draft.selectionMode === "auto" ? "auto" : "manual");
             setResult(restoredResult);
-            if (restoredResult) setRestoredNotice("이전 AI 브리핑 결과를 복원했습니다.");
+            if (restoredResult) {
+              setCompletedActions(sanitizeCompletedActions(draft.completedActions));
+              setActionFeedback(sanitizeActionFeedback(draft.actionFeedback));
+              setRestoredNotice("이전 AI 브리핑 결과를 복원했습니다.");
+            }
           }
         }
       } catch (error) {
@@ -542,13 +576,15 @@ function AIBriefingPage({ setPage }) {
       lastSelectedPropertyId,
       closestPropertyId,
       selectionMode,
+      completedActions,
+      actionFeedback,
     });
     if (!draft.selectedCustomerId && !draft.selectedPropertyIds.length && !draft.aiBriefingResult) {
       removeBriefingDraft();
       return;
     }
     writeBriefingDraft(draft);
-  }, [closestPropertyId, draftReady, focus, generatedAt, lastSelectedPropertyId, result, selectedCustomerId, selectedPropertyIds, selectionMode]);
+  }, [actionFeedback, closestPropertyId, completedActions, draftReady, focus, generatedAt, lastSelectedPropertyId, result, selectedCustomerId, selectedPropertyIds, selectionMode]);
 
   function toggleFocus(id) {
     setRestoredNotice("");
@@ -744,6 +780,14 @@ function AIBriefingPage({ setPage }) {
       }
 
       if (action.type === "create_brochure") {
+        const nextCompletedActions = { ...completedActions, [action.type]: true };
+        const nextActionFeedback = {
+          type: action.type,
+          tone: "success",
+          text: "소개서 작성 화면으로 이동했습니다. AI 브리핑으로 돌아오면 이 상태가 유지됩니다.",
+        };
+        setCompletedActions(nextCompletedActions);
+        setActionFeedback(nextActionFeedback);
         writeBriefingDraft(buildBriefingDraft({
           selectedCustomerId,
           selectedPropertyIds,
@@ -753,6 +797,8 @@ function AIBriefingPage({ setPage }) {
           lastSelectedPropertyId,
           closestPropertyId: action.payload?.propertyId || closestPropertyId,
           selectionMode,
+          completedActions: nextCompletedActions,
+          actionFeedback: nextActionFeedback,
         }));
         sessionStorage.setItem(AI_BRIEFING_RETURN_KEY, JSON.stringify({
           from: "ai-briefing",
@@ -772,6 +818,14 @@ function AIBriefingPage({ setPage }) {
       }
 
       if (action.type === "find_more_properties") {
+        const nextCompletedActions = { ...completedActions, [action.type]: true };
+        const nextActionFeedback = {
+          type: action.type,
+          tone: "success",
+          text: "AI 매물 추천기로 이동했습니다. AI 브리핑으로 돌아오면 이 상태가 유지됩니다.",
+        };
+        setCompletedActions(nextCompletedActions);
+        setActionFeedback(nextActionFeedback);
         writeBriefingDraft(buildBriefingDraft({
           selectedCustomerId,
           selectedPropertyIds,
@@ -781,6 +835,8 @@ function AIBriefingPage({ setPage }) {
           lastSelectedPropertyId,
           closestPropertyId,
           selectionMode,
+          completedActions: nextCompletedActions,
+          actionFeedback: nextActionFeedback,
         }));
         if (selectedCustomer?.id) localStorage.setItem(AI_RECOMMEND_CUSTOMER_KEY, String(selectedCustomer.id));
         window.history.pushState({}, "", "/ai-recommend");
@@ -1136,17 +1192,20 @@ function RecommendedActions({ actions, onAction, runningAction, actionFeedback, 
 
 function actionButtonText(action, running, completed) {
   if (running) return "처리 중...";
-  if (completed && action.type !== "copy_customer_message") return "완료";
+  if (completed && (action.type === "save_customer_memo" || action.type === "create_schedule")) return "완료";
+  if (completed && action.type === "copy_customer_message") return "다시 복사";
+  if (completed && (action.type === "create_brochure" || action.type === "find_more_properties")) return "다시 이동";
   if (action.type === "save_customer_memo") return "저장";
   if (action.type === "create_schedule") return "등록";
-  if (action.type === "copy_customer_message") return completed ? "복사됨" : "복사";
+  if (action.type === "copy_customer_message") return "복사";
   if (action.type === "create_brochure" || action.type === "find_more_properties") return "이동";
   return "실행";
 }
 
 function ActionButton({ action, onAction, runningAction, completed, primary = false }) {
   const running = runningAction === action.type;
-  const disabled = Boolean(runningAction) || (completed && action.type !== "copy_customer_message");
+  const isOneTimeAction = action.type === "save_customer_memo" || action.type === "create_schedule";
+  const disabled = Boolean(runningAction) || (completed && isOneTimeAction);
   return (
     <article className={`${primary ? "ai-agent-action primary-action" : "ai-agent-action secondary-action"} ${completed ? "is-completed" : ""}`}>
       <div>
