@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { listCustomers, listProperties, listSettlements, saveCustomer } from "../services/supabaseRepository";
+import { listCustomers, listProperties, listSchedules, listSettlements, saveCustomer } from "../services/supabaseRepository";
 import { generateRecommendationSummary } from "../services/aiRecommendationService";
-import { formatDaysUntil, getUpcomingSettlements } from "../utils/settlementAlerts";
+import { buildScheduleSettlementEntries, formatDaysUntil, getUpcomingSettlements } from "../utils/settlementAlerts";
 import {
   hasEnoughCustomerCondition,
   normalizeCustomerCondition,
@@ -60,10 +60,24 @@ function AIPropertyRecommendPage({ setPage }) {
     async function loadData() {
       try {
         setLoading(true);
-        const [customerRows, propertyRows, settlementRows] = await Promise.all([listCustomers(), listProperties(), listSettlements()]);
-        setCustomers(Array.isArray(customerRows) ? customerRows : []);
-        setProperties(Array.isArray(propertyRows) ? propertyRows : []);
-        setSettlements(Array.isArray(settlementRows) ? settlementRows : []);
+        const [customerResult, propertyResult, scheduleResult, settlementResult] = await Promise.allSettled([
+          listCustomers(),
+          listProperties(),
+          listSchedules(),
+          listSettlements(),
+        ]);
+        if (customerResult.status === "rejected") throw customerResult.reason;
+        if (propertyResult.status === "rejected") throw propertyResult.reason;
+
+        const customerRows = Array.isArray(customerResult.value) ? customerResult.value : [];
+        const propertyRows = Array.isArray(propertyResult.value) ? propertyResult.value : [];
+        const scheduleRows = scheduleResult.status === "fulfilled" && Array.isArray(scheduleResult.value) ? scheduleResult.value : [];
+        const settlementRows = settlementResult.status === "fulfilled" && Array.isArray(settlementResult.value) ? settlementResult.value : [];
+        const scheduleSettlementRows = buildScheduleSettlementEntries(scheduleRows, customerRows, settlementRows);
+
+        setCustomers(customerRows);
+        setProperties(propertyRows);
+        setSettlements([...scheduleSettlementRows, ...settlementRows]);
 
         const params = new URLSearchParams(window.location.search);
         const queryCustomerId = params.get("customerId");

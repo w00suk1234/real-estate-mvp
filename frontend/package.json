@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test api/ai-briefing.test.mjs src/utils/aiBriefing.test.js src/utils/calculators.test.js src/utils/teamMode.test.js ../chrome-extension/naverExtractor.test.cjs"
+    "test": "node --test api/ai-briefing.test.mjs src/utils/aiBriefing.test.js src/utils/calculators.test.js src/utils/settlementAlerts.test.js src/utils/teamMode.test.js ../chrome-extension/naverExtractor.test.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

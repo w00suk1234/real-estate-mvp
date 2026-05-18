@@ -320,20 +320,26 @@ export default function SchedulesPage() {
     const customer = customers.find((item) => String(item.id) === String(customerId));
     if (!customer) return false;
 
-    await upsertSettlementFromSchedule(
-      {
-        ...savedSchedule,
-        schedule_type: draft.schedule_type,
-        schedule_date: draft.schedule_date,
-        schedule_time: draft.schedule_time,
-        title: draft.title,
-        note: draft.note,
-        customer_id: customerId,
-        customer_name: customer.name,
-      },
-      customer,
-    );
-    return true;
+    try {
+      await upsertSettlementFromSchedule(
+        {
+          ...savedSchedule,
+          schedule_type: draft.schedule_type,
+          schedule_date: draft.schedule_date,
+          schedule_time: draft.schedule_time,
+          title: draft.title,
+          note: draft.note,
+          customer_id: customerId,
+          customer_name: customer.name,
+        },
+        customer,
+      );
+      return true;
+    } catch (error) {
+      const message = String(error?.message || error || "");
+      if (/settlements|schema cache|relation/i.test(message)) return false;
+      throw error;
+    }
   }
   async function handleSubmit(event) {
     event.preventDefault();

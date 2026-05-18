@@ -5376,6 +5376,11 @@ h4 {
   background: #f2fbf6;
 }
 
+.settlement-row.is-projection {
+  border-left-color: #3b82f6;
+  background: #f8fbff;
+}
+
 .settlement-row-main span,
 .settlement-row-fees span {
   display: block;

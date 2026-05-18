@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { completeSettlement, deleteSettlement, listCustomers, listSchedules, listSettlements, saveCustomer, saveSettlement } from "../services/supabaseRepository";
-import { formatDaysUntil, getUpcomingSettlements } from "../utils/settlementAlerts";
+import { buildScheduleSettlementEntries, formatDaysUntil, getUpcomingSettlements } from "../utils/settlementAlerts";
 
 const CONTRACT_STATUSES = new Set(["계약금입금", "계약서일정", "잔금완료", "정산완료"]);
 const CONTRACT_SCHEDULE_TYPES = new Set(["계약금입금", "계약서일정", "계약서작성", "잔금일", "잔금", "잔금날"]);
@@ -116,11 +116,12 @@ function normalizeEntry(entry) {
     tenant_fee: tenantFee,
     landlord_fee: landlordFee,
     commission_amount: total,
-      total_fee: total,
+    total_fee: total,
     expected_amount: parseMoney(entry.expected_amount) || total,
     status: entry.status === DONE_STATUS ? DONE_STATUS : WAITING_STATUS,
     memo: entry.memo || "",
     source: entry.source || "수동등록",
+    is_schedule_projection: Boolean(entry.is_schedule_projection),
     created_at: entry.created_at || new Date().toISOString(),
     updated_at: entry.updated_at || new Date().toISOString(),
   };
@@ -147,7 +148,7 @@ function emptyForm(monthValue) {
 
 function entryToForm(entry) {
   return {
-    id: entry.id || "",
+    id: entry.is_schedule_projection ? "" : entry.id || "",
     customer_id: entry.customer_id || "",
     customer_name: entry.customer_name || "",
     customer_phone: entry.customer_phone || entry.phone || "",
@@ -214,18 +215,30 @@ function SettlementPage({ setPage } = {}) {
 
     async function load() {
       try {
-        const [customerRows, scheduleRows, settlementRows] = await Promise.all([
+        const [customerResult, scheduleResult, settlementResult] = await Promise.allSettled([
           listCustomers(),
           listSchedules(),
           listSettlements(),
         ]);
-        const safeCustomers = Array.isArray(customerRows) ? customerRows : [];
-        const safeSchedules = Array.isArray(scheduleRows) ? scheduleRows : [];
-        const safeSettlements = Array.isArray(settlementRows) ? settlementRows : [];
+        if (customerResult.status === "rejected") throw customerResult.reason;
+        if (scheduleResult.status === "rejected") throw scheduleResult.reason;
+
+        const safeCustomers = Array.isArray(customerResult.value) ? customerResult.value : [];
+        const safeSchedules = Array.isArray(scheduleResult.value) ? scheduleResult.value : [];
+        const safeSettlements = settlementResult.status === "fulfilled" && Array.isArray(settlementResult.value)
+          ? settlementResult.value
+          : [];
+        const settlementEntries = safeSettlements.map(normalizeEntry);
+        const scheduleEntries = buildScheduleSettlementEntries(safeSchedules, safeCustomers, settlementEntries).map(normalizeEntry);
 
         setCustomers(safeCustomers);
         setSchedules(safeSchedules);
-        setLedger(safeSettlements.map(normalizeEntry));
+        setLedger([...scheduleEntries, ...settlementEntries]);
+        if (settlementResult.status === "rejected") {
+          setMessage("정산 DB 테이블이 아직 없어 잔금일정 기준 예정 항목만 표시합니다. 정산 저장은 테이블 생성 후 가능합니다.");
+        } else {
+          setMessage("");
+        }
       } catch (error) {
         setMessage(error.message || "정산 데이터를 불러오지 못했습니다.");
       }
@@ -402,7 +415,8 @@ function SettlementPage({ setPage } = {}) {
     setLedger((prev) => {
       const index = prev.findIndex((item) => {
         if (saved.id && item.id === saved.id) return true;
-        if (saved.customer_id && item.customer_id === saved.customer_id) return true;
+        if (saved.schedule_id && item.schedule_id === saved.schedule_id) return true;
+        if (saved.customer_id && item.customer_id === saved.customer_id && getEntryDate(saved) === getEntryDate(item)) return true;
         return false;
       });
       if (index < 0) return [saved, ...prev];
@@ -428,7 +442,11 @@ function SettlementPage({ setPage } = {}) {
   };
   const handleEdit = (entry) => {
     setForm(entryToForm(entry));
-    setMessage("정산 수정 영역에 선택한 내역을 불러왔습니다.");
+    setMessage(
+      entry.is_schedule_projection
+        ? "잔금일정을 기준으로 정산 입력 영역에 불러왔습니다. 수수료 입력 후 정산 저장을 눌러 실제 정산 항목으로 등록해 주세요."
+        : "정산 수정 영역에 선택한 내역을 불러왔습니다.",
+    );
   };
 
   const handleDelete = async (id) => {
@@ -442,6 +460,10 @@ function SettlementPage({ setPage } = {}) {
     }
   };
   const handleComplete = async (entry) => {
+    if (entry.is_schedule_projection) {
+      setMessage("잔금일정 기반 항목은 먼저 정산 저장을 눌러 실제 정산 항목으로 등록해 주세요.");
+      return;
+    }
     if (entry.status === DONE_STATUS || saving) return;
     setSaving(true);
     setMessage("");
@@ -566,7 +588,7 @@ function SettlementPage({ setPage } = {}) {
           <div className="settlement-table">
             {filteredLedger.length ? (
               filteredLedger.map((entry) => (
-                <article key={entry.id} className={`settlement-row ${entry.status === DONE_STATUS ? "is-done" : "is-waiting"}`}>
+                <article key={entry.id} className={`settlement-row ${entry.status === DONE_STATUS ? "is-done" : "is-waiting"} ${entry.is_schedule_projection ? "is-projection" : ""}`}>
                   <div className="settlement-row-main">
                     <span>{getEntryDate(entry)} · {getSourceLabel(entry.source)}</span>
                     <strong>{entry.customer_name || entry.title || "고객명 미입력"}</strong>
@@ -581,19 +603,23 @@ function SettlementPage({ setPage } = {}) {
                   <em className={`settlement-status ${entry.status === DONE_STATUS ? "done" : "waiting"}`}>{entry.status}</em>
                   <div className="inline-actions settlement-row-actions">
                     <button type="button" className="secondary-btn small-btn" onClick={() => handleEdit(entry)}>
-                      수정
+                      {entry.is_schedule_projection ? "정산 입력" : "수정"}
                     </button>
-                    <button type="button" className="primary-btn small-btn" onClick={() => handleComplete(entry)} disabled={entry.status === DONE_STATUS}>
-                      {entry.status === DONE_STATUS ? "완료됨" : "정산완료"}
-                    </button>
+                    {entry.is_schedule_projection ? null : (
+                      <button type="button" className="primary-btn small-btn" onClick={() => handleComplete(entry)} disabled={entry.status === DONE_STATUS}>
+                        {entry.status === DONE_STATUS ? "완료됨" : "정산완료"}
+                      </button>
+                    )}
                     {entry.customer_id ? (
                       <button type="button" className="secondary-btn small-btn" onClick={() => typeof setPage === "function" && setPage("customers")} disabled={typeof setPage !== "function"}>
                         고객정보
                       </button>
                     ) : null}
-                    <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(entry.id)}>
-                      삭제
-                    </button>
+                    {entry.is_schedule_projection ? null : (
+                      <button type="button" className="danger-btn small-btn" onClick={() => handleDelete(entry.id)}>
+                        삭제
+                      </button>
+                    )}
                   </div>
                 </article>
               ))
