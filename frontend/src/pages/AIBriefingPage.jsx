@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { generateAiBriefing } from "../services/aiBriefingService";
 import { listCustomers, listProperties } from "../services/supabaseRepository";
@@ -102,6 +102,7 @@ function AIBriefingPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [propertyVisibleCount, setPropertyVisibleCount] = useState(20);
+  const resultsRef = useRef(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -193,6 +194,14 @@ function AIBriefingPage() {
     setPropertyVisibleCount(20);
   }, [propertySearch]);
 
+  useEffect(() => {
+    if (!result) return undefined;
+    const frame = requestAnimationFrame(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [result]);
+
   function toggleFocus(id) {
     setFocus((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   }
@@ -233,6 +242,7 @@ function AIBriefingPage() {
         criteria: buildCriteriaPayload(focus),
       });
       setResult(apiResult);
+      setMessage("AI 브리핑이 생성되었습니다.");
     } catch (error) {
       setMessage(error.message || "AI 브리핑 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -240,12 +250,14 @@ function AIBriefingPage() {
     }
   }
 
-  async function copyText(text, label) {
+  async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text || "");
-      setMessage(`${label}을 복사했습니다.`);
+      setMessage("복사되었습니다.");
+      return true;
     } catch {
       setMessage("복사에 실패했습니다. 문구를 직접 선택해 복사해 주세요.");
+      return false;
     }
   }
 
@@ -378,81 +390,106 @@ function AIBriefingPage() {
 
       {message ? <div className="schedule-inline-alert">{message}</div> : null}
 
+      {generating ? (
+        <section className="ai-briefing-result ai-briefing-loading-result">
+          <div>
+            <strong>조건을 비교하고 상담 메모를 작성 중입니다.</strong>
+            <p>고객 조건, 후보 매물, 필수 조건 미충족 여부를 함께 정리하고 있습니다.</p>
+          </div>
+          <div className="ai-loading-skeleton">
+            <span />
+            <span />
+            <span />
+          </div>
+        </section>
+      ) : null}
+
       {result ? (
         <BriefingResult
           result={result}
           onCopy={copyText}
+          resultRef={resultsRef}
         />
       ) : null}
     </div>
   );
 }
 
-function BriefingResult({ result, onCopy }) {
+function BriefingResult({ result, onCopy, resultRef }) {
   const ranking = Array.isArray(result.ranking) ? result.ranking : [];
   const checkPoints = Array.isArray(result.checkPoints) ? result.checkPoints : [];
+  const summary = summarizeBriefingResult(ranking);
+  const hasRecommendedProperties = Boolean(result.hasRecommendedProperties);
+  const rankingTitle = hasRecommendedProperties ? "후보 매물 추천 순위" : "조건 충족도 비교 결과";
+  const rankingDescription = hasRecommendedProperties
+    ? "중개사가 상담 순서를 바로 잡을 수 있도록 정리했습니다."
+    : "추천이 아니라 조건에 가까운 비교 참고 후보로 정리했습니다.";
 
   return (
-    <section className="ai-briefing-result ai-briefing-generated-result">
+    <section ref={resultRef} className="ai-briefing-result ai-briefing-generated-result">
       <div className="ai-briefing-result-titlebar">
-        <span className="ai-briefing-mode">OpenAI 브리핑</span>
-        <small>입력된 고객 조건과 후보 매물 정보 기준</small>
+        <div>
+          <span className="ai-briefing-mode">OpenAI 브리핑</span>
+          <h2>AI 분석 결과</h2>
+          <p>입력된 고객 조건과 후보 매물 정보 기준으로 생성되었습니다.</p>
+        </div>
+        <small>조건 비교 및 상담 문구</small>
       </div>
 
       <div className="ai-score-disclaimer">
         없는 정보는 생성하지 않고 확인 필요로 정리합니다. 법률·세무·권리관계 판단은 상담 전 별도 확인이 필요합니다.
       </div>
 
+      <JudgmentSummaryCard summary={summary} hasRecommendedProperties={hasRecommendedProperties} />
+
       <div className="ai-briefing-generated-grid">
         <ResultTextCard title="고객 조건 요약" text={result.customerSummary} />
         <ResultTextCard title="추천 요약" text={result.recommendationSummary} />
       </div>
 
-      {!result.hasRecommendedProperties ? (
-        <div className="ai-condition-notice">
-          조건에 완전히 맞는 매물이 없습니다. 조건 조정 또는 추가 매물 확인이 필요합니다.
-        </div>
-      ) : null}
-
       <div className="ai-briefing-result-section">
         <div className="section-heading-row">
           <div>
-            <h2>후보 매물 추천 순위</h2>
-            <p>중개사가 상담 순서를 바로 잡을 수 있도록 정리했습니다.</p>
+            <h2>{rankingTitle}</h2>
+            <p>{rankingDescription}</p>
           </div>
         </div>
         <div className="ai-briefing-ranking-cards">
-          {ranking.map((item) => (
-            <article
-              key={`${item.propertyId}-${item.rank}`}
-              className={`ai-generated-ranking-card ${item.failedRequiredConditions?.length ? "has-required-fail" : ""}`}
-            >
-              <div className="ai-generated-ranking-head">
-                <span>{item.rank}위</span>
-                <strong>{item.title}</strong>
-                <em className={`ai-fit-badge fit-${fitClassName(item.fitScore)}`}>{item.fitScore}</em>
-              </div>
-              {item.failedRequiredConditions?.length ? (
-                <div className="ai-required-fail-badge">필수 조건 미충족</div>
-              ) : null}
-              <div className="ai-condition-summary">{item.conditionSummary || "필수 조건 확인 필요"}</div>
-              <ConditionCheckRow checks={item.conditionChecks} />
-              <dl>
-                <div>
-                  <dt>추천 이유</dt>
-                  <dd>{item.reason}</dd>
+          {ranking.map((item, index) => {
+            const failed = Boolean(item.failedRequiredConditions?.length);
+            const status = getRankingStatus(item);
+            return (
+              <article
+                key={`${item.propertyId}-${item.rank}`}
+                className={`ai-generated-ranking-card ${failed ? "has-required-fail" : ""}`}
+              >
+                <div className="ai-generated-ranking-head">
+                  <span className="ai-rank-label">{getRankingLabel(item, index, hasRecommendedProperties)}</span>
+                  <strong>{item.title}</strong>
+                  <div className="ai-card-badges">
+                    <em className={`ai-card-status status-${status.className}`}>{status.label}</em>
+                    <em className={`ai-fit-badge fit-${fitClassName(item.fitScore)}`}>{item.fitScore}</em>
+                  </div>
                 </div>
-                <div>
-                  <dt>아쉬운 점</dt>
-                  <dd>{item.weakPoint}</dd>
-                </div>
-                <div>
-                  <dt>상담 포인트</dt>
-                  <dd>{item.talkingPoint}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
+                <div className="ai-condition-summary">{item.conditionSummary || "필수 조건 확인 필요"}</div>
+                <ConditionCheckRow checks={item.conditionChecks} />
+                <dl>
+                  <div>
+                    <dt>{item.isRecommended ? "추천 이유" : "비교 참고 이유"}</dt>
+                    <dd>{item.reason}</dd>
+                  </div>
+                  <div>
+                    <dt>아쉬운 점</dt>
+                    <dd>{item.weakPoint}</dd>
+                  </div>
+                  <div>
+                    <dt>상담 포인트</dt>
+                    <dd>{item.talkingPoint}</dd>
+                  </div>
+                </dl>
+              </article>
+            );
+          })}
         </div>
       </div>
 
@@ -482,6 +519,68 @@ function BriefingResult({ result, onCopy }) {
   );
 }
 
+function JudgmentSummaryCard({ summary, hasRecommendedProperties }) {
+  const headline = hasRecommendedProperties
+    ? `추천 가능한 매물 ${summary.recommendedCount}건이 있습니다.`
+    : "조건에 완전히 맞는 매물이 없습니다. 조건 조정 또는 추가 매물 확인이 필요합니다.";
+
+  return (
+    <div className={`ai-judgment-card ${hasRecommendedProperties ? "is-positive" : "is-warning"}`}>
+      <div className="ai-judgment-head">
+        <span>AI 판단 요약</span>
+        <strong>{headline}</strong>
+      </div>
+      <div className="ai-judgment-metrics">
+        <div>
+          <span>조건 완전 일치</span>
+          <strong>{summary.recommendedCount ? `${summary.recommendedCount}개` : "없음"}</strong>
+        </div>
+        <div>
+          <span>비교 후보</span>
+          <strong>{summary.comparisonCount}개</strong>
+        </div>
+        <div>
+          <span>필수 조건 미충족</span>
+          <strong>{summary.failedCount}개</strong>
+        </div>
+        <div>
+          <span>추가 확인 필요</span>
+          <strong>{summary.unknownLabels || "없음"}</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function summarizeBriefingResult(ranking) {
+  const unknownLabels = new Set();
+  ranking.forEach((item) => {
+    Object.entries(item.conditionChecks || {}).forEach(([key, check]) => {
+      if (check?.passed === null) unknownLabels.add(getConditionLabel(key));
+    });
+  });
+
+  return {
+    recommendedCount: ranking.filter((item) => item.isRecommended).length,
+    comparisonCount: ranking.length,
+    failedCount: ranking.filter((item) => item.failedRequiredConditions?.length).length,
+    unknownLabels: [...unknownLabels].join(", "),
+  };
+}
+
+function getRankingStatus(item) {
+  if (item.isRecommended) return { label: "추천 가능", className: "recommended" };
+  if (item.failedRequiredConditions?.length) return { label: "필수 조건 미충족", className: "fail" };
+  return { label: "비교 참고", className: "reference" };
+}
+
+function getRankingLabel(item, index, hasRecommendedProperties) {
+  if (item.isRecommended) return `${item.rank || index + 1}위`;
+  if (!hasRecommendedProperties && index === 0) return "가장 가까운 후보";
+  if (!hasRecommendedProperties) return `비교 후보 ${index + 1}`;
+  return `비교 후보 ${item.rank || index + 1}`;
+}
+
 function ConditionCheckRow({ checks = {} }) {
   const items = [
     ["area", "면적"],
@@ -503,6 +602,16 @@ function ConditionCheckRow({ checks = {} }) {
       })}
     </div>
   );
+}
+
+function getConditionLabel(key) {
+  return {
+    area: "면적",
+    budget: "가격",
+    monthlyRent: "월세",
+    parking: "주차",
+    useType: "용도",
+  }[key] || key;
 }
 
 function conditionStatusLabel(value) {
@@ -536,11 +645,23 @@ function fitClassName(value = "") {
 }
 
 function CopyPanel({ title, text, onCopy }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    const ok = await onCopy(text, title);
+    if (!ok) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
   return (
     <article className="ai-copy-panel">
-      <div>
+      <div className="ai-copy-panel-head">
         <strong>{title}</strong>
-        <button type="button" className="secondary-btn small-btn" onClick={() => onCopy(text, title)}>복사</button>
+        <div className="ai-copy-actions">
+          {copied ? <span>복사되었습니다.</span> : null}
+          <button type="button" className="secondary-btn small-btn" onClick={handleCopy}>복사</button>
+        </div>
       </div>
       <p>{text}</p>
     </article>
