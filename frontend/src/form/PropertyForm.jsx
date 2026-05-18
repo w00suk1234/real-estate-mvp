@@ -189,25 +189,44 @@ function PropertyForm({ form, setForm, mainImage, setMainImage, extraImages, set
   }, [extraImages.length, form.address, form.deal_type, form.description, form.recommended_use, form.title, mainImage, priceStatus]);
 
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return undefined;
+    let frameId = 0;
 
-    const sectionNodes = FORM_SECTIONS
-      .map(([id]) => document.getElementById(`briefing-section-${id}`))
-      .filter(Boolean);
+    const updateActiveSection = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const sections = FORM_SECTIONS
+          .map(([id]) => ({ id, node: document.getElementById(`briefing-section-${id}`) }))
+          .filter((section) => section.node);
+        if (!sections.length) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleEntry = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        const nextId = visibleEntry?.target?.id?.replace("briefing-section-", "");
-        if (nextId) setActiveSection(nextId);
-      },
-      { rootMargin: "-130px 0px -55% 0px", threshold: [0.1, 0.35, 0.6] },
-    );
+        const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+        const viewportBottom = scrollY + window.innerHeight;
+        const documentHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+        if (documentHeight - viewportBottom < 90) {
+          setActiveSection(sections[sections.length - 1].id);
+          return;
+        }
 
-    sectionNodes.forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
+        const anchorY = Math.min(window.innerHeight * 0.65, 620);
+        const current = sections.reduce((selected, section) => {
+          const rect = section.node.getBoundingClientRect();
+          if (rect.top <= anchorY) return section;
+          return selected;
+        }, sections[0]);
+        setActiveSection(current.id);
+      });
+    };
+
+    updateActiveSection();
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    window.addEventListener("wheel", updateActiveSection, { passive: true, capture: true });
+    window.addEventListener("resize", updateActiveSection);
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("wheel", updateActiveSection, { capture: true });
+      window.removeEventListener("resize", updateActiveSection);
+    };
   }, []);
 
   const scrollToSection = (sectionId) => {
