@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { listCustomers, listProperties, saveCustomer } from "../services/supabaseRepository";
+import { listCustomers, listProperties, listSettlements, saveCustomer } from "../services/supabaseRepository";
 import { generateRecommendationSummary } from "../services/aiRecommendationService";
+import { formatDaysUntil, getUpcomingSettlements } from "../utils/settlementAlerts";
 import {
   hasEnoughCustomerCondition,
   normalizeCustomerCondition,
@@ -31,6 +32,7 @@ function AIPropertyRecommendPage({ setPage }) {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
+  const [settlements, setSettlements] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [results, setResults] = useState([]);
@@ -48,6 +50,7 @@ function AIPropertyRecommendPage({ setPage }) {
     if (!isAuthenticated) {
       setCustomers([]);
       setProperties([]);
+      setSettlements([]);
       setSelectedCustomerId("");
       setResults([]);
       setLoading(false);
@@ -57,9 +60,10 @@ function AIPropertyRecommendPage({ setPage }) {
     async function loadData() {
       try {
         setLoading(true);
-        const [customerRows, propertyRows] = await Promise.all([listCustomers(), listProperties()]);
+        const [customerRows, propertyRows, settlementRows] = await Promise.all([listCustomers(), listProperties(), listSettlements()]);
         setCustomers(Array.isArray(customerRows) ? customerRows : []);
         setProperties(Array.isArray(propertyRows) ? propertyRows : []);
+        setSettlements(Array.isArray(settlementRows) ? settlementRows : []);
 
         const params = new URLSearchParams(window.location.search);
         const queryCustomerId = params.get("customerId");
@@ -87,6 +91,10 @@ function AIPropertyRecommendPage({ setPage }) {
 
   const activeScoreFilter = SCORE_FILTERS.find((item) => item.value === minScore) || SCORE_FILTERS[2];
   const visibleResults = results;
+  const upcomingSettlements = useMemo(
+    () => getUpcomingSettlements(settlements, { days: 7, limit: 5 }),
+    [settlements],
+  );
   const filteredCustomers = useMemo(() => {
     const keyword = customerSearch.trim().toLowerCase();
     const filtered = keyword
@@ -208,6 +216,11 @@ function AIPropertyRecommendPage({ setPage }) {
     setPage?.("ai-briefing");
   };
 
+  const goToSettlement = () => {
+    window.history.pushState({}, "", "/?page=settlement");
+    setPage?.("settlement");
+  };
+
   return (
     <div className="page-stack ai-recommend-page">
       <section className="page-header-card compact-page-header ai-recommend-header">
@@ -302,6 +315,10 @@ function AIPropertyRecommendPage({ setPage }) {
       {message ? <div className="schedule-inline-alert">{message}</div> : null}
       {copyMessage ? <div className="schedule-inline-alert success-alert">{copyMessage}</div> : null}
 
+      {upcomingSettlements.length ? (
+        <UpcomingSettlementNotice settlements={upcomingSettlements} onOpenSettlement={goToSettlement} />
+      ) : null}
+
       <section className="recommend-results-section">
         <div className="section-heading-row">
           <div>
@@ -341,6 +358,30 @@ function AIPropertyRecommendPage({ setPage }) {
         )}
       </section>
     </div>
+  );
+}
+
+function UpcomingSettlementNotice({ settlements, onOpenSettlement }) {
+  return (
+    <section className="recommend-settlement-alert">
+      <div>
+        <span>정산 알림</span>
+        <h2>1주일 내 정산 예정 {settlements.length}건이 있습니다.</h2>
+        <p>추천 업무를 진행하기 전에 잔금·정산 일정을 같이 확인해 주세요.</p>
+      </div>
+      <div className="recommend-settlement-list">
+        {settlements.map((entry) => (
+          <article key={entry.id || `${entry.customer_name}-${entry.upcomingDate}`}>
+            <em>{formatDaysUntil(entry.daysLeft)}</em>
+            <strong>{entry.customer_name || entry.title || "고객명 미입력"}</strong>
+            <span>{entry.upcomingDate} · {formatWon(feeTotal(entry))}</span>
+          </article>
+        ))}
+      </div>
+      <button type="button" className="secondary-btn small-btn" onClick={onOpenSettlement}>
+        정산 확인
+      </button>
+    </section>
   );
 }
 
@@ -578,6 +619,21 @@ function gradeLabel(grade) {
     fair: "조건 일부 불일치",
     risky: "추천 주의",
   }[grade] || "검토";
+}
+
+function parseMoney(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  return Number(String(value || "").replace(/[^0-9.-]/g, "")) || 0;
+}
+
+function feeTotal(entry = {}) {
+  const tenant = parseMoney(entry.tenant_fee);
+  const landlord = parseMoney(entry.landlord_fee);
+  return tenant + landlord || parseMoney(entry.total_fee ?? entry.commission_amount ?? entry.expected_amount);
+}
+
+function formatWon(value) {
+  return `${new Intl.NumberFormat("ko-KR").format(parseMoney(value))}원`;
 }
 
 function formatBudget(customer) {

@@ -1,8 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { completeSettlement, deleteSettlement, listCustomers, listSchedules, listSettlements, saveCustomer, saveSettlement } from "../services/supabaseRepository";
+import { formatDaysUntil, getUpcomingSettlements } from "../utils/settlementAlerts";
 
-const BALANCE_TYPES = new Set(["잔금일", "잔금", "잔금날"]);
 const CONTRACT_STATUSES = new Set(["계약금입금", "계약서일정", "잔금완료", "정산완료"]);
 const CONTRACT_SCHEDULE_TYPES = new Set(["계약금입금", "계약서일정", "계약서작성", "잔금일", "잔금", "잔금날"]);
 const DONE_STATUS = "정산완료";
@@ -15,10 +15,6 @@ function toMonthInputValue(date) {
 
 function toDateValue(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function createId(prefix = "settlement") {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
 function parseMoney(value) {
@@ -191,66 +187,6 @@ function buildEntryFromCustomer(customer, monthValue) {
   });
 }
 
-function buildEntryFromSchedule(schedule, customer) {
-  const customerName = getCustomerValue(customer, "name", "name") || schedule.customer_name || "";
-  const balanceDate = schedule.schedule_date || toDateValue(today);
-  return normalizeEntry({
-    customer_id: schedule.customer_id || schedule.linked_customer_id || customer?.id || "",
-    customer_name: customerName,
-    phone: getCustomerValue(customer, "phone", "phone"),
-    property_type: getCustomerValue(customer, "property_type", "propertyType") || "사무실",
-    contract_status: getCustomerValue(customer, "contract_status", "contractStatus"),
-    schedule_id: schedule.id || "",
-    schedule_title: schedule.title || "잔금 일정",
-    balance_date: balanceDate,
-    date: balanceDate,
-    title: `${customerName || schedule.title || "고객"} 정산`,
-    memo: schedule.memo || "",
-    source: "잔금일정",
-  });
-}
-
-function mergeScheduleSettlements(ledgerRows, scheduleRows, customerRows) {
-  const customersById = new Map((customerRows || []).map((customer) => [String(customer.id), customer]));
-  const normalized = (ledgerRows || []).map(normalizeEntry);
-  let changed = normalized.length !== (ledgerRows || []).length;
-
-  (scheduleRows || [])
-    .filter((schedule) => BALANCE_TYPES.has(schedule.schedule_type))
-    .filter((schedule) => schedule.customer_id || schedule.linked_customer_id)
-    .forEach((schedule) => {
-      const customerId = String(schedule.customer_id || schedule.linked_customer_id || "");
-      const customer = customersById.get(customerId);
-      const existingIndex = normalized.findIndex((entry) => String(entry.customer_id || "") === customerId);
-      const fromSchedule = buildEntryFromSchedule(schedule, customer);
-
-      if (existingIndex >= 0) {
-        const existing = normalized[existingIndex];
-        const next = {
-          ...existing,
-          customer_name: existing.customer_name || fromSchedule.customer_name,
-          phone: existing.phone || fromSchedule.phone,
-          property_type: existing.property_type || fromSchedule.property_type,
-          contract_status: fromSchedule.contract_status || existing.contract_status,
-          schedule_id: existing.schedule_id || fromSchedule.schedule_id,
-          schedule_title: existing.schedule_title || fromSchedule.schedule_title,
-          balance_date: existing.balance_date || fromSchedule.balance_date,
-          date: existing.date || fromSchedule.date,
-          title: existing.title || fromSchedule.title,
-          source: existing.source === "수동등록" ? "잔금일정" : existing.source,
-          updated_at: new Date().toISOString(),
-        };
-        if (JSON.stringify(next) !== JSON.stringify(existing)) changed = true;
-        normalized[existingIndex] = next;
-      } else {
-        normalized.unshift(fromSchedule);
-        changed = true;
-      }
-    });
-
-  return { rows: normalized, changed };
-}
-
 function SettlementPage({ setPage } = {}) {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [month, setMonth] = useState(toMonthInputValue(today));
@@ -378,6 +314,11 @@ function SettlementPage({ setPage } = {}) {
       expectedRevenue: sumBy(periodLedger, feeTotal),
     };
   }, [customers, month, periodLedger, schedules, showAllMonths]);
+
+  const upcomingSettlements = useMemo(
+    () => getUpcomingSettlements(ledger, { days: 7, limit: 5 }),
+    [ledger],
+  );
 
   const updateForm = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -547,6 +488,33 @@ function SettlementPage({ setPage } = {}) {
         <StatCard label="미정산" value={formatWon(stats.pendingRevenue)} tone="meeting" />
         <StatCard label="건수" value={`${stats.totalCount}건`} tone="contract" />
         <StatCard label="손님 인입" value={`${stats.inflowCount}건`} tone="inflow" />
+      </section>
+
+      <section className="settlement-upcoming-card">
+        <div className="section-heading-row">
+          <div>
+            <h2>1주일 내 정산 예정</h2>
+            <p>정산일이 가까운 미정산 항목을 최대 5건까지 먼저 보여줍니다.</p>
+          </div>
+          <span>{upcomingSettlements.length ? `${upcomingSettlements.length}건` : "예정 없음"}</span>
+        </div>
+        {upcomingSettlements.length ? (
+          <div className="settlement-upcoming-list">
+            {upcomingSettlements.map((entry) => (
+              <article key={entry.id || `${entry.customer_name}-${entry.upcomingDate}`} className="settlement-upcoming-item">
+                <div>
+                  <strong>{entry.customer_name || entry.title || "고객명 미입력"}</strong>
+                  <p>{[entry.title, getSourceLabel(entry.source), entry.property_type].filter(Boolean).join(" · ") || "연결 정보 없음"}</p>
+                </div>
+                <em>{formatDaysUntil(entry.daysLeft)}</em>
+                <span>{entry.upcomingDate}</span>
+                <b>{formatWon(feeTotal(entry))}</b>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="settlement-upcoming-empty">오늘부터 7일 이내에 처리할 정산 예정 항목이 없습니다.</div>
+        )}
       </section>
 
       <section className="settlement-layout">

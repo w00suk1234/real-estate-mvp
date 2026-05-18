@@ -1384,6 +1384,186 @@
   color: #be123c;
 }
 
+.settlement-upcoming-card,
+.recommend-settlement-alert {
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 38, 72, 0.05);
+}
+
+.settlement-upcoming-card {
+  padding: 18px 20px;
+}
+
+.settlement-upcoming-card > .section-heading-row {
+  margin-bottom: 12px;
+}
+
+.settlement-upcoming-card > .section-heading-row h2 {
+  margin: 0 0 4px;
+  color: #061b3a;
+  font-size: 20px;
+}
+
+.settlement-upcoming-card > .section-heading-row p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.settlement-upcoming-card > .section-heading-row > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: #eff6ff;
+  color: #07519f;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.settlement-upcoming-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settlement-upcoming-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #e0e9f6;
+  border-radius: 13px;
+  padding: 11px 12px;
+  background: #f8fbff;
+}
+
+.settlement-upcoming-item strong {
+  display: block;
+  color: #0f274d;
+  font-size: 14px;
+}
+
+.settlement-upcoming-item p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.settlement-upcoming-item em,
+.settlement-upcoming-item span,
+.settlement-upcoming-item b {
+  white-space: nowrap;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.settlement-upcoming-item em {
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.settlement-upcoming-item span {
+  color: #475569;
+}
+
+.settlement-upcoming-item b {
+  color: #07519f;
+}
+
+.settlement-upcoming-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 14px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.recommend-settlement-alert {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+}
+
+.recommend-settlement-alert > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.recommend-settlement-alert > div:first-child span {
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.recommend-settlement-alert h2 {
+  margin: 0;
+  color: #0f274d;
+  font-size: 18px;
+}
+
+.recommend-settlement-alert p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.recommend-settlement-list {
+  display: grid;
+  gap: 6px;
+}
+
+.recommend-settlement-list article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #fff7ed;
+}
+
+.recommend-settlement-list em {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #ffffff;
+  color: #c2410c;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.recommend-settlement-list strong {
+  overflow: hidden;
+  color: #0f274d;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommend-settlement-list span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 /* Customer management calm CRM palette */
 .customer-list-card,
 .customer-form-card {
@@ -1582,14 +1762,25 @@
 
   .ai-auto-select-box,
   .ai-agent-action,
+  .settlement-upcoming-item,
+  .recommend-settlement-alert,
+  .recommend-settlement-list article,
   .ai-agent-action.secondary-action {
     grid-template-columns: 1fr;
   }
 
   .ai-auto-select-box button,
   .ai-agent-action .ai-agent-run-btn,
+  .recommend-settlement-alert button,
   .ai-agent-action.secondary-action button {
     justify-self: start;
+  }
+
+  .settlement-upcoming-item em,
+  .settlement-upcoming-item span,
+  .settlement-upcoming-item b,
+  .recommend-settlement-list span {
+    white-space: normal;
   }
 }
 
