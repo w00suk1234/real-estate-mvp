@@ -12,8 +12,11 @@ import {
 } from "../utils/aiBriefing";
 
 const AI_BRIEFING_PREFILL_KEY = "agentnote_ai_briefing_prefill";
+const AI_BRIEFING_DRAFT_KEY = "agentnote_ai_briefing_draft";
 const AI_RECOMMEND_CUSTOMER_KEY = "agentnote_recommend_customer_id";
 const AI_BROCHURE_DRAFT_KEY = "agentnote_ai_brochure_draft";
+const AI_BRIEFING_RETURN_KEY = "agentnote_ai_briefing_return";
+const DEFAULT_FOCUS = ["price", "location", "size"];
 
 function parsePrefillIds(value) {
   return String(value || "")
@@ -52,6 +55,12 @@ function moneyLabel(value, suffix = "") {
 function buildCriteriaPayload(focus) {
   const selected = new Set(focus);
   return AI_BRIEFING_FOCUS_OPTIONS.filter((item) => selected.has(item.id)).map((item) => item.label);
+}
+
+function validFocusValues(values) {
+  const allowed = new Set(AI_BRIEFING_FOCUS_OPTIONS.map((item) => item.id));
+  const next = (Array.isArray(values) ? values : []).filter((item) => allowed.has(item));
+  return next.length ? next : DEFAULT_FOCUS;
 }
 
 function buildCustomerPayload(customer, normalizedCustomer) {
@@ -223,6 +232,134 @@ function buildRecommendedActions(result, customer, properties) {
   return actions.filter(Boolean);
 }
 
+function readBriefingDraft() {
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(AI_BRIEFING_DRAFT_KEY) || "null");
+    return draft && typeof draft === "object" ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+function stripResultForDraft(result) {
+  if (!result) return null;
+  const rest = { ...result };
+  delete rest.actions;
+  return rest;
+}
+
+function buildBriefingDraft({
+  selectedCustomerId,
+  selectedPropertyIds,
+  focus,
+  result,
+  generatedAt,
+  lastSelectedPropertyId,
+  closestPropertyId,
+  selectionMode,
+}) {
+  return {
+    selectedCustomerId: text(selectedCustomerId),
+    selectedPropertyIds: (Array.isArray(selectedPropertyIds) ? selectedPropertyIds : []).map(String).slice(0, 5),
+    selectedCriteria: validFocusValues(focus),
+    aiBriefingResult: stripResultForDraft(result),
+    generatedAt: generatedAt || "",
+    lastSelectedPropertyId: text(lastSelectedPropertyId),
+    closestPropertyId: text(closestPropertyId),
+    selectionMode: selectionMode === "auto" ? "auto" : "manual",
+  };
+}
+
+function writeBriefingDraft(draft) {
+  sessionStorage.setItem(AI_BRIEFING_DRAFT_KEY, JSON.stringify(draft));
+}
+
+function removeBriefingDraft() {
+  sessionStorage.removeItem(AI_BRIEFING_DRAFT_KEY);
+}
+
+function booleanFromAvailability(value) {
+  const source = text(value);
+  if (!source || /확인|미입력|문의|협의|불명확/.test(source)) return null;
+  if (/불가|없음|없습니다|안됨|무/.test(source)) return false;
+  if (/가능|있음|있습니다|완비|O|o|제공/.test(source)) return true;
+  return null;
+}
+
+function propertyText(property) {
+  return [property.displayName, property.addressOrArea, property.brokerMemo].filter(Boolean).join(" ");
+}
+
+function scoreAutoCandidate(customer, property) {
+  const score = {
+    property,
+    failed: 0,
+    unknown: 0,
+    points: 0,
+  };
+  const budget = customer?.budget || {};
+  const price = property?.price || {};
+  const propertyPrice = property.dealType === "월세" ? price.deposit : price.salePrice || price.deposit;
+  const maxPrice = property.dealType === "월세" ? budget.maxDeposit || budget.maxPrice : budget.maxPrice || budget.maxDeposit;
+  const monthlyRent = price.monthlyRent;
+  const haystack = propertyText(property);
+
+  if (customer?.minSizeM2) {
+    if (!property.sizeM2) score.unknown += 1;
+    else if (property.sizeM2 < customer.minSizeM2) score.failed += 1;
+    else score.points += 24;
+  }
+
+  if (maxPrice) {
+    if (!propertyPrice) score.unknown += 1;
+    else if (propertyPrice > maxPrice) score.failed += 1;
+    else score.points += 20;
+  }
+
+  if (budget.maxMonthlyRent) {
+    if (!monthlyRent && property.dealType === "월세") score.unknown += 1;
+    else if (monthlyRent && monthlyRent > budget.maxMonthlyRent) score.failed += 1;
+    else score.points += 14;
+  }
+
+  if (customer?.preferredAreas?.length) {
+    const matched = customer.preferredAreas.some((area) => haystack.includes(area));
+    score.points += matched ? 16 : 2;
+  }
+
+  if (customer?.parkingRequired) {
+    const parking = booleanFromAvailability(formatAvailability(property.parking));
+    if (parking === true) score.points += 12;
+    else if (parking === false) score.failed += 1;
+    else score.unknown += 1;
+  }
+
+  if (customer?.purpose) {
+    if (haystack.includes(customer.purpose)) score.points += 10;
+    else score.unknown += 1;
+  }
+
+  score.points -= score.failed * 28;
+  score.points -= score.unknown * 8;
+  if (property.brokerMemo) score.points += 4;
+  return score;
+}
+
+function selectAutoCandidates(customer, properties) {
+  if (!customer) return [];
+  return properties
+    .map(normalizeBriefingProperty)
+    .filter((property) => property.id)
+    .map((property) => scoreAutoCandidate(customer, property))
+    .sort((a, b) => {
+      if (a.failed !== b.failed) return a.failed - b.failed;
+      if (a.unknown !== b.unknown) return a.unknown - b.unknown;
+      return b.points - a.points;
+    })
+    .slice(0, 5)
+    .map((item) => String(item.property.id));
+}
+
 function AIBriefingPage({ setPage }) {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
@@ -231,14 +368,21 @@ function AIBriefingPage({ setPage }) {
   const [propertySearch, setPropertySearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [selectedPropertyIds, setSelectedPropertyIds] = useState([]);
-  const [focus, setFocus] = useState(["price", "location", "size"]);
+  const [focus, setFocus] = useState(DEFAULT_FOCUS);
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [runningAction, setRunningAction] = useState("");
   const [propertyVisibleCount, setPropertyVisibleCount] = useState(20);
+  const [draftReady, setDraftReady] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState("");
+  const [lastSelectedPropertyId, setLastSelectedPropertyId] = useState("");
+  const [closestPropertyId, setClosestPropertyId] = useState("");
+  const [selectionMode, setSelectionMode] = useState("manual");
+  const [restoredNotice, setRestoredNotice] = useState("");
   const resultsRef = useRef(null);
+  const selectedSectionRef = useRef(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -246,6 +390,7 @@ function AIBriefingPage({ setPage }) {
       setCustomers([]);
       setProperties([]);
       setLoading(false);
+      setDraftReady(true);
       return;
     }
 
@@ -263,6 +408,7 @@ function AIBriefingPage({ setPage }) {
         const validPropertyIds = prefill.propertyIds
           .filter((id) => safeProperties.some((property) => String(property.id) === String(id)))
           .slice(0, 5);
+        const hasPrefill = Boolean(prefillCustomerId || validPropertyIds.length);
 
         if (prefillCustomerId && safeCustomers.some((customer) => String(customer.id) === prefillCustomerId)) {
           setSelectedCustomerId(prefillCustomerId);
@@ -274,11 +420,56 @@ function AIBriefingPage({ setPage }) {
         if (prefillCustomerId || validPropertyIds.length) {
           localStorage.removeItem(AI_BRIEFING_PREFILL_KEY);
           setMessage(validPropertyIds.length ? "고객과 추천 매물을 불러왔습니다. 후보를 추가로 선택한 뒤 브리핑을 생성해 주세요." : "고객을 불러왔습니다. 후보 매물을 선택한 뒤 상담 문구를 만들 수 있습니다.");
+          setSelectionMode("manual");
+          setResult(null);
+          setRestoredNotice("");
+        }
+
+        if (!hasPrefill) {
+          const draft = readBriefingDraft();
+          if (draft) {
+            const restoredCustomerId = safeCustomers.some((customer) => String(customer.id) === String(draft.selectedCustomerId))
+              ? String(draft.selectedCustomerId)
+              : "";
+            const restoredPropertyIds = (Array.isArray(draft.selectedPropertyIds) ? draft.selectedPropertyIds : [])
+              .filter((id) => safeProperties.some((property) => String(property.id) === String(id)))
+              .slice(0, 5);
+            const restoredCustomer = safeCustomers.find((customer) => String(customer.id) === restoredCustomerId);
+            const restoredProperties = restoredPropertyIds
+              .map((id) => safeProperties.find((property) => String(property.id) === String(id)))
+              .filter(Boolean);
+            const validResultPropertyIds = new Set(restoredPropertyIds.map(String));
+            const baseResult = draft.aiBriefingResult
+              ? {
+                  ...draft.aiBriefingResult,
+                  ranking: Array.isArray(draft.aiBriefingResult.ranking)
+                    ? draft.aiBriefingResult.ranking.filter((item) => validResultPropertyIds.has(String(item.propertyId)))
+                    : [],
+                }
+              : null;
+            const restoredResult = baseResult?.ranking?.length
+              ? {
+                  ...baseResult,
+                  actions: buildRecommendedActions(baseResult, restoredCustomer, restoredProperties),
+                }
+              : null;
+
+            setSelectedCustomerId(restoredCustomerId);
+            setSelectedPropertyIds(restoredPropertyIds);
+            setFocus(validFocusValues(draft.selectedCriteria));
+            setGeneratedAt(text(draft.generatedAt));
+            setLastSelectedPropertyId(text(draft.lastSelectedPropertyId));
+            setClosestPropertyId(text(draft.closestPropertyId));
+            setSelectionMode(draft.selectionMode === "auto" ? "auto" : "manual");
+            setResult(restoredResult);
+            if (restoredResult) setRestoredNotice("이전 AI 브리핑 결과를 복원했습니다.");
+          }
         }
       } catch (error) {
         setMessage(error.message || "브리핑 데이터를 불러오지 못했습니다.");
       } finally {
         setLoading(false);
+        setDraftReady(true);
       }
     }
 
@@ -338,20 +529,109 @@ function AIBriefingPage({ setPage }) {
     return () => cancelAnimationFrame(frame);
   }, [result]);
 
+  useEffect(() => {
+    if (!draftReady) return;
+    const draft = buildBriefingDraft({
+      selectedCustomerId,
+      selectedPropertyIds,
+      focus,
+      result,
+      generatedAt,
+      lastSelectedPropertyId,
+      closestPropertyId,
+      selectionMode,
+    });
+    if (!draft.selectedCustomerId && !draft.selectedPropertyIds.length && !draft.aiBriefingResult) {
+      removeBriefingDraft();
+      return;
+    }
+    writeBriefingDraft(draft);
+  }, [closestPropertyId, draftReady, focus, generatedAt, lastSelectedPropertyId, result, selectedCustomerId, selectedPropertyIds, selectionMode]);
+
   function toggleFocus(id) {
+    setRestoredNotice("");
+    setResult(null);
     setFocus((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  }
+
+  function handleCustomerChange(value) {
+    setSelectedCustomerId(value);
+    setCustomerSearch("");
+    setSelectedPropertyIds([]);
+    setSelectionMode("manual");
+    setLastSelectedPropertyId("");
+    setClosestPropertyId("");
+    setGeneratedAt("");
+    setResult(null);
+    setRestoredNotice("");
   }
 
   function toggleProperty(id) {
     setMessage("");
+    setRestoredNotice("");
+    setResult(null);
+    setSelectionMode("manual");
     setSelectedPropertyIds((prev) => {
-      if (prev.includes(id)) return prev.filter((item) => item !== id);
+      if (prev.includes(id)) {
+        const next = prev.filter((item) => item !== id);
+        setLastSelectedPropertyId(next.at(-1) || "");
+        setClosestPropertyId("");
+        return next;
+      }
       if (prev.length >= 5) {
         setMessage("후보 매물은 최대 5개까지 선택할 수 있습니다.");
         return prev;
       }
+      setLastSelectedPropertyId(id);
+      setClosestPropertyId(id);
       return [...prev, id];
     });
+  }
+
+  function handleAutoSelectCandidates() {
+    setMessage("");
+    setRestoredNotice("");
+    if (!normalizedCustomer) {
+      setMessage("AI 후보 자동선정을 하려면 고객을 먼저 선택해 주세요.");
+      return;
+    }
+    if (properties.length < 2) {
+      setMessage("자동선정할 저장 매물이 2개 이상 필요합니다.");
+      return;
+    }
+
+    const ids = selectAutoCandidates(normalizedCustomer, properties).slice(0, 5);
+    if (ids.length < 2) {
+      setMessage("조건에 맞춰 비교할 후보 매물을 충분히 찾지 못했습니다.");
+      return;
+    }
+
+    setSelectedPropertyIds(ids);
+    setSelectionMode("auto");
+    setClosestPropertyId(ids[0] || "");
+    setLastSelectedPropertyId(ids[0] || "");
+    setResult(null);
+    setGeneratedAt("");
+    setMessage(`AI가 고객 조건에 가까운 후보 ${ids.length}개를 자동선정했습니다.`);
+    requestAnimationFrame(() => {
+      selectedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function handleStartNewBriefing() {
+    removeBriefingDraft();
+    sessionStorage.removeItem(AI_BRIEFING_RETURN_KEY);
+    sessionStorage.removeItem(AI_BROCHURE_DRAFT_KEY);
+    setSelectedCustomerId("");
+    setSelectedPropertyIds([]);
+    setFocus(DEFAULT_FOCUS);
+    setResult(null);
+    setGeneratedAt("");
+    setLastSelectedPropertyId("");
+    setClosestPropertyId("");
+    setSelectionMode("manual");
+    setRestoredNotice("");
+    setMessage("새 AI 브리핑을 시작합니다.");
   }
 
   async function handleGenerate() {
@@ -377,10 +657,14 @@ function AIBriefingPage({ setPage }) {
         properties: selectedProperties.map((property) => buildPropertyPayload(property, normalizeBriefingProperty(property))),
         criteria: buildCriteriaPayload(focus),
       });
+      const primary = getPrimaryRanking(apiResult);
+      const nextGeneratedAt = new Date().toISOString();
       setResult({
         ...apiResult,
         actions: buildRecommendedActions(apiResult, selectedCustomer, selectedProperties),
       });
+      setGeneratedAt(nextGeneratedAt);
+      setClosestPropertyId(String(primary?.propertyId || selectedPropertyIds[0] || ""));
       setMessage("AI 브리핑이 생성되었습니다.");
     } catch (error) {
       setMessage(error.message || "AI 브리핑 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
@@ -433,6 +717,26 @@ function AIBriefingPage({ setPage }) {
       }
 
       if (action.type === "create_brochure") {
+        writeBriefingDraft(buildBriefingDraft({
+          selectedCustomerId,
+          selectedPropertyIds,
+          focus,
+          result,
+          generatedAt,
+          lastSelectedPropertyId,
+          closestPropertyId: action.payload?.propertyId || closestPropertyId,
+          selectionMode,
+        }));
+        sessionStorage.setItem(AI_BRIEFING_RETURN_KEY, JSON.stringify({
+          from: "ai-briefing",
+          propertyId: action.payload?.propertyId || closestPropertyId || "",
+          customerId: selectedCustomerId,
+          aiDraft: {
+            customerMessage: result?.customerMessage || "",
+            consultingMemo: result?.consultingMemo || "",
+            recommendationSummary: result?.recommendationSummary || "",
+          },
+        }));
         sessionStorage.setItem(AI_BROCHURE_DRAFT_KEY, JSON.stringify(action.payload || {}));
         window.history.pushState({}, "", "/");
         setPage?.("briefing");
@@ -441,6 +745,16 @@ function AIBriefingPage({ setPage }) {
       }
 
       if (action.type === "find_more_properties") {
+        writeBriefingDraft(buildBriefingDraft({
+          selectedCustomerId,
+          selectedPropertyIds,
+          focus,
+          result,
+          generatedAt,
+          lastSelectedPropertyId,
+          closestPropertyId,
+          selectionMode,
+        }));
         if (selectedCustomer?.id) localStorage.setItem(AI_RECOMMEND_CUSTOMER_KEY, String(selectedCustomer.id));
         window.history.pushState({}, "", "/ai-recommend");
         setPage?.("ai-recommend");
@@ -465,7 +779,10 @@ function AIBriefingPage({ setPage }) {
           <h1>AI 브리핑</h1>
           <p>고객 조건과 후보 매물을 비교해 상담 메모, 고객용 카톡 문안, 소개서 문구를 한 번에 만듭니다.</p>
         </div>
+        <button type="button" className="secondary-btn" onClick={handleStartNewBriefing}>새 브리핑 시작</button>
       </section>
+
+      {restoredNotice ? <div className="schedule-inline-alert success-alert">{restoredNotice}</div> : null}
 
       <section className="ai-briefing-grid">
         <div className="ai-briefing-panel">
@@ -476,7 +793,7 @@ function AIBriefingPage({ setPage }) {
             </div>
           </div>
           <input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="고객명, 희망 지역, 메모 검색" />
-          <select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)} disabled={loading}>
+          <select value={selectedCustomerId} onChange={(event) => handleCustomerChange(event.target.value)} disabled={loading}>
             <option value="">{loading ? "고객 불러오는 중" : "고객 선택"}</option>
             {filteredCustomers.map((customer) => (
               <option key={customer.id} value={customer.id}>
@@ -521,6 +838,15 @@ function AIBriefingPage({ setPage }) {
             </div>
             <span className="ai-briefing-count">{selectedPropertyIds.length}/5</span>
           </div>
+          <div className="ai-auto-select-box">
+            <div>
+              <strong>AI로 후보 자동선정</strong>
+              <p>고객 조건에 가까운 저장 매물 2~5개를 자동으로 선택합니다.</p>
+            </div>
+            <button type="button" className="secondary-btn small-btn" onClick={handleAutoSelectCandidates} disabled={loading || !selectedCustomerId}>
+              AI로 후보 자동선정
+            </button>
+          </div>
           <input value={propertySearch} onChange={(event) => setPropertySearch(event.target.value)} placeholder="매물명, 주소, 가격, 메모 검색" />
           <div className="ai-briefing-property-picker">
             {filteredProperties.length ? (
@@ -551,12 +877,13 @@ function AIBriefingPage({ setPage }) {
         </div>
       </section>
 
-      <section className="ai-briefing-selected-section">
+      <section ref={selectedSectionRef} className="ai-briefing-selected-section">
         <div className="section-heading-row">
           <div>
             <h2>선택 매물</h2>
-            <p>부족한 정보는 확인 필요로 표시됩니다.</p>
+            <p>{selectionMode === "auto" ? "AI 자동선정 후보입니다. 부족한 정보는 확인 필요로 표시됩니다." : "선택 후보 비교입니다. 부족한 정보는 확인 필요로 표시됩니다."}</p>
           </div>
+          <span className={`ai-selection-mode mode-${selectionMode}`}>{selectionMode === "auto" ? "AI 자동선정 후보" : "선택 후보 비교"}</span>
           <button type="button" className="primary-btn" onClick={handleGenerate} disabled={generating || loading}>
             {generating ? "AI 브리핑 생성 중..." : "AI 브리핑 생성"}
           </button>
@@ -607,6 +934,8 @@ function AIBriefingPage({ setPage }) {
           onCopy={copyText}
           onAction={handleRecommendedAction}
           runningAction={runningAction}
+          selectionMode={selectionMode}
+          generatedAt={generatedAt}
           resultRef={resultsRef}
         />
       ) : null}
@@ -614,7 +943,7 @@ function AIBriefingPage({ setPage }) {
   );
 }
 
-function BriefingResult({ result, onCopy, onAction, runningAction, resultRef }) {
+function BriefingResult({ result, onCopy, onAction, runningAction, selectionMode, generatedAt, resultRef }) {
   const ranking = Array.isArray(result.ranking) ? result.ranking : [];
   const checkPoints = Array.isArray(result.checkPoints) ? result.checkPoints : [];
   const actions = Array.isArray(result.actions) ? result.actions : [];
@@ -624,6 +953,7 @@ function BriefingResult({ result, onCopy, onAction, runningAction, resultRef }) 
   const rankingDescription = hasRecommendedProperties
     ? "중개사가 상담 순서를 바로 잡을 수 있도록 정리했습니다."
     : "추천이 아니라 조건에 가까운 비교 참고 후보로 정리했습니다.";
+  const modeLabel = selectionMode === "auto" ? "AI 자동선정 후보" : "선택 후보 비교";
 
   return (
     <section ref={resultRef} className="ai-briefing-result ai-briefing-generated-result">
@@ -631,14 +961,20 @@ function BriefingResult({ result, onCopy, onAction, runningAction, resultRef }) 
         <div>
           <span className="ai-briefing-mode">OpenAI 브리핑</span>
           <h2>AI 분석 결과</h2>
-          <p>입력된 고객 조건과 후보 매물 정보 기준으로 생성되었습니다.</p>
+          <p>{modeLabel} 기준으로 생성되었습니다.{generatedAt ? ` · ${new Date(generatedAt).toLocaleString("ko-KR")}` : ""}</p>
         </div>
-        <small>조건 비교 및 상담 문구</small>
+        <small>{modeLabel}</small>
       </div>
 
       <div className="ai-score-disclaimer">
         없는 정보는 생성하지 않고 확인 필요로 정리합니다. 법률·세무·권리관계 판단은 상담 전 별도 확인이 필요합니다.
       </div>
+
+      {selectionMode === "auto" ? (
+        <div className="ai-auto-selection-notice">
+          AI가 고객 조건을 기준으로 저장 매물 중 가까운 후보를 자동선정했습니다.
+        </div>
+      ) : null}
 
       <JudgmentSummaryCard summary={summary} hasRecommendedProperties={hasRecommendedProperties} />
 
@@ -730,8 +1066,8 @@ function RecommendedActions({ actions, onAction, runningAction }) {
     <section className="ai-briefing-result-section ai-agent-actions">
       <div className="section-heading-row">
         <div>
-          <h2>AI 추천 액션</h2>
-          <p>브리핑 내용을 바탕으로 이어서 처리할 업무를 선택하세요.</p>
+          <h2>다음 작업 추천</h2>
+          <p>AI 브리핑 결과를 바탕으로 이어서 처리할 수 있는 업무입니다.</p>
         </div>
         <span className="ai-agent-approval-note">사용자 확인 후 실행</span>
       </div>
@@ -756,15 +1092,15 @@ function RecommendedActions({ actions, onAction, runningAction }) {
 function ActionButton({ action, onAction, runningAction, primary = false }) {
   const running = runningAction === action.type;
   return (
-    <button
-      type="button"
-      className={primary ? "ai-agent-action primary-action" : "ai-agent-action secondary-action"}
-      onClick={() => onAction(action)}
-      disabled={Boolean(runningAction)}
-    >
-      <strong>{running ? "실행 중..." : action.label}</strong>
-      <span>{action.description}</span>
-    </button>
+    <article className={primary ? "ai-agent-action primary-action" : "ai-agent-action secondary-action"}>
+      <div>
+        <strong>{action.label}</strong>
+        <span>{action.description}</span>
+      </div>
+      <button type="button" className={primary ? "primary-btn small-btn" : "secondary-btn small-btn"} onClick={() => onAction(action)} disabled={Boolean(runningAction)}>
+        {running ? "실행 중..." : "실행"}
+      </button>
+    </article>
   );
 }
 

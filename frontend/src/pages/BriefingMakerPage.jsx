@@ -45,6 +45,7 @@ const defaultForm = {
 const BRIEFING_RESET_FLAG = "briefing_reset_pending";
 const BRIEFING_HAS_WORK_FLAG = "briefing_has_work";
 const AI_BROCHURE_DRAFT_KEY = "agentnote_ai_brochure_draft";
+const AI_BRIEFING_RETURN_KEY = "agentnote_ai_briefing_return";
 
 const WORK_FIELDS = [
   "title",
@@ -127,7 +128,7 @@ function hasBriefingWork(form, mainImage, extraImages, result) {
   return hasText || Boolean(mainImage) || extraImages.length > 0 || Boolean(result);
 }
 
-function BriefingMakerPage({ importUrl, importSnapshot }) {
+function BriefingMakerPage({ setPage, importUrl, importSnapshot }) {
   const { user } = useAuth();
   const [form, setForm] = useState(() => createInitialForm(user));
   const [mainImage, setMainImage] = useState(null);
@@ -136,6 +137,7 @@ function BriefingMakerPage({ importUrl, importSnapshot }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfAssets, setPdfAssets] = useState({ mainImageSrc: "", extraImageSources: [] });
+  const [aiBriefingReturn, setAiBriefingReturn] = useState(null);
   const pdfRef = useRef(null);
   const imageStateRef = useRef({ mainImage: null, extraImages: [] });
 
@@ -193,6 +195,15 @@ function BriefingMakerPage({ importUrl, importSnapshot }) {
 
   useEffect(() => {
     const raw = sessionStorage.getItem(AI_BROCHURE_DRAFT_KEY);
+    const returnRaw = sessionStorage.getItem(AI_BRIEFING_RETURN_KEY);
+    if (returnRaw) {
+      try {
+        const parsed = JSON.parse(returnRaw);
+        if (parsed?.from === "ai-briefing") setAiBriefingReturn(parsed);
+      } catch (error) {
+        console.error(error);
+      }
+    }
     if (!raw) return;
 
     try {
@@ -215,6 +226,11 @@ function BriefingMakerPage({ importUrl, importSnapshot }) {
       sessionStorage.removeItem(AI_BROCHURE_DRAFT_KEY);
     }
   }, [user]);
+
+  const handleReturnToAIBriefing = useCallback(() => {
+    window.history.pushState({}, "", "/ai-briefing");
+    setPage?.("ai-briefing");
+  }, [setPage]);
 
   useEffect(() => {
     const hasWork = hasBriefingWork(form, mainImage, extraImages, result);
@@ -301,7 +317,18 @@ function BriefingMakerPage({ importUrl, importSnapshot }) {
             <h1>소개서 작성</h1>
             <p>매물 정보를 고객용 소개서로 빠르게 정리합니다.</p>
           </div>
+          {aiBriefingReturn ? (
+            <button type="button" className="secondary-btn" onClick={handleReturnToAIBriefing}>
+              AI 브리핑으로 돌아가기
+            </button>
+          ) : null}
         </section>
+
+        {aiBriefingReturn ? (
+          <div className="schedule-inline-alert success-alert ai-briefing-return-alert">
+            AI 브리핑에서 가져온 소개서 초안입니다. 작업 후 AI 브리핑으로 돌아가면 이전 결과가 복원됩니다.
+          </div>
+        ) : null}
 
         <NaverImportPanel initialUrl={importUrl} initialSnapshot={importSnapshot} onApplyDraft={applyImportedDraft} />
 

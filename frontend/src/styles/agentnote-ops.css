@@ -286,6 +286,30 @@
   font-weight: 900;
 }
 
+.ai-auto-select-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.ai-auto-select-box strong {
+  color: #0f274d;
+  font-size: 13px;
+}
+
+.ai-auto-select-box p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .ai-briefing-property-picker {
   display: grid;
   gap: 8px;
@@ -331,6 +355,28 @@
 .ai-briefing-result {
   display: grid;
   gap: 14px;
+}
+
+.ai-briefing-selected-section {
+  scroll-margin-top: 92px;
+}
+
+.ai-selection-mode {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ai-selection-mode.mode-auto {
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .ai-briefing-selected-list {
@@ -426,6 +472,17 @@
   color: #334155;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.45;
+}
+
+.ai-auto-selection-notice {
+  padding: 12px 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 900;
   line-height: 1.45;
 }
 
@@ -1226,8 +1283,10 @@
 }
 
 .ai-agent-action {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+  justify-content: space-between;
   min-width: 0;
   border: 1px solid #dbeafe;
   border-radius: 8px;
@@ -1235,7 +1294,6 @@
   background: #ffffff;
   color: #0f274d;
   text-align: left;
-  cursor: pointer;
 }
 
 .ai-agent-action:hover {
@@ -1243,9 +1301,9 @@
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
 }
 
-.ai-agent-action:disabled {
-  cursor: wait;
-  opacity: 0.72;
+.ai-agent-action > div {
+  display: grid;
+  gap: 4px;
 }
 
 .ai-agent-action strong {
@@ -1261,6 +1319,11 @@
   line-height: 1.45;
 }
 
+.ai-agent-action button {
+  align-self: flex-end;
+  margin-top: 8px;
+}
+
 .ai-agent-action.primary-action {
   background: #ffffff;
 }
@@ -1269,6 +1332,16 @@
   flex: 1 1 220px;
   max-width: 360px;
   background: #f8fafc;
+}
+
+.ai-agent-action.secondary-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.ai-agent-action.secondary-action button {
+  margin-top: 0;
 }
 
 /* Customer management calm CRM palette */
@@ -1464,6 +1537,16 @@
 
   .ai-card-badges {
     justify-content: flex-start;
+  }
+
+  .ai-auto-select-box,
+  .ai-agent-action.secondary-action {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-auto-select-box button,
+  .ai-agent-action.secondary-action button {
+    justify-self: start;
   }
 }
 
