@@ -445,25 +445,6 @@
   max-width: 1120px;
 }
 
-.ai-briefing-mode {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  border-radius: 999px;
-  padding: 0 10px;
-  background: #ecfdf5;
-  color: #047857;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.ai-briefing-mode.mode-budget_exceeded,
-.ai-briefing-mode.mode-api_key_missing,
-.ai-briefing-mode.mode-fallback {
-  background: #fff7ed;
-  color: #c2410c;
-}
-
 .ai-score-disclaimer {
   padding: 10px 12px;
   border: 1px solid #dbeafe;
@@ -1251,8 +1232,8 @@
 }
 
 .ai-agent-actions {
-  border-color: #bfdbfe;
-  background: #f8fbff;
+  border-color: #dbe3ef;
+  background: #ffffff;
 }
 
 .ai-agent-approval-note {
@@ -1276,17 +1257,17 @@
 }
 
 .ai-agent-secondary-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
 
 .ai-agent-action {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
   min-width: 0;
   border: 1px solid #dbeafe;
   border-radius: 8px;
@@ -1298,7 +1279,7 @@
 
 .ai-agent-action:hover {
   border-color: #93c5fd;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 8px 18px rgba(15, 38, 72, 0.06);
 }
 
 .ai-agent-action > div {
@@ -1307,9 +1288,25 @@
 }
 
 .ai-agent-action strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #061b3a;
   font-size: 14px;
   line-height: 1.35;
+}
+
+.ai-agent-action strong em {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
 }
 
 .ai-agent-action span {
@@ -1319,29 +1316,72 @@
   line-height: 1.45;
 }
 
-.ai-agent-action button {
-  align-self: flex-end;
-  margin-top: 8px;
-}
-
 .ai-agent-action.primary-action {
   background: #ffffff;
 }
 
 .ai-agent-action.secondary-action {
-  flex: 1 1 220px;
-  max-width: 360px;
   background: #f8fafc;
 }
 
-.ai-agent-action.secondary-action {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+.ai-agent-action.is-completed {
+  border-color: #bbf7d0;
+  background: #f8fffb;
 }
 
-.ai-agent-action.secondary-action button {
-  margin-top: 0;
+.ai-agent-run-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 38px;
+  border: 1px solid #0f5db8;
+  border-radius: 10px;
+  padding: 0 14px;
+  background: #0f5db8;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.ai-agent-run-btn:hover {
+  background: #0b4f9f;
+  border-color: #0b4f9f;
+}
+
+.ai-agent-run-btn:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.ai-agent-action.is-completed .ai-agent-run-btn {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.ai-agent-action-feedback {
+  margin-top: 12px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.ai-agent-action-feedback.tone-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #047857;
+}
+
+.ai-agent-action-feedback.tone-error {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 /* Customer management calm CRM palette */
@@ -1521,6 +1561,7 @@
   .ai-briefing-generated-grid,
   .ai-judgment-metrics,
   .ai-agent-action-grid,
+  .ai-agent-secondary-actions,
   .ai-generated-ranking-card dl {
     grid-template-columns: 1fr;
   }
@@ -1540,11 +1581,13 @@
   }
 
   .ai-auto-select-box,
+  .ai-agent-action,
   .ai-agent-action.secondary-action {
     grid-template-columns: 1fr;
   }
 
   .ai-auto-select-box button,
+  .ai-agent-action .ai-agent-run-btn,
   .ai-agent-action.secondary-action button {
     justify-self: start;
   }

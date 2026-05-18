@@ -374,6 +374,8 @@ function AIBriefingPage({ setPage }) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [runningAction, setRunningAction] = useState("");
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const [completedActions, setCompletedActions] = useState({});
   const [propertyVisibleCount, setPropertyVisibleCount] = useState(20);
   const [draftReady, setDraftReady] = useState(false);
   const [generatedAt, setGeneratedAt] = useState("");
@@ -551,6 +553,8 @@ function AIBriefingPage({ setPage }) {
   function toggleFocus(id) {
     setRestoredNotice("");
     setResult(null);
+    setActionFeedback(null);
+    setCompletedActions({});
     setFocus((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   }
 
@@ -563,6 +567,8 @@ function AIBriefingPage({ setPage }) {
     setClosestPropertyId("");
     setGeneratedAt("");
     setResult(null);
+    setActionFeedback(null);
+    setCompletedActions({});
     setRestoredNotice("");
   }
 
@@ -570,6 +576,8 @@ function AIBriefingPage({ setPage }) {
     setMessage("");
     setRestoredNotice("");
     setResult(null);
+    setActionFeedback(null);
+    setCompletedActions({});
     setSelectionMode("manual");
     setSelectedPropertyIds((prev) => {
       if (prev.includes(id)) {
@@ -612,6 +620,8 @@ function AIBriefingPage({ setPage }) {
     setLastSelectedPropertyId(ids[0] || "");
     setResult(null);
     setGeneratedAt("");
+    setActionFeedback(null);
+    setCompletedActions({});
     setMessage(`AI가 고객 조건에 가까운 후보 ${ids.length}개를 자동선정했습니다.`);
     requestAnimationFrame(() => {
       selectedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -631,12 +641,16 @@ function AIBriefingPage({ setPage }) {
     setClosestPropertyId("");
     setSelectionMode("manual");
     setRestoredNotice("");
+    setActionFeedback(null);
+    setCompletedActions({});
     setMessage("새 AI 브리핑을 시작합니다.");
   }
 
   async function handleGenerate() {
     setMessage("");
     setResult(null);
+    setActionFeedback(null);
+    setCompletedActions({});
     if (!selectedCustomer) {
       setMessage("고객을 먼저 선택해 주세요.");
       return;
@@ -688,6 +702,7 @@ function AIBriefingPage({ setPage }) {
     if (!action || runningAction) return;
     setRunningAction(action.type);
     setMessage("");
+    setActionFeedback(null);
 
     try {
       if (action.type === "save_customer_memo") {
@@ -696,6 +711,12 @@ function AIBriefingPage({ setPage }) {
         const nextMemo = appendDatedMemo(existingMemo, action.payload?.memo);
         const saved = await saveCustomer({ ...selectedCustomer, memo: nextMemo });
         setCustomers((prev) => prev.map((customer) => (String(customer.id) === String(saved.id) ? { ...customer, ...saved } : customer)));
+        setCompletedActions((prev) => ({ ...prev, [action.type]: true }));
+        setActionFeedback({
+          type: action.type,
+          tone: "success",
+          text: "고객 메모에 저장되었습니다. 기존 메모 아래에 날짜와 함께 추가했습니다.",
+        });
         setMessage("고객 메모에 저장되었습니다.");
         return;
       }
@@ -711,6 +732,12 @@ function AIBriefingPage({ setPage }) {
           schedule_time: "10:00",
           schedule_type: payload.category || "미팅",
           note: payload.memo || "",
+        });
+        setCompletedActions((prev) => ({ ...prev, [action.type]: true }));
+        setActionFeedback({
+          type: action.type,
+          tone: "success",
+          text: "상담 일정이 등록되었습니다. 일정관리의 오늘 10:00 미팅 일정에서 확인할 수 있습니다.",
         });
         setMessage("상담 일정이 등록되었습니다. 일정관리에서 확인할 수 있습니다.");
         return;
@@ -764,8 +791,19 @@ function AIBriefingPage({ setPage }) {
 
       if (action.type === "copy_customer_message") {
         await copyText(action.payload?.message || result?.customerMessage || "");
+        setCompletedActions((prev) => ({ ...prev, [action.type]: true }));
+        setActionFeedback({
+          type: action.type,
+          tone: "success",
+          text: "고객 발송 문구를 클립보드에 복사했습니다.",
+        });
       }
     } catch (error) {
+      setActionFeedback({
+        type: action.type,
+        tone: "error",
+        text: error.message || "액션 실행 중 오류가 발생했습니다.",
+      });
       setMessage(error.message || "AI 추천 액션 실행 중 오류가 발생했습니다.");
     } finally {
       setRunningAction("");
@@ -934,6 +972,8 @@ function AIBriefingPage({ setPage }) {
           onCopy={copyText}
           onAction={handleRecommendedAction}
           runningAction={runningAction}
+          actionFeedback={actionFeedback}
+          completedActions={completedActions}
           selectionMode={selectionMode}
           generatedAt={generatedAt}
           resultRef={resultsRef}
@@ -943,7 +983,7 @@ function AIBriefingPage({ setPage }) {
   );
 }
 
-function BriefingResult({ result, onCopy, onAction, runningAction, selectionMode, generatedAt, resultRef }) {
+function BriefingResult({ result, onCopy, onAction, runningAction, actionFeedback, completedActions, selectionMode, generatedAt, resultRef }) {
   const ranking = Array.isArray(result.ranking) ? result.ranking : [];
   const checkPoints = Array.isArray(result.checkPoints) ? result.checkPoints : [];
   const actions = Array.isArray(result.actions) ? result.actions : [];
@@ -959,7 +999,6 @@ function BriefingResult({ result, onCopy, onAction, runningAction, selectionMode
     <section ref={resultRef} className="ai-briefing-result ai-briefing-generated-result">
       <div className="ai-briefing-result-titlebar">
         <div>
-          <span className="ai-briefing-mode">OpenAI 브리핑</span>
           <h2>AI 분석 결과</h2>
           <p>{modeLabel} 기준으로 생성되었습니다.{generatedAt ? ` · ${new Date(generatedAt).toLocaleString("ko-KR")}` : ""}</p>
         </div>
@@ -1052,12 +1091,12 @@ function BriefingResult({ result, onCopy, onAction, runningAction, selectionMode
         )}
       </div>
 
-      <RecommendedActions actions={actions} onAction={onAction} runningAction={runningAction} />
+      <RecommendedActions actions={actions} onAction={onAction} runningAction={runningAction} actionFeedback={actionFeedback} completedActions={completedActions} />
     </section>
   );
 }
 
-function RecommendedActions({ actions, onAction, runningAction }) {
+function RecommendedActions({ actions, onAction, runningAction, actionFeedback, completedActions }) {
   if (!actions.length) return null;
   const primaryActions = actions.filter((action) => action.primary).slice(0, 3);
   const secondaryActions = actions.filter((action) => !primaryActions.includes(action));
@@ -1074,31 +1113,51 @@ function RecommendedActions({ actions, onAction, runningAction }) {
 
       <div className="ai-agent-action-grid">
         {primaryActions.map((action) => (
-          <ActionButton key={action.type} action={action} onAction={onAction} runningAction={runningAction} primary />
+          <ActionButton key={action.type} action={action} onAction={onAction} runningAction={runningAction} completed={Boolean(completedActions?.[action.type])} primary />
         ))}
       </div>
 
       {secondaryActions.length ? (
         <div className="ai-agent-secondary-actions">
           {secondaryActions.map((action) => (
-            <ActionButton key={action.type} action={action} onAction={onAction} runningAction={runningAction} />
+            <ActionButton key={action.type} action={action} onAction={onAction} runningAction={runningAction} completed={Boolean(completedActions?.[action.type])} />
           ))}
+        </div>
+      ) : null}
+
+      {actionFeedback ? (
+        <div className={`ai-agent-action-feedback tone-${actionFeedback.tone || "success"}`}>
+          {actionFeedback.text}
         </div>
       ) : null}
     </section>
   );
 }
 
-function ActionButton({ action, onAction, runningAction, primary = false }) {
+function actionButtonText(action, running, completed) {
+  if (running) return "처리 중...";
+  if (completed && action.type !== "copy_customer_message") return "완료";
+  if (action.type === "save_customer_memo") return "저장";
+  if (action.type === "create_schedule") return "등록";
+  if (action.type === "copy_customer_message") return completed ? "복사됨" : "복사";
+  if (action.type === "create_brochure" || action.type === "find_more_properties") return "이동";
+  return "실행";
+}
+
+function ActionButton({ action, onAction, runningAction, completed, primary = false }) {
   const running = runningAction === action.type;
+  const disabled = Boolean(runningAction) || (completed && action.type !== "copy_customer_message");
   return (
-    <article className={primary ? "ai-agent-action primary-action" : "ai-agent-action secondary-action"}>
+    <article className={`${primary ? "ai-agent-action primary-action" : "ai-agent-action secondary-action"} ${completed ? "is-completed" : ""}`}>
       <div>
-        <strong>{action.label}</strong>
+        <strong>
+          {action.label}
+          {completed ? <em>완료</em> : null}
+        </strong>
         <span>{action.description}</span>
       </div>
-      <button type="button" className={primary ? "primary-btn small-btn" : "secondary-btn small-btn"} onClick={() => onAction(action)} disabled={Boolean(runningAction)}>
-        {running ? "실행 중..." : "실행"}
+      <button type="button" className="ai-agent-run-btn" onClick={() => onAction(action)} disabled={disabled}>
+        {actionButtonText(action, running, completed)}
       </button>
     </article>
   );
