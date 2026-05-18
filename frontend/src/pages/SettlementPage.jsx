@@ -343,6 +343,14 @@ function SettlementPage({ setPage } = {}) {
     setForm((prev) => ({ ...prev, balance_date: `${value}-${String(today.getDate()).padStart(2, "0")}` }));
   };
 
+  const moveMonth = (offset) => {
+    const [year, monthNumber] = String(month || toMonthInputValue(today)).split("-").map(Number);
+    const base = Number.isFinite(year) && Number.isFinite(monthNumber)
+      ? new Date(year, monthNumber - 1 + offset, 1)
+      : new Date(today.getFullYear(), today.getMonth() + offset, 1);
+    handleMonthChange(toMonthInputValue(base));
+  };
+
   const showCurrentMonth = () => {
     const currentMonth = toMonthInputValue(today);
     setMonth(currentMonth);
@@ -541,14 +549,36 @@ function SettlementPage({ setPage } = {}) {
 
       <section className="settlement-layout">
         <div className="settlement-table-card">
-          <div className="section-heading-row">
+          <div className="section-heading-row settlement-list-heading">
             <div>
               <h2>{showAllMonths ? "전체 정산목록" : `${formatMonthLabel(month)} 정산목록`}</h2>
-              <p>{periodLedger.length}건 중 {filteredLedger.length}건을 표시합니다. 잔금 일정 저장 시 정산 대기가 자동 생성됩니다.</p>
+              <p>{periodLedger.length}건 중 {filteredLedger.length}건을 표시합니다. 고객관리 정보와 잔금일정을 기준으로 월별 정산 대기를 보여줍니다.</p>
             </div>
-            <button type="button" className="primary-btn settlement-add-trigger" onClick={focusSettlementForm}>
-              + 정산 추가
-            </button>
+            <div className="settlement-list-actions">
+              <div className="settlement-list-calendar" aria-label="정산 목록 월 선택">
+                <button type="button" className="secondary-btn small-btn" onClick={() => moveMonth(-1)}>
+                  이전
+                </button>
+                <label>
+                  <span>정산월</span>
+                  <input className="month-input settlement-month-input" type="month" value={month} onChange={(event) => handleMonthChange(event.target.value)} />
+                </label>
+                <button type="button" className="secondary-btn small-btn" onClick={() => moveMonth(1)}>
+                  다음
+                </button>
+              </div>
+              <div className="inline-actions settlement-list-quick-actions">
+                <button type="button" className={`settlement-period-btn ${!showAllMonths && month === toMonthInputValue(today) ? "active" : ""}`} onClick={showCurrentMonth}>
+                  이번 달
+                </button>
+                <button type="button" className={`settlement-period-btn ${showAllMonths ? "active" : ""}`} onClick={() => setShowAllMonths(true)}>
+                  전체보기
+                </button>
+                <button type="button" className="primary-btn settlement-add-trigger" onClick={focusSettlementForm}>
+                  + 정산 추가
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="settlement-toolbar">

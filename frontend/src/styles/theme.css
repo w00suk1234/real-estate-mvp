@@ -5354,6 +5354,45 @@ h4 {
   top: 78px;
 }
 
+.settlement-table-card > .settlement-list-heading {
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.settlement-list-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  min-width: min(100%, 520px);
+}
+
+.settlement-list-calendar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.settlement-list-calendar label {
+  display: grid;
+  gap: 4px;
+}
+
+.settlement-list-calendar label span {
+  color: #475569;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.settlement-list-quick-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .settlement-table {
   display: grid;
   gap: 10px;
@@ -5794,8 +5833,21 @@ h4 {
     grid-template-columns: 1fr !important;
   }
 
+  .settlement-table-card > .settlement-list-heading {
+    flex-direction: column;
+  }
+
   .settlement-form-card {
     position: static !important;
+  }
+
+  .settlement-list-actions {
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .settlement-list-calendar {
+    justify-content: flex-start;
   }
 }
 
@@ -5812,6 +5864,12 @@ h4 {
 
   .settlement-month-input {
     width: 100%;
+  }
+
+  .settlement-list-calendar,
+  .settlement-list-quick-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .settlement-stat-grid,
